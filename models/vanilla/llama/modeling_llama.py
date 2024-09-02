@@ -1097,6 +1097,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):
+        print("Vanilla Llama")
+
         super().__init__(config)
         self.model = LlamaModel(config)
         self.vocab_size = config.vocab_size
