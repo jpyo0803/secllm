@@ -5,10 +5,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
 
-from transformers.models.llama.modeling_llama import (
-  LlamaForCausalLM,
-)
-
 import sys
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
