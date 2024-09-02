@@ -21,13 +21,14 @@ from transformers import AutoTokenizer
 
 import ppl_evaluator
 
-model_id = 'meta-llama/Meta-Llama-3-8B'
+remote_model_id = 'meta-llama/Meta-Llama-3-8B'
+local_model_id = './pretrained_weights/vanilla_llama3_8b_fp16'
 
-model = LlamaForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16, device_map='auto')
+model = LlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='auto')
 
 from datasets import load_dataset
 
-tokenizer = AutoTokenizer.from_pretrained(model_id)
+tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
 evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, 'cuda')
 
