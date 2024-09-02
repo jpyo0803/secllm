@@ -1,4 +1,4 @@
 **/__pycache__/*
 pretrained_weights/**/
-datasets/
-act_scales/
+act_scales/*.pt
+datasets/*.zst
