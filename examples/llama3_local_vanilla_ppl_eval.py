@@ -9,6 +9,14 @@ from transformers.models.llama.modeling_llama import (
   LlamaForCausalLM,
 )
 
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+module_path = os.path.join(current_dir, '..', 'models/vanilla/llama')
+sys.path.append(module_path)
+
+from modeling_llama import LlamaForCausalLM
+
 from transformers import AutoTokenizer
 
 import ppl_evaluator
@@ -24,4 +32,5 @@ dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
 evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, 'cuda')
 
 ppl = evaluator.evaluate(model)
-print(f"Remote Vanilla Llama3-8B (fp16) perplexity: {ppl}")
+print(f"Local Vanilla Llama3-8B (fp16) perplexity: {ppl}")
+
