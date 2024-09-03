@@ -65,6 +65,7 @@ from linear import (
     W8A8BFP32OFP32Linear,
 )
 
+import cupy as cp
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -206,6 +207,8 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
     sin = sin.unsqueeze(unsqueeze_dim)
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
+    # absmax value of cos, sin is 1
+    # Max abs value of q and k is 37.3885 during ppl eval
     return q_embed, k_embed
 
 
@@ -289,8 +292,14 @@ class SqLlamaAttention(nn.Module):
         # self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         # self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.q_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_heads * self.head_dim)
+        self.register_buffer('q_output_scale', torch.tensor(1.0))
+
         self.k_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
+        self.register_buffer('k_output_scale', torch.tensor(1.0))
+
         self.v_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
+        self.register_buffer('v_output_scale', torch.tensor(1.0))
+        
         self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
         self._init_rope()
 
@@ -299,13 +308,21 @@ class SqLlamaAttention(nn.Module):
     def from_float(
         module: LlamaAttention,
         input_scale: float,
+        q_output_scale: float,
+        k_output_scale: float,
+        v_output_scale: float,
     ):
         int8_module = SqLlamaAttention(module.config, module.layer_idx)
 
         int8_module.q_proj = W8A8BFP32OFP32Linear.from_float(module.q_proj, input_scale)
+        int8_module.q_output_scale = torch.tensor(q_output_scale)
+
         int8_module.k_proj = W8A8BFP32OFP32Linear.from_float(module.k_proj, input_scale)
+        int8_module.k_output_scale = torch.tensor(k_output_scale)
+
         int8_module.v_proj = W8A8BFP32OFP32Linear.from_float(module.v_proj, input_scale)
-        
+        int8_module.v_output_scale = torch.tensor(v_output_scale)
+
         # int8_module.q_proj = module.q_proj
         # int8_module.k_proj = module.k_proj
         # int8_module.v_proj = module.v_proj
@@ -391,7 +408,16 @@ class SqLlamaAttention(nn.Module):
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
+        query_states = query_states / self.q_output_scale
+        key_states = key_states / self.k_output_scale
+
+        query_states_cupy = cp.from_dlpack(query_states.to(torch.int32))
+        key_states_cupy = cp.from_dlpack(key_states.transpose(2, 3).to(torch.int32))
+
+        attn_weights_cupy = cp.matmul(query_states_cupy, key_states_cupy)
+        attn_weights = torch.from_dlpack(attn_weights_cupy) * self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
+
+        # attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
@@ -749,7 +775,7 @@ class SqLlamaDecoderLayer(nn.Module):
         v_output_scale: float,
     ):
         int8_module = SqLlamaDecoderLayer(config, layer_idx)
-        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale)
+        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale, q_output_scale, k_output_scale, v_output_scale)
         int8_module.mlp = module.mlp
         int8_module.input_layernorm = SqLlamaRMSNorm.from_float(module.input_layernorm, attn_input_scale)
         # int8_module.input_layernorm = module.input_layernorm

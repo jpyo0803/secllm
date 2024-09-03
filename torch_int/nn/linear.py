@@ -234,8 +234,10 @@ class W8A8BFP32OFP32Linear(torch.nn.Module):
         x_cupy = cp.from_dlpack(x).astype(cp.int32)
         weight_cupy = cp.from_dlpack(self.weight).astype(cp.int32)
 
-        y_cupy = cp.matmul(x_cupy, weight_cupy.T).astype(cp.float32) * self.a.item()
+        y_cupy = cp.matmul(x_cupy, weight_cupy.T).astype(cp.float32)
         y = torch.from_dlpack(y_cupy)
+        
+        y *= self.a.item()
 
         y = y.view(*x_shape[:-1], -1)
         return y
