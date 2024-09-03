@@ -752,9 +752,7 @@ class SqLlamaDecoderLayer(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
 
-        # TODO(jpyo0803): Replace 'sdpa' with 'eager' temporarily
-        # Figure out how to replace it properly
-        config._attn_implementation = 'eager'
+        assert config._attn_implementation == "eager", "Only eager attention is supported for quantization"
 
         self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
 
@@ -1210,7 +1208,7 @@ class SqLlamaForCausalLM(LlamaPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):
-        print("SmoothQuantized Llama")
+        print(f'SmoothQuantized Llama (attn_impl: {config._attn_implementation})')
 
         super().__init__(config)
         self.model = LlamaModel(config)

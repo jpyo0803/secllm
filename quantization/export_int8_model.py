@@ -42,7 +42,7 @@ def ExportInt8Model():
     # parser.add_argument('--export-FT', default=False, action="store_true")
     args = parser.parse_args()
     model = LlamaForCausalLM.from_pretrained(
-        args.model_name, device_map="auto", torch_dtype=torch.float16)
+        args.model_name, device_map="auto", torch_dtype=torch.float16, attn_implementation='eager')
 
     act_scales = torch.load(args.act_scales)
     smooth_lm(model, act_scales, 0.85) # Llama3 uses 0.85

@@ -15,7 +15,7 @@ import ppl_evaluator
 
 model_id = 'meta-llama/Meta-Llama-3-8B'
 
-model = LlamaForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16, device_map='auto')
+model = LlamaForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16, device_map='auto', attn_implementation='eager')
 
 from datasets import load_dataset
 

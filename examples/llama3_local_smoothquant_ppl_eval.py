@@ -20,7 +20,7 @@ import ppl_evaluator
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
 local_model_id = './pretrained_weights/Meta-Llama-3-8B-smoothquant.pt'
 
-model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='auto')
+model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='auto', attn_implementation='eager')
 
 from datasets import load_dataset
 
