@@ -48,6 +48,23 @@ from transformers.utils import (
 )
 from transformers.models.llama.configuration_llama import LlamaConfig
 
+from transformers.models.llama.modeling_llama import (
+    LlamaRMSNorm,
+    LlamaDecoderLayer,
+    LlamaAttention,
+)
+
+import os
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+module_path = os.path.join(current_dir, '..', '..', '..', 'torch_int', 'nn')
+sys.path.append(module_path)
+
+from linear import (
+    W8A8BFP32OFP32Linear,
+)
+
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -70,22 +87,31 @@ def _get_unpad_data(attention_mask):
         max_seqlen_in_batch,
     )
 
-
-class LlamaRMSNorm(nn.Module):
+# TODO(jpyo0803): Modify LlamaRMSNorm into LlamaRMSNormQ that outputs int8
+class SqLlamaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
         LlamaRMSNorm is equivalent to T5LayerNorm
         """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
+        # self.register_buffer('weight', torch.ones(hidden_size))
         self.variance_epsilon = eps
+
+    @staticmethod
+    def from_float(module: LlamaRMSNorm, output_scale: float):
+        q_module = SqLlamaRMSNorm(module.weight.size(0), module.variance_epsilon)
+        q_module.weight = nn.Parameter(module.weight / output_scale)
+        return q_module
 
     def forward(self, hidden_states):
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        return self.weight * hidden_states.to(input_dtype)
+        out = self.weight * hidden_states.to(input_dtype)
+        out = out.round().clamp(-128, 127).to(torch.int8)
+        return out
 
 
 ALL_LAYERNORM_LAYERS.append(LlamaRMSNorm)
@@ -229,7 +255,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 
-class LlamaAttention(nn.Module):
+class SqLlamaAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def __init__(self, config: LlamaConfig, layer_idx: Optional[int] = None):
@@ -259,11 +285,34 @@ class LlamaAttention(nn.Module):
                 f" and `num_heads`: {self.num_heads})."
             )
 
-        self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
-        self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
-        self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
+        # self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
+        # self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
+        # self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
+        self.q_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_heads * self.head_dim)
+        self.k_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
+        self.v_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
         self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
         self._init_rope()
+
+    @staticmethod
+    @torch.no_grad()
+    def from_float(
+        module: LlamaAttention,
+        input_scale: float,
+    ):
+        int8_module = SqLlamaAttention(module.config, module.layer_idx)
+
+        int8_module.q_proj = W8A8BFP32OFP32Linear.from_float(module.q_proj, input_scale)
+        int8_module.k_proj = W8A8BFP32OFP32Linear.from_float(module.k_proj, input_scale)
+        int8_module.v_proj = W8A8BFP32OFP32Linear.from_float(module.v_proj, input_scale)
+        
+        # int8_module.q_proj = module.q_proj
+        # int8_module.k_proj = module.k_proj
+        # int8_module.v_proj = module.v_proj
+        int8_module.o_proj = module.o_proj
+
+        return int8_module
+
 
     def _init_rope(self):
         if self.config.rope_scaling is None:
@@ -368,6 +417,7 @@ class LlamaAttention(nn.Module):
             o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
             attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
         else:
+            attn_output = attn_output.to(torch.float16)
             attn_output = self.o_proj(attn_output)
 
         if not output_attentions:
@@ -401,6 +451,7 @@ class LlamaFlashAttention2(LlamaAttention):
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+        assert False, "FlashAttention2 is not used"
         if isinstance(past_key_value, StaticCache):
             raise ValueError(
                 "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` "
@@ -593,6 +644,7 @@ class LlamaSdpaAttention(LlamaAttention):
         cache_position: Optional[torch.LongTensor] = None,
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+        assert False, "SDPA is not used"
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
@@ -663,22 +715,47 @@ class LlamaSdpaAttention(LlamaAttention):
 
 
 LLAMA_ATTENTION_CLASSES = {
-    "eager": LlamaAttention,
+    "eager": SqLlamaAttention,
     "flash_attention_2": LlamaFlashAttention2,
     "sdpa": LlamaSdpaAttention,
 }
 
 
-class LlamaDecoderLayer(nn.Module):
+class SqLlamaDecoderLayer(nn.Module):
     def __init__(self, config: LlamaConfig, layer_idx: int):
         super().__init__()
         self.hidden_size = config.hidden_size
 
+        # TODO(jpyo0803): Replace 'sdpa' with 'eager' temporarily
+        # Figure out how to replace it properly
+        config._attn_implementation = 'eager'
+
         self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
 
         self.mlp = LlamaMLP(config)
-        self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.input_layernorm = SqLlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps) # Target of quantization
+        # self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+
+    @staticmethod
+    @torch.no_grad()
+    def from_float(
+        module: LlamaDecoderLayer,
+        config: LlamaConfig,
+        layer_idx: int,
+        attn_input_scale: float,
+        q_output_scale: float,
+        k_output_scale: float,
+        v_output_scale: float,
+    ):
+        int8_module = SqLlamaDecoderLayer(config, layer_idx)
+        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale)
+        int8_module.mlp = module.mlp
+        int8_module.input_layernorm = SqLlamaRMSNorm.from_float(module.input_layernorm, attn_input_scale)
+        # int8_module.input_layernorm = module.input_layernorm
+        int8_module.post_attention_layernorm = module.post_attention_layernorm
+
+        return int8_module
 
     def forward(
         self,
@@ -881,13 +958,23 @@ class LlamaModel(LlamaPreTrainedModel):
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList(
-            [LlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+            [SqLlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.gradient_checkpointing = False
 
         # Initialize weights and apply final processing
         self.post_init()
+
+    @staticmethod
+    def from_float(module, decoder_layer_scales):
+        int8_module = LlamaModel(module.config)
+
+        int8_module.embed_tokens = module.embed_tokens
+        for layer_idx, layer in enumerate(module.layers):
+            int8_module.layers[layer_idx] = SqLlamaDecoderLayer.from_float(layer, module.config, layer_idx, **decoder_layer_scales[layer_idx])
+        int8_module.norm = module.norm
+        return int8_module
 
     def get_input_embeddings(self):
         return self.embed_tokens
@@ -1106,6 +1193,14 @@ class SqLlamaForCausalLM(LlamaPreTrainedModel):
 
         # Initialize weights and apply final processing
         self.post_init()
+
+    @staticmethod
+    @torch.no_grad()
+    def from_float(module, decoder_layer_scales):
+        int8_module = SqLlamaForCausalLM(module.config)
+        int8_module.model = LlamaModel.from_float(module.model, decoder_layer_scales)
+        int8_module.lm_head = module.lm_head
+        return int8_module
 
     def get_input_embeddings(self):
         return self.model.embed_tokens
