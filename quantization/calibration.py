@@ -119,12 +119,12 @@ def get_static_decoder_layer_scales(
         scale_dict["out_input_scale"] = (
             act_dict[f"model.layers.{idx}.self_attn.o_proj"]["input"] / 127
         )
-        # scale_dict["fc1_input_scale"] = (
-        #     act_dict[f"model.decoder.layers.{idx}.fc1"]["input"] / 127
-        # )
-        # scale_dict["fc2_input_scale"] = (
-        #     act_dict[f"model.decoder.layers.{idx}.fc2"]["input"] / 127
-        # )
+        scale_dict["gate_input_scale"] = (
+            act_dict[f"model.layers.{idx}.mlp.gate_proj"]["input"] / 127
+        )
+        scale_dict["down_input_scale"] = (
+            act_dict[f"model.layers.{idx}.mlp.down_proj"]["input"] / 127
+        )
         decoder_layer_scales.append(scale_dict)
 
     return decoder_layer_scales, act_dict

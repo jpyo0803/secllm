@@ -52,6 +52,7 @@ from transformers.models.llama.modeling_llama import (
     LlamaRMSNorm,
     LlamaDecoderLayer,
     LlamaAttention,
+    LlamaMLP,
 )
 
 import os
@@ -210,16 +211,43 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
     return q_embed, k_embed
 
 
-class LlamaMLP(nn.Module):
+class SqLlamaMLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
         self.intermediate_size = config.intermediate_size
-        self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
-        self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
-        self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=config.mlp_bias)
+        # self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
+        # self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
+        # self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=config.mlp_bias)
+
+        self.gate_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.intermediate_size)
+
+        self.up_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.intermediate_size)
+
+        self.down_proj = W8A8BFP32OFP32Linear(self.intermediate_size, self.hidden_size)
+        self.register_buffer("down_input_scale", torch.tensor(1.0))
+
         self.act_fn = ACT2FN[config.hidden_act]
+
+
+    @staticmethod
+    @torch.no_grad()
+    def from_float(
+        module: LlamaMLP,
+        gate_input_scale: float,
+        down_input_scale: float,
+    ):
+        int8_module = SqLlamaMLP(module.config)
+        int8_module.gate_proj = W8A8BFP32OFP32Linear.from_float(module.gate_proj, gate_input_scale)
+
+        int8_module.up_proj = W8A8BFP32OFP32Linear.from_float(module.up_proj, gate_input_scale)
+
+        int8_module.down_proj = W8A8BFP32OFP32Linear.from_float(module.down_proj, down_input_scale)
+        # int8_module.down_proj = module.down_proj
+        int8_module.down_input_scale = torch.tensor(down_input_scale)
+
+        return int8_module
 
     def forward(self, x):
         if self.config.pretraining_tp > 1:
@@ -239,7 +267,17 @@ class LlamaMLP(nn.Module):
             ]
             down_proj = sum(down_proj)
         else:
-            down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+            gate_proj_out = self.gate_proj(x)
+            up_proj_out = self.up_proj(x)
+
+            act_out = self.act_fn(gate_proj_out)
+            matmul_out = act_out * up_proj_out # this is element-wise multiplication
+
+            int8_matmul_out = (matmul_out / self.down_input_scale).round().clamp(-128, 127).to(torch.int8)
+            down_proj = self.down_proj(int8_matmul_out)
+            down_proj = down_proj.to(torch.float16)
+
+            # down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
         return down_proj
 
@@ -300,7 +338,7 @@ class SqLlamaAttention(nn.Module):
         self.register_buffer("v_output_scale", torch.tensor(1.0))
 
         self.o_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.hidden_size)
-        self.register_buffer("o_output_scale", torch.tensor(1.0))
+        self.register_buffer("o_input_scale", torch.tensor(1.0))
 
         self._init_rope()
 
@@ -326,7 +364,7 @@ class SqLlamaAttention(nn.Module):
         int8_module.v_output_scale = torch.tensor(v_output_scale)
 
         int8_module.o_proj = W8A8BFP32OFP32Linear.from_float(module.o_proj, out_input_scale)
-        int8_module.o_output_scale = torch.tensor(out_input_scale)
+        int8_module.o_input_scale = torch.tensor(out_input_scale)
         
         # int8_module.q_proj = module.q_proj
         # int8_module.k_proj = module.k_proj
@@ -414,21 +452,17 @@ class SqLlamaAttention(nn.Module):
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
 
-        query_states_cupy = cupy.from_dlpack(query_states)
-        key_states_cupy = cupy.from_dlpack(key_states.transpose(2,3))
+        # out = out.round().clamp(-128, 127).to(torch.int8)
+        int8_query_states = (query_states / self.q_output_scale).round().clamp(-128, 127).to(torch.int8)
+        int8_key_states = (key_states / self.k_output_scale).round().clamp(-128, 127).to(torch.int8)
 
-        query_states_cupy /= self.q_output_scale.item()
-        key_states_cupy /= self.k_output_scale.item()
+        query_states_cupy = cupy.from_dlpack(int8_query_states).astype(cupy.int32)
+        key_states_cupy = cupy.from_dlpack(int8_key_states.transpose(2,3)).astype(cupy.int32)
 
+        attn_weights_cupy = cupy.matmul(query_states_cupy, key_states_cupy)
 
-        query_states_cupy = query_states_cupy.astype(cupy.int32)
-        key_states_cupy = key_states_cupy.astype(cupy.int32)
-
-        attn_weights_cupy = cupy.matmul(query_states_cupy, key_states_cupy) / math.sqrt(self.head_dim)
-
-        attn_weights_cupy = attn_weights_cupy.astype(cupy.float32) * self.q_output_scale.item() * self.k_output_scale.item()
-
-        attn_weights = torch.from_dlpack(attn_weights_cupy)
+        attn_weights = torch.from_dlpack(attn_weights_cupy.astype(cupy.float32))
+        attn_weights *= self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
 
         # attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
@@ -441,23 +475,18 @@ class SqLlamaAttention(nn.Module):
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
 
         attn_weights.mul_(127).round_()
-        attn_weights = attn_weights.to(torch.int8)
-        attn_weights_cupy = cupy.from_dlpack(attn_weights)
+        int8_attn_weights = attn_weights.to(torch.int8)
+        attn_weights_cupy = cupy.from_dlpack(int8_attn_weights).astype(cupy.int32)
 
-        value_states_cupy = cupy.from_dlpack(value_states)
-        value_states_cupy /= self.v_output_scale.item()
-
-
-        attn_weights_cupy = attn_weights_cupy.astype(cupy.int32)
-        value_states_cupy = value_states_cupy.astype(cupy.int32)
+        int8_value_states = (value_states / self.v_output_scale).round().clamp(-128, 127).to(torch.int8)
+        value_states_cupy = cupy.from_dlpack(int8_value_states).astype(cupy.int32)
 
         # attn_output = torch.matmul(attn_weights, value_states)
 
         attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
 
-        attn_output_cupy = attn_output_cupy.astype(cupy.float32) * self.v_output_scale.item() / 127
-
-        attn_output = torch.from_dlpack(attn_output_cupy)
+        attn_output = torch.from_dlpack(attn_output_cupy.astype(cupy.float32))
+        attn_output *= self.v_output_scale / 127
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
@@ -475,8 +504,8 @@ class SqLlamaAttention(nn.Module):
             attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
         else:
             attn_output = attn_output.to(torch.float16)
-            attn_output /= self.o_output_scale
-            attn_output = self.o_proj(attn_output)
+            int8_attn_output = (attn_output / self.o_input_scale).round().clamp(-128, 127).to(torch.int8)
+            attn_output = self.o_proj(int8_attn_output)
             attn_output = attn_output.to(torch.float16)
 
         if not output_attentions:
@@ -791,10 +820,10 @@ class SqLlamaDecoderLayer(nn.Module):
 
         self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
 
-        self.mlp = LlamaMLP(config)
+        self.mlp = SqLlamaMLP(config)
         self.input_layernorm = SqLlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps) # Target of quantization
         # self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = SqLlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     @staticmethod
     @torch.no_grad()
@@ -807,13 +836,16 @@ class SqLlamaDecoderLayer(nn.Module):
         k_output_scale: float,
         v_output_scale: float,
         out_input_scale: float,
+        gate_input_scale: float,
+        down_input_scale: float,
     ):
         int8_module = SqLlamaDecoderLayer(config, layer_idx)
         int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale, q_output_scale, k_output_scale, v_output_scale, out_input_scale)
-        int8_module.mlp = module.mlp
+        int8_module.mlp = SqLlamaMLP.from_float(module.mlp, gate_input_scale, down_input_scale)
         int8_module.input_layernorm = SqLlamaRMSNorm.from_float(module.input_layernorm, attn_input_scale)
+        int8_module.post_attention_layernorm = SqLlamaRMSNorm.from_float(module.post_attention_layernorm, gate_input_scale)
         # int8_module.input_layernorm = module.input_layernorm
-        int8_module.post_attention_layernorm = module.post_attention_layernorm
+        # int8_module.post_attention_layernorm = module.post_attention_layernorm
 
         return int8_module
 
