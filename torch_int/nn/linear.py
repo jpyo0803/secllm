@@ -204,7 +204,7 @@ class W8A8BFP32OFP32Linear(torch.nn.Module):
                                                                  self.in_features), dtype=torch.int8, requires_grad=False))
         self.register_buffer('bias', torch.zeros(
             (1, self.out_features), dtype=torch.float32, requires_grad=False))
-        self.register_buffer('a', torch.tensor(alpha))
+        self.register_buffer('a', torch.ones(self.out_features, dtype=torch.float32, requires_grad=False))
 
     def _apply(self, fn):
         # prevent the bias from being converted to half
