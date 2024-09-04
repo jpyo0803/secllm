@@ -234,9 +234,10 @@ class W8A8BFP32OFP32Linear(torch.nn.Module):
         x_cupy = cp.from_dlpack(x).astype(cp.int32)
         weight_cupy = cp.from_dlpack(self.weight).astype(cp.int32)
 
-        y_cupy = cp.matmul(x_cupy, weight_cupy.T).astype(cp.float32) * self.a.item()
+        # y_cupy = cp.matmul(x_cupy, weight_cupy.T).astype(cp.float32) * self.a.item()
+        y_cupy = cp.matmul(x_cupy, weight_cupy.T).astype(cp.float32)
         y = torch.from_dlpack(y_cupy)
-
+        y *= self.a
         y = y.view(*x_shape[:-1], -1)
         return y
 
@@ -244,8 +245,9 @@ class W8A8BFP32OFP32Linear(torch.nn.Module):
     def from_float(module: torch.nn.Linear, input_scale):
         int8_module = W8A8BFP32OFP32Linear(
             module.in_features, module.out_features)
-        int8_weight, weight_scale = quantize_per_tensor_absmax(module.weight)
-        alpha = input_scale * weight_scale
+        # int8_weight, weight_scale = quantize_per_tensor_absmax(module.weight)
+        int8_weight, weight_scale = quantize_weight_per_channel_absmax(module.weight)
+        alpha = input_scale * weight_scale.squeeze()
         int8_module.weight = int8_weight
         if module.bias is not None:
             int8_module.bias = module.bias.to(torch.float32)
