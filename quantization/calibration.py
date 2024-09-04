@@ -116,9 +116,9 @@ def get_static_decoder_layer_scales(
         scale_dict["v_output_scale"] = (
             act_dict[f"model.layers.{idx}.self_attn.v_proj"]["output"] / 127
         )
-        # scale_dict["out_input_scale"] = (
-        #     act_dict[f"model.decoder.layers.{idx}.self_attn.out_proj"]["input"] / 127
-        # )
+        scale_dict["out_input_scale"] = (
+            act_dict[f"model.layers.{idx}.self_attn.o_proj"]["input"] / 127
+        )
         # scale_dict["fc1_input_scale"] = (
         #     act_dict[f"model.decoder.layers.{idx}.fc1"]["input"] / 127
         # )

@@ -223,7 +223,7 @@ class W8A8BFP32OFP32Linear(torch.nn.Module):
     def forward(self, x):
         x_shape = x.shape
         x = x.view(-1, x_shape[-1])
-        self.bias = self.bias.to(torch.float32)
+        # self.bias = self.bias.to(torch.float32)
         # print("x device, dtype, size: ", x.device, x.dtype, x.size())
         # print("weight device, dtype, size: ", self.weight.device, self.weight.dtype, self.weight.size())
         # print("bias device, dtype, size: ", self.bias.device, self.bias.dtype, self.bias.size())

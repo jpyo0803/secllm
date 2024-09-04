@@ -289,6 +289,7 @@ class SqLlamaAttention(nn.Module):
         # self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
         # self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         # self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
+        # self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
         self.q_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_heads * self.head_dim)
         self.register_buffer("q_output_scale", torch.tensor(1.0))
 
@@ -298,7 +299,9 @@ class SqLlamaAttention(nn.Module):
         self.v_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
         self.register_buffer("v_output_scale", torch.tensor(1.0))
 
-        self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
+        self.o_proj = W8A8BFP32OFP32Linear(self.hidden_size, self.hidden_size)
+        self.register_buffer("o_output_scale", torch.tensor(1.0))
+
         self._init_rope()
 
     @staticmethod
@@ -309,6 +312,7 @@ class SqLlamaAttention(nn.Module):
         q_output_scale: float,
         k_output_scale: float,
         v_output_scale: float,
+        out_input_scale: float,
     ):
         int8_module = SqLlamaAttention(module.config, module.layer_idx)
 
@@ -320,11 +324,14 @@ class SqLlamaAttention(nn.Module):
 
         int8_module.v_proj = W8A8BFP32OFP32Linear.from_float(module.v_proj, input_scale)
         int8_module.v_output_scale = torch.tensor(v_output_scale)
+
+        int8_module.o_proj = W8A8BFP32OFP32Linear.from_float(module.o_proj, out_input_scale)
+        int8_module.o_output_scale = torch.tensor(out_input_scale)
         
         # int8_module.q_proj = module.q_proj
         # int8_module.k_proj = module.k_proj
         # int8_module.v_proj = module.v_proj
-        int8_module.o_proj = module.o_proj
+        # int8_module.o_proj = module.o_proj
         
         return int8_module
 
@@ -468,7 +475,9 @@ class SqLlamaAttention(nn.Module):
             attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
         else:
             attn_output = attn_output.to(torch.float16)
+            attn_output /= self.o_output_scale
             attn_output = self.o_proj(attn_output)
+            attn_output = attn_output.to(torch.float16)
 
         if not output_attentions:
             attn_weights = None
@@ -797,9 +806,10 @@ class SqLlamaDecoderLayer(nn.Module):
         q_output_scale: float,
         k_output_scale: float,
         v_output_scale: float,
+        out_input_scale: float,
     ):
         int8_module = SqLlamaDecoderLayer(config, layer_idx)
-        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale, q_output_scale, k_output_scale, v_output_scale)
+        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale, q_output_scale, k_output_scale, v_output_scale, out_input_scale)
         int8_module.mlp = module.mlp
         int8_module.input_layernorm = SqLlamaRMSNorm.from_float(module.input_layernorm, attn_input_scale)
         # int8_module.input_layernorm = module.input_layernorm
