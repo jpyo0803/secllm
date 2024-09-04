@@ -432,7 +432,25 @@ class SqLlamaAttention(nn.Module):
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
-        attn_output = torch.matmul(attn_weights, value_states)
+
+        attn_weights.mul_(127).round_()
+        attn_weights = attn_weights.to(torch.int8)
+        attn_weights_cupy = cupy.from_dlpack(attn_weights)
+
+        value_states_cupy = cupy.from_dlpack(value_states)
+        value_states_cupy /= self.v_output_scale.item()
+
+
+        attn_weights_cupy = attn_weights_cupy.astype(cupy.int32)
+        value_states_cupy = value_states_cupy.astype(cupy.int32)
+
+        # attn_output = torch.matmul(attn_weights, value_states)
+
+        attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
+
+        attn_output_cupy = attn_output_cupy.astype(cupy.float32) * self.v_output_scale.item() / 127
+
+        attn_output = torch.from_dlpack(attn_output_cupy)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
