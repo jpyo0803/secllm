@@ -674,6 +674,8 @@ class LlamaDecoderLayer(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
 
+        assert config._attn_implementation == 'eager'
+
         self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
 
         self.mlp = LlamaMLP(config)
@@ -1097,7 +1099,7 @@ class SqLlamaForCausalLM(LlamaPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):
-        print("SmoothQuantized Llama")
+        print(f"SmoothQuantized Llama (attn_impl: {config._attn_implementation})")
 
         super().__init__(config)
         self.model = LlamaModel(config)
