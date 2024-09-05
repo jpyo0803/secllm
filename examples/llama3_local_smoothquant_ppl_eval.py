@@ -18,7 +18,11 @@ from transformers import AutoTokenizer
 import ppl_evaluator
 
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
-local_model_id = './pretrained_weights/vanilla_llama3_8b_fp16'
+local_model_id = './pretrained_weights/Meta-Llama-3-8B-smoothquant.pt'
+'''
+    When original weights are used for pure model ppl: 5.911846160888672
+    When smoothed weights are used for pure model ppl: 5.911849498748779
+'''
 
 model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='auto', attn_implementation='eager')
 
