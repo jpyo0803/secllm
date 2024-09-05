@@ -290,11 +290,13 @@ class SqLlamaAttention(nn.Module):
             )
 
         # self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
+        # self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
+        # self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
+        # self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
         self.q_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.num_heads * self.head_dim)
-        
-        self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
-        self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
-        self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
+        self.k_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
+        self.v_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
+        self.o_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.hidden_size)
 
         self._init_rope()
 
@@ -307,10 +309,14 @@ class SqLlamaAttention(nn.Module):
         int8_module = SqLlamaAttention(module.config, module.layer_idx)
         
         # int8_module.q_proj = module.q_proj
+        # int8_module.k_proj = module.k_proj
+        # int8_module.v_proj = module.v_proj
+        # int8_module.o_proj = module.o_proj
+
         int8_module.q_proj = CustomW8A8BFP32OFP32Linear.from_float(module.q_proj)
-        int8_module.k_proj = module.k_proj
-        int8_module.v_proj = module.v_proj
-        int8_module.o_proj = module.o_proj
+        int8_module.k_proj = CustomW8A8BFP32OFP32Linear.from_float(module.k_proj)
+        int8_module.v_proj = CustomW8A8BFP32OFP32Linear.from_float(module.v_proj)
+        int8_module.o_proj = CustomW8A8BFP32OFP32Linear.from_float(module.o_proj)
         
         return int8_module
     
