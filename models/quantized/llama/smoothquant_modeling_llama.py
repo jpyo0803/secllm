@@ -66,6 +66,8 @@ from linear import (
     CustomW8A8BFP32OFP32Linear,
 )
 
+import cupy
+
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
@@ -307,6 +309,10 @@ class SqLlamaAttention(nn.Module):
         self.v_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.num_key_value_heads * self.head_dim)
         self.o_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.hidden_size)
 
+        self.register_buffer('q_output_scale', torch.tensor(1.0))
+        self.register_buffer('k_output_scale', torch.tensor(1.0))
+        self.register_buffer('v_output_scale', torch.tensor(1.0))
+
         self._init_rope()
 
     @staticmethod
@@ -314,6 +320,9 @@ class SqLlamaAttention(nn.Module):
     def from_float(
         module: LlamaAttention,
         attn_input_scale: float,
+        q_output_scale: float,
+        k_output_scale: float,
+        v_output_scale: float,
     ):
         int8_module = SqLlamaAttention(module.config, module.layer_idx)
         
@@ -326,6 +335,10 @@ class SqLlamaAttention(nn.Module):
         int8_module.k_proj = CustomW8A8BFP32OFP32Linear.from_float(module.k_proj)
         int8_module.v_proj = CustomW8A8BFP32OFP32Linear.from_float(module.v_proj)
         int8_module.o_proj = CustomW8A8BFP32OFP32Linear.from_float(module.o_proj)
+
+        int8_module.q_output_scale = torch.tensor(q_output_scale)
+        int8_module.k_output_scale = torch.tensor(k_output_scale)
+        int8_module.v_output_scale = torch.tensor(v_output_scale)
         
         return int8_module
     
@@ -406,7 +419,18 @@ class SqLlamaAttention(nn.Module):
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
+        int8_query_states = (query_states / self.q_output_scale).round().clamp(-128, 127).to(torch.int8)
+        int8_key_states = (key_states / self.k_output_scale).round().clamp(-128, 127).to(torch.int8)
+
+        query_states_cupy = cupy.from_dlpack(int8_query_states.to(torch.int32))
+        key_states_T_cupy = cupy.from_dlpack(int8_key_states.transpose(-2, -1).to(torch.int32))
+
+        attn_weights_cupy = cupy.matmul(query_states_cupy, key_states_T_cupy)
+        attn_weights = torch.from_dlpack(attn_weights_cupy).to(torch.float32)
+
+        attn_weights = attn_weights * self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
+
+        # attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
@@ -415,7 +439,21 @@ class SqLlamaAttention(nn.Module):
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
-        attn_output = torch.matmul(attn_weights, value_states)
+        # attn_output = torch.matmul(attn_weights, value_states)
+
+        attn_weights.mul_(127).round_()
+        int8_attn_weights = attn_weights.to(torch.int8)
+        attn_weights_cupy = cupy.from_dlpack(int8_attn_weights.to(torch.int32))
+
+        int8_value_states = (value_states / self.v_output_scale).round().clamp(-128, 127).to(torch.int8)
+        value_states_cupy = cupy.from_dlpack(int8_value_states.to(torch.int32))
+
+        attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
+
+        attn_output = torch.from_dlpack(attn_output_cupy).to(torch.float32)
+        attn_output *= self.v_output_scale / 127
+
+        attn_output = attn_output.to(torch.float16)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
@@ -756,9 +794,12 @@ class SqLlamaDecoderLayer(nn.Module):
         config: LlamaConfig,
         layer_idx: int,
         attn_input_scale: float,
+        q_output_scale: float,
+        k_output_scale: float,
+        v_output_scale: float,
     ):
         int8_module = SqLlamaDecoderLayer(config, layer_idx)
-        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale)
+        int8_module.self_attn = SqLlamaAttention.from_float(module.self_attn, attn_input_scale, q_output_scale, k_output_scale, v_output_scale)
         int8_module.mlp = SqLlamaMLP.from_float(module.mlp)
         int8_module.input_layernorm = module.input_layernorm
         int8_module.post_attention_layernorm = module.post_attention_layernorm

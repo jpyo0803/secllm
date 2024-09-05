@@ -107,15 +107,15 @@ def get_static_decoder_layer_scales(
         scale_dict["attn_input_scale"] = (
             act_dict[f"model.layers.{idx}.self_attn.q_proj"]["input"] / 127
         )
-        # scale_dict["q_output_scale"] = (
-        #     act_dict[f"model.decoder.layers.{idx}.self_attn.q_proj"]["output"] / 127
-        # )
-        # scale_dict["k_output_scale"] = (
-        #     act_dict[f"model.decoder.layers.{idx}.self_attn.k_proj"]["output"] / 127
-        # )
-        # scale_dict["v_output_scale"] = (
-        #     act_dict[f"model.decoder.layers.{idx}.self_attn.v_proj"]["output"] / 127
-        # )
+        scale_dict["q_output_scale"] = (
+            act_dict[f"model.layers.{idx}.self_attn.q_proj"]["output"] / 127
+        )
+        scale_dict["k_output_scale"] = (
+            act_dict[f"model.layers.{idx}.self_attn.k_proj"]["output"] / 127
+        )
+        scale_dict["v_output_scale"] = (
+            act_dict[f"model.layers.{idx}.self_attn.v_proj"]["output"] / 127
+        )
         # scale_dict["out_input_scale"] = (
         #     act_dict[f"model.decoder.layers.{idx}.self_attn.out_proj"]["input"] / 127
         # )
