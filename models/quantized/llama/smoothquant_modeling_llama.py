@@ -55,6 +55,17 @@ from transformers.models.llama.modeling_llama import (
     LlamaMLP,
 )
 
+import os
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+module_path = os.path.join(current_dir, '..', '..', '..', 'torch_int', 'custom')
+sys.path.append(module_path)
+
+from linear import (
+    CustomW8A8BFP32OFP32Linear,
+)
+
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
@@ -278,13 +289,15 @@ class SqLlamaAttention(nn.Module):
                 f" and `num_heads`: {self.num_heads})."
             )
 
-        self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
+        # self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.attention_bias)
+        self.q_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.num_heads * self.head_dim)
+        
         self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.o_proj = nn.Linear(self.hidden_size, self.hidden_size, bias=config.attention_bias)
 
         self._init_rope()
-        
+
     @staticmethod
     @torch.no_grad()
     def from_float(
@@ -293,7 +306,8 @@ class SqLlamaAttention(nn.Module):
     ):
         int8_module = SqLlamaAttention(module.config, module.layer_idx)
         
-        int8_module.q_proj = module.q_proj
+        # int8_module.q_proj = module.q_proj
+        int8_module.q_proj = CustomW8A8BFP32OFP32Linear.from_float(module.q_proj)
         int8_module.k_proj = module.k_proj
         int8_module.v_proj = module.v_proj
         int8_module.o_proj = module.o_proj
