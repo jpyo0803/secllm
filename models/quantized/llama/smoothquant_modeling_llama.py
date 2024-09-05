@@ -206,9 +206,14 @@ class SqLlamaMLP(nn.Module):
         self.config = config
         self.hidden_size = config.hidden_size
         self.intermediate_size = config.intermediate_size
-        self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
-        self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
-        self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=config.mlp_bias)
+        # self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
+        # self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
+        # self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=config.mlp_bias)
+
+        self.gate_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.intermediate_size)
+        self.up_proj = CustomW8A8BFP32OFP32Linear(self.hidden_size, self.intermediate_size)
+        self.down_proj = CustomW8A8BFP32OFP32Linear(self.intermediate_size, self.hidden_size)
+
         self.act_fn = ACT2FN[config.hidden_act]
 
     @staticmethod
@@ -218,9 +223,13 @@ class SqLlamaMLP(nn.Module):
     ):
         int8_module = SqLlamaMLP(module.config)
 
-        int8_module.gate_proj = module.gate_proj
-        int8_module.up_proj = module.up_proj
-        int8_module.down_proj = module.down_proj
+        # int8_module.gate_proj = module.gate_proj
+        # int8_module.up_proj = module.up_proj
+        # int8_module.down_proj = module.down_proj
+
+        int8_module.gate_proj = CustomW8A8BFP32OFP32Linear.from_float(module.gate_proj)
+        int8_module.up_proj = CustomW8A8BFP32OFP32Linear.from_float(module.up_proj)
+        int8_module.down_proj = CustomW8A8BFP32OFP32Linear.from_float(module.down_proj)
 
         return int8_module
 
