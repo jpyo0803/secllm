@@ -260,10 +260,10 @@ class SqLlamaMLP(nn.Module):
             ]
             down_proj = sum(down_proj)
         else:
-            int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x.clone().detach())
+            int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x)
             silu_out = self.act_fn(self.gate_proj(int8_x, x_scales)) * self.up_proj(int8_x, x_scales)
 
-            int8_silu_out, silu_out_scales = dynamic_quantize_activation_per_token_absmax(silu_out.clone().detach())
+            int8_silu_out, silu_out_scales = dynamic_quantize_activation_per_token_absmax(silu_out)
             down_proj = self.down_proj(int8_silu_out, silu_out_scales)
 
         return down_proj
@@ -411,7 +411,7 @@ class SqLlamaAttention(nn.Module):
             value_states = torch.cat(value_states, dim=-1)
 
         else:
-            int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states.clone().detach())
+            int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states)
 
             query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
             key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
@@ -483,7 +483,7 @@ class SqLlamaAttention(nn.Module):
             o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
             attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
         else:
-            int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output.clone().detach())
+            int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output)
             attn_output = self.o_proj(int8_attn_output, attn_output_scales)
 
         if not output_attentions:
