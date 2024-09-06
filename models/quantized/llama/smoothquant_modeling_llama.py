@@ -66,6 +66,13 @@ from linear import (
     CustomW8A8BFP32OFP32Linear,
 )
 
+module_path = os.path.join(current_dir, '..', 'functional')
+sys.path.append(module_path)
+
+from quantization import (
+    dynamic_quantize_activation_per_token_absmax,
+)
+
 import cupy
 
 if is_flash_attn_2_available():
@@ -253,7 +260,11 @@ class SqLlamaMLP(nn.Module):
             ]
             down_proj = sum(down_proj)
         else:
-            down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+            int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x.clone().detach())
+            silu_out = self.act_fn(self.gate_proj(int8_x, x_scales)) * self.up_proj(int8_x, x_scales)
+
+            int8_silu_out, silu_out_scales = dynamic_quantize_activation_per_token_absmax(silu_out.clone().detach())
+            down_proj = self.down_proj(int8_silu_out, silu_out_scales)
 
         return down_proj
 
@@ -400,9 +411,11 @@ class SqLlamaAttention(nn.Module):
             value_states = torch.cat(value_states, dim=-1)
 
         else:
-            query_states = self.q_proj(hidden_states)
-            key_states = self.k_proj(hidden_states)
-            value_states = self.v_proj(hidden_states)
+            int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states.clone().detach())
+
+            query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
+            key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
+            value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
 
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -470,7 +483,8 @@ class SqLlamaAttention(nn.Module):
             o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
             attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
         else:
-            attn_output = self.o_proj(attn_output)
+            int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output.clone().detach())
+            attn_output = self.o_proj(int8_attn_output, attn_output_scales)
 
         if not output_attentions:
             attn_weights = None
