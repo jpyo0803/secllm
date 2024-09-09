@@ -29,7 +29,7 @@ import ppl_evaluator
 
 from datasets import load_dataset
 
-def ExportInt8Model():
+def ExportInt8Model(push_to_hub=False):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-name", type=str, default='meta-llama/Meta-Llama-3-8B')
     parser.add_argument("--num-samples", type=int, default=512)
@@ -76,10 +76,14 @@ def ExportInt8Model():
     int8_model.save_pretrained(output_path)
     print(f"Saved int8 model at {output_path}")
 
+    if push_to_hub:
+        int8_model.push_to_hub('jpyo0803/sq-llama3-8b')
+        print(f"Pushed int8 model to the hub")
+
     return int8_model, output_path, tokenizer
 
 if __name__ == '__main__':
-    int8_model, output_path, tokenizer = ExportInt8Model()
+    int8_model, output_path, tokenizer = ExportInt8Model(push_to_hub=False)
 
     # NOTE(jpyo0803): Seems like the 'auto' option in 'ExportInt8Model' arbitrarily assigns some module in cpu
     int8_model = int8_model.to('cuda:0')

@@ -18,7 +18,7 @@ from transformers import AutoTokenizer
 import ppl_evaluator
 
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
-local_model_id = './pretrained_weights/Meta-Llama-3-8B-smoothquant.pt'
+local_model_id = 'jpyo0803/sq-llama3-8b'
 '''
     When original weights are used for pure model ppl: 5.911846160888672
     When smoothed weights are used for pure model ppl: 5.911849498748779
