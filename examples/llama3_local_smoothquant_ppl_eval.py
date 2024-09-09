@@ -32,17 +32,19 @@ tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
 evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, 'cuda')
 
-from gpu_monitor import GpuMonitor
+from memory_monitor import MemoryMonitor
 
-gpu_monitor = GpuMonitor(0.1)
+memory_monitor = MemoryMonitor(0.1)
 
 ppl = evaluator.evaluate(model)
 
-gpu_monitor.stop()
+memory_monitor.stop()
 
 print(f"Local Smoothquant Llama3-8B (int8) perplexity: {ppl}")
 
 # Output the peak GPU memory usage
-print(f"Peak GPU memory usage: {gpu_monitor.get_max_mem_used()} MB")
+peak_cpu_mem_used, peak_gpu_mem_used = memory_monitor.get_max_mem_used()
+print(f"Peak CPU memory usage: {peak_cpu_mem_used:0.3f} MB")
+print(f"Peak GPU memory usage: {peak_gpu_mem_used:0.3f} MB")
 
 
