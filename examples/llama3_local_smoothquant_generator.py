@@ -53,6 +53,13 @@ print("Generated Text:", generated_text)
 
 # Print the number of tokens in the output
 print(f"Total number of tokens: {outputs.shape[1]}")
+print("Output checksum: ", torch.sum(outputs).item())
+
+# Checksum reference
+# Input=128, Output=128 -> 181470
+checksum_ref = {
+  (128, 128): 181470,
+}
 
 print(f"Peak CPU memory usage: {peak_cpu_mem_used:0.3f} MB")
 print(f"Peak GPU memory usage: {peak_gpu_mem_used:0.3f} MB")
