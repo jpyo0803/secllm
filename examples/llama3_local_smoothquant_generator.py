@@ -19,12 +19,12 @@ input_token_length = 128
 output_token_length = 128
 
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
-local_model_id = './pretrained_weights/Meta-Llama-3-8B-smoothquant.pt'
+local_model_id = 'jpyo0803/sq-llama3-8b'
 
 tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 tokenizer.pad_token = '?'
 
-model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='cuda', attn_implementation='eager')
+model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='cpu', attn_implementation='eager')
 
 text = "Hello, what is the 3+7?"
 

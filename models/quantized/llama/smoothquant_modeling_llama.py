@@ -435,11 +435,17 @@ class SqLlamaAttention(nn.Module):
         int8_query_states = (query_states / self.q_output_scale).round().clamp(-128, 127).to(torch.int8)
         int8_key_states = (key_states / self.k_output_scale).round().clamp(-128, 127).to(torch.int8)
 
+        int8_query_states = int8_query_states.to('cuda:0')
+        int8_key_states = int8_key_states.to('cuda:0')
+
         query_states_cupy = cupy.from_dlpack(int8_query_states.to(torch.int32))
         key_states_T_cupy = cupy.from_dlpack(int8_key_states.transpose(-2, -1).to(torch.int32))
 
         attn_weights_cupy = cupy.matmul(query_states_cupy, key_states_T_cupy)
-        attn_weights = torch.from_dlpack(attn_weights_cupy).to(torch.float32)
+        attn_weights = torch.from_dlpack(attn_weights_cupy)
+
+        attn_weights = attn_weights.to('cpu')
+        attn_weigths = attn_weights.to(torch.float32)
 
         attn_weights = attn_weights * self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
 
@@ -456,14 +462,24 @@ class SqLlamaAttention(nn.Module):
 
         attn_weights.mul_(127).round_()
         int8_attn_weights = attn_weights.to(torch.int8)
+
+        int8_attn_weights = int8_attn_weights.to('cuda:0')
+
         attn_weights_cupy = cupy.from_dlpack(int8_attn_weights.to(torch.int32))
 
         int8_value_states = (value_states / self.v_output_scale).round().clamp(-128, 127).to(torch.int8)
+
+        int8_value_states = int8_value_states.to('cuda:0')
+
         value_states_cupy = cupy.from_dlpack(int8_value_states.to(torch.int32))
 
         attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
 
-        attn_output = torch.from_dlpack(attn_output_cupy).to(torch.float32)
+        attn_output = torch.from_dlpack(attn_output_cupy)
+
+        attn_output = attn_output.to('cpu')
+        attn_output = attn_output.to(torch.float32)
+
         attn_output *= self.v_output_scale / 127
 
         attn_output = attn_output.to(torch.float16)
@@ -1252,7 +1268,7 @@ class SqLlamaForCausalLM(LlamaPreTrainedModel):
         super().__init__(config)
         self.model = LlamaModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False, dtype=torch.float32)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -1350,6 +1366,7 @@ class SqLlamaForCausalLM(LlamaPreTrainedModel):
             logits = [F.linear(hidden_states, lm_head_slices[i]) for i in range(self.config.pretraining_tp)]
             logits = torch.cat(logits, dim=-1)
         else:
+            hidden_states = hidden_states.to(torch.float32)
             logits = self.lm_head(hidden_states)
         logits = logits.float()
 

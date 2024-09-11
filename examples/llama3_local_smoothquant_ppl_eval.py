@@ -24,13 +24,21 @@ local_model_id = 'jpyo0803/sq-llama3-8b'
     When smoothed weights are used for pure model ppl: 5.911849498748779
 '''
 
-model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='auto', attn_implementation='eager')
+model = SqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='cpu', attn_implementation='eager')
 
 from datasets import load_dataset
 
 tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
-evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, 'cuda')
+
+# NOTE(jpyo0803): For faster evaluation, set n_samples to a smaller number
+evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, model.device, n_samples=10)
+
+'''
+    n_samples=10, cuda -> ppl=6.267731666564941
+    n_samples=10, cpu + cuda -> ppl=6.259809494018555
+'''
+
 
 from memory_monitor import MemoryMonitor
 

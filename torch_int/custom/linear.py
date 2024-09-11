@@ -28,13 +28,16 @@ class CustomW8A8BFP32OFP32Linear(torch.nn.Module):
         self.register_buffer('weight_scales', torch.ones(
             self.out_features, dtype=torch.float16, requires_grad=False))
 
+
     @torch.no_grad()
-    def forward(self, x, x_scales):
+    def forward(self, x, x_scales):     
         assert x.dtype == torch.int8
         x_shape = x.shape
         x = x.view(-1, x_shape[-1])
 
-        # int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x.clone().detach())
+
+        x = x.to('cuda:0')
+        self.weight = self.weight.to('cuda:0')
 
         x_cupy = cupy.from_dlpack(x.to(torch.int32))
         weight_T_cupy = cupy.from_dlpack(self.weight.transpose(-2, -1).to(torch.int32))
@@ -42,6 +45,9 @@ class CustomW8A8BFP32OFP32Linear(torch.nn.Module):
         y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
 
         y = torch.from_dlpack(y_cupy)
+
+        y = y.to('cpu')
+
         y = dequantize_activation_w_per_channel_a_per_token(y, self.weight_scales, x_scales)
 
         y = y.to(torch.float16)
