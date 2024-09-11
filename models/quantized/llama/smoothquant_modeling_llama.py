@@ -55,25 +55,21 @@ from transformers.models.llama.modeling_llama import (
     LlamaMLP,
 )
 
-import os
-import sys
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-module_path = os.path.join(current_dir, '..', '..', '..', 'torch_int', 'custom')
-sys.path.append(module_path)
-
-from linear import (
+from torch_int.custom.linear import (
     CustomW8A8BFP32OFP32Linear,
 )
 
-module_path = os.path.join(current_dir, '..', 'functional')
-sys.path.append(module_path)
-
-from quantization import (
+from torch_int.functional.quantization import (
     dynamic_quantize_activation_per_token_absmax,
 )
 
 import cupy
+
+from secllm.secllm_wrapper import SecLLM
+
+secllm_lib = SecLLM()
+secllm_lib.PrintHelloFromCpp()
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func

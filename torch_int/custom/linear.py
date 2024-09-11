@@ -1,13 +1,6 @@
 import torch
 
-import os
-import sys
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-module_path = os.path.join(current_dir, '..', 'functional')
-sys.path.append(module_path)
-
-from quantization import (
+from torch_int.functional.quantization import (
     quantize_weight_per_channel_absmax,
     dynamic_quantize_activation_per_token_absmax,
     dequantize_activation_w_per_channel_a_per_token,

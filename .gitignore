@@ -2,4 +2,7 @@
 pretrained_weights/**/
 act_scales/*.pt
 datasets/*.zst
+
 **/*.so
+**/*.o
+**/*.d

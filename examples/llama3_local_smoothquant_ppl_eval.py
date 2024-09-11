@@ -8,10 +8,10 @@ import torch
 import sys
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-module_path = os.path.join(current_dir, '..', 'models/quantized/llama')
+module_path = os.path.join(current_dir, '..')
 sys.path.append(module_path)
 
-from smoothquant_modeling_llama import SqLlamaForCausalLM
+from models.quantized.llama.smoothquant_modeling_llama import SqLlamaForCausalLM
 
 from transformers import AutoTokenizer
 
