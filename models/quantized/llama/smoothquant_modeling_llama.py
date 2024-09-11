@@ -69,7 +69,6 @@ import cupy
 from secllm.secllm_wrapper import SecLLM
 
 secllm_lib = SecLLM()
-secllm_lib.PrintHelloFromCpp()
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -441,7 +440,7 @@ class SqLlamaAttention(nn.Module):
         attn_weights = torch.from_dlpack(attn_weights_cupy)
 
         attn_weights = attn_weights.to('cpu')
-        attn_weigths = attn_weights.to(torch.float32)
+        attn_weights = attn_weights.to(torch.float32)
 
         attn_weights = attn_weights * self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
 
@@ -452,7 +451,8 @@ class SqLlamaAttention(nn.Module):
             attn_weights = attn_weights + causal_mask
 
         # upcast attention to fp32
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        # attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        secllm_lib.Softmax(attn_weights)
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
         # attn_output = torch.matmul(attn_weights, value_states)
 
