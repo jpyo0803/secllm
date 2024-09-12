@@ -883,7 +883,8 @@ class SqLlamaDecoderLayer(nn.Module):
             use_cache=use_cache,
             cache_position=cache_position,
         )
-        hidden_states = residual + hidden_states
+        # hidden_states = residual + hidden_states
+        hidden_states = secllm_lib.ElementwiseAdd(hidden_states, residual)
 
         # Fully Connected
         residual = hidden_states
@@ -891,7 +892,8 @@ class SqLlamaDecoderLayer(nn.Module):
         hidden_states = secllm_lib.RMSNorm(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
 
         hidden_states = self.mlp(hidden_states)
-        hidden_states = residual + hidden_states
+        # hidden_states = residual + hidden_states
+        hidden_states = secllm_lib.ElementwiseAdd(hidden_states, residual)
 
         outputs = (hidden_states,)
 

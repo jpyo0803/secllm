@@ -84,4 +84,14 @@ void RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps
   }
 }
 
+void ElementwiseAdd(float* x, float* y, int B, int M, int N) {
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        x[b * M * N + m * N + n] += y[b * M * N + m * N + n];
+      }
+    }
+  }
+}
+
 }

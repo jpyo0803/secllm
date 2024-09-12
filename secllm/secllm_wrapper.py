@@ -71,6 +71,24 @@ class SecLLM:
     x = x.to(dtype)
     return x
 
+  def ElementwiseAdd(cls, x, y):
+    '''
+        NOTE(jpyo0803): in-place elementwise add
+        output will be stored in x
+    '''
+    assert x.dim() == 3
+    assert x.size() == y.size()
+    assert x.is_contiguous()
+    assert y.is_contiguous()
+
+    dtype = x.dtype
+    x = x.to(torch.float32)
+    y = y.to(torch.float32)
+    B, M, N = x.shape
+    cls.lib.ElementwiseAdd(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
+    x = x.to(dtype)
+    return x
+
 if __name__ == '__main__':
     secllm = SecLLM()
     secllm.PrintHelloFromCpp()
