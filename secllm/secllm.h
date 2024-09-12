@@ -15,6 +15,8 @@ void RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps
 
 void ElementwiseAdd(float* x, float* y, int B, int M, int N);
 
+void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K);
+
 } // extern "C"
 
 #endif // SECLLM_SECLLM_H

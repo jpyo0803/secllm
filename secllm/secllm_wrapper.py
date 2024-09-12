@@ -88,6 +88,32 @@ class SecLLM:
     cls.lib.ElementwiseAdd(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
     x = x.to(dtype)
     return x
+  
+  def ApplyRotaryPosEmb(cls, q, k, cos, sin):
+    '''
+        NOTE(jpyo0803): in-place apply rotary position embedding
+        output will be stored in q
+    '''
+    assert q.dim() == 4
+    assert k.dim() == 4
+    q = q.contiguous()
+    k = k.contiguous()
+    assert q.is_contiguous()
+    assert k.is_contiguous()
+    assert cos.is_contiguous()
+    assert sin.is_contiguous()
+
+    dtype = q.dtype
+    q = q.to(torch.float32)
+    k = k.to(torch.float32)
+    cos = cos.to(torch.float32)
+    sin = sin.to(torch.float32)
+    B, Q_M, N, K = q.shape
+    _, K_M, _, _ = k.shape
+    cls.lib.ApplyRotaryPosEmb(cast(q.data_ptr(), POINTER(c_float)), cast(k.data_ptr(), POINTER(c_float)), cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)), B, Q_M, K_M, N, K)
+    q_embed = q.to(dtype)
+    k_embed = k.to(dtype)
+    return q_embed, k_embed
 
 if __name__ == '__main__':
     secllm = SecLLM()

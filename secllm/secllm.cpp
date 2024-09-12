@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <vector>
 
 extern "C" {
 
@@ -94,4 +95,53 @@ void ElementwiseAdd(float* x, float* y, int B, int M, int N) {
   }
 }
 
+void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K) {
+/*
+  shape of q = torch.Size([1, 32, 2048, 128])
+  shape of k = torch.Size([1, 8, 2048, 128])
+  shape of cos, sin = torch.Size([1, 2048, 128])
+*/
+  std::vector<float> result_buffer(N * K);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < Q_M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        for (int k = 0; k < K; ++k) {
+          int k2 = (k + K / 2) % K;
+
+          float q_cos_val = q_tensor[b * Q_M * N * K + m * N * K + n * K + k] * cos[n * K + k];
+          float rh_q_sin_val = q_tensor[b * Q_M * N * K + m * N * K + n * K + k2] * sin[n * K + k];
+
+          result_buffer.at(n * K + k) = k < K / 2 ? q_cos_val - rh_q_sin_val : q_cos_val + rh_q_sin_val;
+        }
+      }
+      // copy result_buffer to q_tensor
+      for (int n = 0; n < N; ++n) {
+        for (int k = 0; k < K; ++k) {
+          q_tensor[b * Q_M * N * K + m * N * K + n * K + k] = result_buffer.at(n * K + k);
+        }
+      }
+    } 
+
+    for (int m = 0; m < K_M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        for (int k = 0; k < K; ++k) {
+          int k2 = (k + K / 2) % K;
+
+          float k_cos_val = k_tensor[b * K_M * N * K + m * N * K + n * K + k] * cos[n * K + k];
+          float rh_k_sin_val = k_tensor[b * K_M * N * K + m * N * K + n * K + k2] * sin[n * K + k];
+
+          result_buffer.at(n * K + k) = k < K / 2 ? k_cos_val - rh_k_sin_val : k_cos_val + rh_k_sin_val;
+        }
+      }
+      // copy result_buffer to k_tensor
+      for (int n = 0; n < N; ++n) {
+        for (int k = 0; k < K; ++k) {
+          k_tensor[b * K_M * N * K + m * N * K + n * K + k] = result_buffer.at(n * K + k);
+        }
+      }
+    }
+  }
 }
+
+} // extern "C"
