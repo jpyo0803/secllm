@@ -33,18 +33,24 @@ class SecLLM:
     x = x.to(dtype)
     return x
 
-  def SiLU(cls, x):
+  def SwiGLU(cls, gate_in, up_in):
     '''
-        NOTE(jpyo0803): in-place SiLU
+        NOTE(jpyo0803): in-place SwiGLU
+        output will be stored in gate_in
     '''
-    assert x.dim() == 3
-    assert x.is_contiguous()
-    dtype = x.dtype
-    x = x.to(torch.float32)
-    B, M, N = x.shape
-    cls.lib.SiLU(cast(x.data_ptr(), POINTER(c_float)), B, M, N)
-    x = x.to(dtype)
-    return x
+
+    assert gate_in.dim() == 3
+    assert gate_in.size() == up_in.size()
+    assert gate_in.is_contiguous()
+    assert up_in.is_contiguous()
+
+    dtype = gate_in.dtype
+    gate_in = gate_in.to(torch.float32)
+    up_in = up_in.to(torch.float32)
+    B, M, N = gate_in.shape
+    cls.lib.SwiGLU(cast(gate_in.data_ptr(), POINTER(c_float)), cast(up_in.data_ptr(), POINTER(c_float)), B, M, N)
+    gate_in = gate_in.to(dtype)
+    return gate_in
 
 if __name__ == '__main__':
     secllm = SecLLM()

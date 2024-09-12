@@ -259,9 +259,10 @@ class SqLlamaMLP(nn.Module):
             gate_out = self.gate_proj(int8_x, x_scales)
             up_out = self.up_proj(int8_x, x_scales)
 
-            silu_out = secllm_lib.SiLU(gate_out)
+            # silu_out = secllm_lib.SiLU(gate_out)
             # silu_out = self.act_fn(gate_out)
-            swiglu_out = silu_out * up_out
+            # swiglu_out = silu_out * up_out
+            swiglu_out = secllm_lib.SwiGLU(gate_out, up_out)
 
             int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
             down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)

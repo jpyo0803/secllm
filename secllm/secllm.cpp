@@ -47,5 +47,21 @@ void SiLU(float* x, int B, int M, int N) {
   }
 }
 
+void SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
+  // gate_in: [B, M, N]
+  // up_in: [B, M, N]
+  // swiglu(gate_in, up_in) = silu(gate_in) * up_in
+
+  SiLU(gate_in, B, M, N);
+  // gate_in is silued
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        gate_in[b * M * N + m * N + n] *= up_in[b * M * N + m * N + n];
+      }
+    }
+  }
+}
 
 }
