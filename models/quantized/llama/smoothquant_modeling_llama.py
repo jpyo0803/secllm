@@ -870,7 +870,8 @@ class SqLlamaDecoderLayer(nn.Module):
         """
         residual = hidden_states
 
-        hidden_states = self.input_layernorm(hidden_states)
+        # hidden_states = self.input_layernorm(hidden_states)
+        hidden_states = secllm_lib.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
 
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -886,7 +887,9 @@ class SqLlamaDecoderLayer(nn.Module):
 
         # Fully Connected
         residual = hidden_states
-        hidden_states = self.post_attention_layernorm(hidden_states)
+        # hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = secllm_lib.RMSNorm(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
+
         hidden_states = self.mlp(hidden_states)
         hidden_states = residual + hidden_states
 

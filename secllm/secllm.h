@@ -11,6 +11,8 @@ void SiLU(float* x, int B, int M, int N);
 
 void SwiGLU(float* gate_in, float* up_in, int B, int M, int N);
 
+void RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps);
+
 } // extern "C"
 
 #endif // SECLLM_SECLLM_H

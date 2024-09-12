@@ -64,4 +64,24 @@ void SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
   }
 }
 
+void RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps) {
+  // weight, x: [B, M, N]
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      float sqr_sum = 0.0f;
+      for (int n = 0; n < N; ++n) {
+        sqr_sum += x[b * M * N + m * N + n] * x[b * M * N + m * N + n];
+      }
+
+      float variance = sqr_sum / N;
+
+      for (int n = 0; n < N; ++n) {
+        x[b * M * N + m * N + n] /= std::sqrt(variance + eps);
+        x[b * M * N + m * N + n] *= weight[n];
+      }
+    }
+  }
+}
+
 }
