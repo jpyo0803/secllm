@@ -34,4 +34,18 @@ void Softmax(float* x, int B, int M, int N, int K) {
   }
 }
 
+void SiLU(float* x, int B, int M, int N) {
+  // x: [B, M, N]
+  // silu(x) = x / (1 + exp(-x))
+  
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        x[b * M * N + m * N + n] = x[b * M * N + m * N + n] / (1.0f + std::exp(-x[b * M * N + m * N + n]));
+      }
+    }
+  }
+}
+
+
 }

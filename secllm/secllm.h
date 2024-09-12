@@ -7,6 +7,8 @@ void PrintHelloFromCpp();
 
 void Softmax(float* x, int B, int M, int N, int K);
 
+void SiLU(float* x, int B, int M, int N);
+
 } // extern "C"
 
 #endif // SECLLM_SECLLM_H

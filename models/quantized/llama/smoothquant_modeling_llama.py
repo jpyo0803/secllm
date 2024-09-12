@@ -256,10 +256,15 @@ class SqLlamaMLP(nn.Module):
             down_proj = sum(down_proj)
         else:
             int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x)
-            silu_out = self.act_fn(self.gate_proj(int8_x, x_scales)) * self.up_proj(int8_x, x_scales)
+            gate_out = self.gate_proj(int8_x, x_scales)
+            up_out = self.up_proj(int8_x, x_scales)
 
-            int8_silu_out, silu_out_scales = dynamic_quantize_activation_per_token_absmax(silu_out)
-            down_proj = self.down_proj(int8_silu_out, silu_out_scales)
+            silu_out = secllm_lib.SiLU(gate_out)
+            # silu_out = self.act_fn(gate_out)
+            swiglu_out = silu_out * up_out
+
+            int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
+            down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)
 
         return down_proj
 
@@ -452,7 +457,7 @@ class SqLlamaAttention(nn.Module):
 
         # upcast attention to fp32
         # attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        secllm_lib.Softmax(attn_weights)
+        attn_weights = secllm_lib.Softmax(attn_weights)
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
         # attn_output = torch.matmul(attn_weights, value_states)
 
