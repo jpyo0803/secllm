@@ -115,6 +115,27 @@ class SecLLM:
     k_embed = k.to(dtype)
     return q_embed, k_embed
 
+  def LlamaRotaryEmbedding(cls, inv_freq, position_ids, input_dtype):
+    '''
+        NOTE(jpyo0803): Llama rotary embedding
+    '''
+    assert inv_freq.dim() == 1
+    assert position_ids.dim() == 2
+    assert inv_freq.is_contiguous()
+    assert position_ids.is_contiguous()
+
+    inv_freq = inv_freq.to(torch.float32)
+    position_ids = position_ids.to(torch.float32)
+
+    cos = torch.zeros(1, position_ids.shape[1], inv_freq.shape[0] * 2, dtype=torch.float32)
+    sin = torch.zeros(1, position_ids.shape[1], inv_freq.shape[0] * 2, dtype=torch.float32)
+
+    cls.lib.LlamaRotaryEmbedding(cast(inv_freq.data_ptr(), POINTER(c_float)), inv_freq.shape[0], cast(position_ids.data_ptr(), POINTER(c_float)), position_ids.shape[1], cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)))
+    cos = cos.to(input_dtype)
+    sin = sin.to(input_dtype)
+    return cos, sin
+
+
 if __name__ == '__main__':
     secllm = SecLLM()
     secllm.PrintHelloFromCpp()

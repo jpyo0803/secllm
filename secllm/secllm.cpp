@@ -144,4 +144,29 @@ void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos,
   }
 }
 
+void LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const float* const position_ids, int position_ids_M, float* cos, float* sin) {
+  /*
+      inv_freq: [64]
+      position_ids: [1, 2048], but treat it [2048]
+
+      cos, sin: [1, 2048, 128]
+  */
+
+  std::vector<float> half_emb_buffer(position_ids_M * inv_freq_M);
+
+  for (int i = 0; i < position_ids_M; ++i) {
+    for (int j = 0; j < inv_freq_M; ++j) {
+      half_emb_buffer.at(i * inv_freq_M + j) = position_ids[i] * inv_freq[j];
+    }
+  }
+
+  int col_size = inv_freq_M * 2;
+  for (int i = 0; i < position_ids_M; ++i) {
+    for (int j = 0; j < inv_freq_M; ++j) {
+      cos[i * col_size + j] = cos[i * col_size + (inv_freq_M + j)] = std::cos(half_emb_buffer.at(i * inv_freq_M + j));
+      sin[i * col_size + j] = sin[i * col_size + (inv_freq_M + j)] = std::sin(half_emb_buffer.at(i * inv_freq_M + j));
+    }
+  }
+}
+
 } // extern "C"

@@ -422,7 +422,9 @@ class SqLlamaAttention(nn.Module):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        cos, sin = self.rotary_emb(value_states, position_ids)
+        # cos, sin = self.rotary_emb(value_states, position_ids)
+        cos, sin = secllm_lib.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
+
         # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
         query_states, key_states = secllm_lib.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
 
