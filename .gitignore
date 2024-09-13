@@ -6,3 +6,4 @@ datasets/*.zst
 **/*.so
 **/*.o
 **/*.d
+**/secllm_test

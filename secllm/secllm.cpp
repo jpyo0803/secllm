@@ -4,6 +4,8 @@
 #include <cmath>
 #include <vector>
 
+#include "aes_stream.h"
+
 extern "C" {
 
 void PrintHelloFromCpp() {
@@ -167,6 +169,12 @@ void LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const flo
       sin[i * col_size + j] = sin[i * col_size + (inv_freq_M + j)] = std::sin(half_emb_buffer.at(i * inv_freq_M + j));
     }
   }
+}
+
+uint32_t GenerateCPRNG() {
+  uint32_t cprng;
+  GetCPRNG((unsigned char*)&cprng, sizeof(cprng));
+  return cprng;
 }
 
 } // extern "C"
