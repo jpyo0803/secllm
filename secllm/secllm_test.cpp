@@ -2,11 +2,14 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <chrono>
 
 int main() {
+  constexpr int num_iter = 1000000;
+  
   std::vector<int> cnt(256, 0);
 
-  for (int i = 0; i < 1000000; ++i) {
+  for (int i = 0; i < num_iter; ++i) {
     auto cprng = GenerateCPRNG();
     
     int byte1 = cprng & 0xFF;
@@ -39,6 +42,18 @@ int main() {
 */
   std::cout << "Mean: " << mean << std::endl;
   std::cout << "Stdev: " << stdev << std::endl;
+
+  // measure time 
+  auto start = std::chrono::high_resolution_clock::now();
+
+  for (int i = 0; i < num_iter; ++i) {
+    auto cprng = GenerateCPRNG();
+  }
+
+  auto end = std::chrono::high_resolution_clock::now();
+
+  std::chrono::duration<double> elapsed = end - start;
+  std::cout << "Generation time per cprng: " << static_cast<float>(elapsed.count() / num_iter) << " s" << std::endl;
 
   return 0;
 }
