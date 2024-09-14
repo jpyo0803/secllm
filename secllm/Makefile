@@ -6,6 +6,7 @@ SRCS = secllm.cpp aes_stream.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 TARGET_LIB = libsecllm.so
+GTEST = /usr/local/lib/libgtest.a
 
 .PHONY: all
 all: $(TARGET_LIB)
@@ -24,4 +25,4 @@ clean:
 
 .PHONY: test
 test:
-	$(CC) -o secllm_test secllm_test.cpp -L. -lsecllm -Wl,-rpath,.
+	$(CC) -o secllm_unittest secllm_unittest.cpp -L. -lsecllm -Wl,-rpath,. $(GTEST)

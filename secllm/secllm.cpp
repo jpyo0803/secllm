@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <numeric>
 
 #include "aes_stream.h"
 
@@ -175,6 +176,20 @@ uint32_t GenerateCPRNG() {
   uint32_t cprng;
   GetCPRNG((unsigned char*)&cprng, sizeof(cprng));
   return cprng;
+}
+
+uint32_t GenerateMultKey() {
+  uint64_t mod = 1ULL << 32;
+  do {
+    uint32_t key = GenerateCPRNG();
+    if (std::gcd(mod, static_cast<uint64_t>(key)) == 1) {
+      return key;
+    }
+  } while (true);
+}
+
+uint32_t GenerateAddKey() {
+  return GenerateCPRNG();
 }
 
 } // extern "C"

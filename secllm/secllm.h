@@ -23,6 +23,10 @@ void LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const flo
 
 uint32_t GenerateCPRNG();
 
+uint32_t GenerateMultKey();
+
+uint32_t GenerateAddKey();
+
 } // extern "C"
 
 #endif // SECLLM_SECLLM_H
