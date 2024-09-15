@@ -1,7 +1,7 @@
 from ctypes import *
 import torch
 
-SECLLM_LIB_PATH = './secllm/secllm.so'
+SECLLM_LIB_PATH = './secllm/libsecllm.so'
 
 class SecLLM:
   def __new__(cls):
