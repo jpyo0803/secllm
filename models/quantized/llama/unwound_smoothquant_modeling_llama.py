@@ -163,8 +163,6 @@ class SqLlamaDecoderLayer(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
 
-        assert config._attn_implementation == 'eager'
-
         # self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
 
         # Common Delegate Open
@@ -289,30 +287,12 @@ class SqLlamaDecoderLayer(nn.Module):
 
         # Self Attention Delegate Open
         bsz, q_len, _ = hidden_states.size()
+ 
+        int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states)
 
-        if self.config.pretraining_tp > 1:
-            key_value_slicing = (self.num_key_value_heads * self.head_dim) // self.config.pretraining_tp
-            query_slices = self.q_proj.weight.split(
-                (self.num_heads * self.head_dim) // self.config.pretraining_tp, dim=0
-            )
-            key_slices = self.k_proj.weight.split(key_value_slicing, dim=0)
-            value_slices = self.v_proj.weight.split(key_value_slicing, dim=0)
-
-            query_states = [F.linear(hidden_states, query_slices[i]) for i in range(self.config.pretraining_tp)]
-            query_states = torch.cat(query_states, dim=-1)
-
-            key_states = [F.linear(hidden_states, key_slices[i]) for i in range(self.config.pretraining_tp)]
-            key_states = torch.cat(key_states, dim=-1)
-
-            value_states = [F.linear(hidden_states, value_slices[i]) for i in range(self.config.pretraining_tp)]
-            value_states = torch.cat(value_states, dim=-1)
-
-        else:
-            int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states)
-
-            query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
-            key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
-            value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
+        query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
+        key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
+        value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
 
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -395,13 +375,8 @@ class SqLlamaDecoderLayer(nn.Module):
 
         attn_output = attn_output.reshape(bsz, q_len, -1)
 
-        if self.config.pretraining_tp > 1:
-            attn_output = attn_output.split(self.hidden_size // self.config.pretraining_tp, dim=2)
-            o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
-            attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
-        else:
-            int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output)
-            attn_output = self.o_proj(int8_attn_output, attn_output_scales)
+        int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output)
+        attn_output = self.o_proj(int8_attn_output, attn_output_scales)
 
         if not output_attentions:
             attn_weights = None
@@ -426,34 +401,17 @@ class SqLlamaDecoderLayer(nn.Module):
         # MLP Delegate Open
         x = hidden_states
 
-        if self.config.pretraining_tp > 1:
-            slice = self.intermediate_size // self.config.pretraining_tp
-            gate_proj_slices = self.gate_proj.weight.split(slice, dim=0)
-            up_proj_slices = self.up_proj.weight.split(slice, dim=0)
-            down_proj_slices = self.down_proj.weight.split(slice, dim=1)
+        int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x)
+        gate_out = self.gate_proj(int8_x, x_scales)
+        up_out = self.up_proj(int8_x, x_scales)
 
-            gate_proj = torch.cat(
-                [F.linear(x, gate_proj_slices[i]) for i in range(self.config.pretraining_tp)], dim=-1
-            )
-            up_proj = torch.cat([F.linear(x, up_proj_slices[i]) for i in range(self.config.pretraining_tp)], dim=-1)
+        # silu_out = secllm_lib.SiLU(gate_out)
+        # silu_out = self.act_fn(gate_out)
+        # swiglu_out = silu_out * up_out
+        swiglu_out = secllm_lib.SwiGLU(gate_out, up_out)
 
-            intermediate_states = (self.act_fn(gate_proj) * up_proj).split(slice, dim=2)
-            down_proj = [
-                F.linear(intermediate_states[i], down_proj_slices[i]) for i in range(self.config.pretraining_tp)
-            ]
-            down_proj = sum(down_proj)
-        else:
-            int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x)
-            gate_out = self.gate_proj(int8_x, x_scales)
-            up_out = self.up_proj(int8_x, x_scales)
-
-            # silu_out = secllm_lib.SiLU(gate_out)
-            # silu_out = self.act_fn(gate_out)
-            # swiglu_out = silu_out * up_out
-            swiglu_out = secllm_lib.SwiGLU(gate_out, up_out)
-
-            int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
-            down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)
+        int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
+        down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)
 
         hidden_states = down_proj
 
@@ -828,6 +786,8 @@ class UnwoundSqLlamaForCausalLM(LlamaPreTrainedModel):
 
     def __init__(self, config):
         print(f"Unwound SmoothQuantized Llama (attn_impl: {config._attn_implementation})")
+        assert config._attn_implementation == "eager"
+        assert config.pretraining_tp == 1
 
         super().__init__(config)
         self.model = LlamaModel(config)
