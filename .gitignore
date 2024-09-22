@@ -6,4 +6,6 @@ datasets/*.zst
 **/*.so
 **/*.o
 **/*.d
-**/secllm_test
+**/secllm_unittest
+
+.vscode/
