@@ -10,7 +10,10 @@
 #include "tensor.h"
 #include <memory>
 
+#include "book_keeper.h"
+
 using namespace std;
+using namespace jpyo0803;
 
 TEST(GenerateMultKeyTest, RelativelyPrimeTest) {
     EXPECT_EQ(1, 1);
@@ -74,6 +77,34 @@ TEST(TensorTest, TensorTest) {
     EXPECT_EQ(tensor6.use_count(), 2);
     tensor6.reset();
     EXPECT_EQ(tensor2.use_count(), 1);
+}
+
+TEST(BookKeeperTest, BookKeeperTest) {
+    BookKeeper<Tensor<int>> book_keeper(10);
+
+    auto tensor1 = std::make_shared<Tensor<int>>(std::vector<int>{2, 3, 4});
+
+    book_keeper.Keep({0, 1, 2, 9}, tensor1);
+    EXPECT_EQ(tensor1.use_count(), 0);
+
+    auto ret_tensor1 = book_keeper.Retrieve(0);
+    EXPECT_EQ(ret_tensor1.use_count(), 4);
+    {
+        auto ret_tensor2 = book_keeper.Retrieve(1);
+        auto ret_tensor3 = book_keeper.Retrieve(2);
+    }
+    EXPECT_EQ(ret_tensor1.use_count(), 2);
+    
+    {
+        auto ret_tensor4 = book_keeper.Retrieve(9);
+        EXPECT_EQ(ret_tensor1.use_count(), 2);
+    }
+
+    EXPECT_EQ(ret_tensor1.use_count(), 1);
+
+    ret_tensor1.reset();
+
+    EXPECT_EQ(ret_tensor1.use_count(), 0);
 }
 
 int main(int argc, char** argv) {
