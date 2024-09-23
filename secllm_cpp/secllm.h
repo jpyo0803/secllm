@@ -58,6 +58,8 @@ class SecLLM {
 
 extern "C" {
 
+void Ext_PrintTest(int num);
+
 void Ext_CreateSecLLM(int num_layers);
 
 void Ext_Softmax(float* x, int B, int M, int N, int K);

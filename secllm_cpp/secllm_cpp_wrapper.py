@@ -32,12 +32,9 @@ class SecLLMCppWrapper:
       cls.__init = True
 
   @classmethod
-  def PrintHelloFromCpp(cls):
-    cls.lib.Ext_PrintHelloFromCpp()
+  def PrintTest(cls, num):
+    cls.lib.Ext_PrintTest(num)
 
-  @classmethod
-  def SecLLMTestPrint(cls):
-    cls.lib.Ext_SecLLMTestPrint()
 
   @classmethod
   def Softmax(cls, x):

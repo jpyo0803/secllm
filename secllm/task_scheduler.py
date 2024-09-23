@@ -2,23 +2,31 @@ import sys
 import os
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir in sys.path:
+    sys.path.remove(current_dir)
 module_path = os.path.join(current_dir, '..')
 if module_path not in sys.path:
     sys.path.append(module_path)
 
-from schedule.topological_sort import TopologicalSort
-from schedule.task import Task, TaskSubclassA, TaskSubclassB
+from secllm.topological_sort import TopologicalSort
+
+import secllm.task
 
 class TaskScheduler:
-    def __init__(self, graph):
+    def __init__(self, graph, secllm_cpp_wrapper):
         task_order = TopologicalSort(graph)
         self.tasks = []
 
         for task_id in task_order:
             next_task_ids = graph[task_id]
-            new_task = TaskSubclassA(f'task {task_id}', task_id, next_task_ids) if task_id % 3 == 0 else TaskSubclassB(f'task {task_id}', task_id, next_task_ids)
-            self.add_task(new_task)
+            class_name = f'Task{task_id}'
 
+            task_class = getattr(secllm.task, class_name, None)
+            if task_class:
+                new_task = task_class(f'task {task_id}', task_id, next_task_ids, secllm_cpp_wrapper)
+                self.add_task(new_task)
+            else:
+                assert False, f'Class {class_name} not found'
 
     def add_task(self, task):
         self.tasks.append(task)
@@ -135,6 +143,111 @@ if __name__ == '__main__':
         89: [90],
         90: [],
     }
-    task_scheduler = TaskScheduler(graph)
+    # write the graph to a file
+    with open('dependency_graph.txt', 'w') as f:
+        for key, value in graph.items():
+            f.write(f'{key}: {value}\n')
+
+    from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper
+
+    secllm_cpp_wrapper = SecLLMCppWrapper(32)
+
+    task_scheduler = TaskScheduler(graph, secllm_cpp_wrapper)
     task_scheduler()
 
+'''
+Reference Order
+
+Task84: ('task 84', 84, [87])
+Task72: ('task 72', 72, [78])
+Task71: ('task 71', 71, [77])
+Task61: ('task 61', 61, [64])
+Task45: ('task 45', 45, [48])
+Task48: ('task 48', 48, [51, 52, 53])
+Task44: ('task 44', 44, [56])
+Task27: ('task 27', 27, [30])
+Task30: ('task 30', 30, [33, 34, 35])
+Task26: ('task 26', 26, [38])
+Task22: ('task 22', 22, [23])
+Task23: ('task 23', 23, [24, 25])
+Task6: ('task 6', 6, [15])
+Task5: ('task 5', 5, [14])
+Task4: ('task 4', 4, [13])
+Task0: ('task 0', 0, [1])
+Task1: ('task 1', 1, [2, 67])
+Task2: ('task 2', 2, [3])
+Task3: ('task 3', 3, [7, 8, 9])
+Task9: ('task 9', 9, [12])
+Task12: ('task 12', 12, [15])
+Task15: ('task 15', 15, [18])
+Task18: ('task 18', 18, [21])
+Task21: ('task 21', 21, [47])
+Task47: ('task 47', 47, [50])
+Task50: ('task 50', 50, [52, 53])
+Task52: ('task 52', 52, [55])
+Task55: ('task 55', 55, [56])
+Task56: ('task 56', 56, [57])
+Task8: ('task 8', 8, [11])
+Task11: ('task 11', 11, [14])
+Task14: ('task 14', 14, [17])
+Task17: ('task 17', 17, [20])
+Task20: ('task 20', 20, [25])
+Task25: ('task 25', 25, [29])
+Task29: ('task 29', 29, [32])
+Task32: ('task 32', 32, [34, 35])
+Task34: ('task 34', 34, [37])
+Task37: ('task 37', 37, [38])
+Task38: ('task 38', 38, [39])
+Task7: ('task 7', 7, [10])
+Task10: ('task 10', 10, [13])
+Task13: ('task 13', 13, [16])
+Task16: ('task 16', 16, [19])
+Task19: ('task 19', 19, [24])
+Task24: ('task 24', 24, [28])
+Task28: ('task 28', 28, [31])
+Task31: ('task 31', 31, [33, 35])
+Task35: ('task 35', 35, [41])
+Task33: ('task 33', 33, [36])
+Task36: ('task 36', 36, [39])
+Task39: ('task 39', 39, [40])
+Task40: ('task 40', 40, [41])
+Task41: ('task 41', 41, [42])
+Task42: ('task 42', 42, [43])
+Task43: ('task 43', 43, [46])
+Task46: ('task 46', 46, [49])
+Task49: ('task 49', 49, [51, 53])
+Task53: ('task 53', 53, [59])
+Task51: ('task 51', 51, [54])
+Task54: ('task 54', 54, [57])
+Task57: ('task 57', 57, [58])
+Task58: ('task 58', 58, [59])
+Task59: ('task 59', 59, [60])
+Task60: ('task 60', 60, [62])
+Task62: ('task 62', 62, [63])
+Task63: ('task 63', 63, [64])
+Task64: ('task 64', 64, [65])
+Task65: ('task 65', 65, [66])
+Task66: ('task 66', 66, [67])
+Task67: ('task 67', 67, [68])
+Task68: ('task 68', 68, [69, 90])
+Task69: ('task 69', 69, [70])
+Task70: ('task 70', 70, [73, 74])
+Task74: ('task 74', 74, [76])
+Task76: ('task 76', 76, [78])
+Task78: ('task 78', 78, [80])
+Task80: ('task 80', 80, [82])
+Task82: ('task 82', 82, [83])
+Task73: ('task 73', 73, [75])
+Task75: ('task 75', 75, [77])
+Task77: ('task 77', 77, [79])
+Task79: ('task 79', 79, [81])
+Task81: ('task 81', 81, [83])
+Task83: ('task 83', 83, [85])
+Task85: ('task 85', 85, [86])
+Task86: ('task 86', 86, [87])
+Task87: ('task 87', 87, [88])
+Task88: ('task 88', 88, [89])
+Task89: ('task 89', 89, [90])
+Task90: ('task 90', 90, [])
+
+'''

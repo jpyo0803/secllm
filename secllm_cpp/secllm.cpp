@@ -252,6 +252,10 @@ void Task0() {}
 
 extern "C" {
 
+void Ext_PrintTest(int num) {
+  std::cout << "Hello from C++: " << num << std::endl;
+}
+
 void Ext_CreateSecLLM(int num_layers) {
   if (secllm_ptr == nullptr) {
     secllm_ptr = new jpyo0803::SecLLM(num_layers);
