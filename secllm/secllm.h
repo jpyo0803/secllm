@@ -2,11 +2,17 @@
 #define SECLLM_SECLLM_H
 
 #include <stdint.h>
+#include <memory>
+
+#include "book_keeper.h"
+#include "tensor.h"
 
 namespace jpyo0803 {
 
 class SecLLM {
   public:
+    explicit SecLLM(int num_layers);
+
     void TestPrint();
 
   public:
@@ -32,14 +38,16 @@ class SecLLM {
     static uint32_t GenerateAddKey();
 
   private:
-    int test_cnt_ = 0;
+    int num_layers_ = 0;
+
+    std::unique_ptr<BookKeeper<Tensor<float>>> book_keepers_;
 };
 
 } // namespace jpyo0803
 
 extern "C" {
 
-void Ext_CreateSecLLM();
+void Ext_CreateSecLLM(int num_layers);
 
 void Ext_Softmax(float* x, int B, int M, int N, int K);
 
@@ -58,6 +66,8 @@ uint32_t Ext_GenerateCPRNG();
 uint32_t Ext_GenerateMultKey();
 
 uint32_t Ext_GenerateAddKey();
+
+
 
 } // extern "C"
 

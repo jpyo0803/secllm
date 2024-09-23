@@ -14,6 +14,26 @@ namespace {
 } // namespace
 
 
+jpyo0803:: SecLLM::SecLLM(int num_layers) : num_layers_(num_layers) {
+  std::cout << "SecLLM is created with " << num_layers_ << " layers." << std::endl;
+  book_keepers_ = std::make_unique<BookKeeper<Tensor<float>>>(num_layers_ * 100 * 3);
+  /*
+    We have total 91 operations [0, 90]
+    An operation has at most 3 inputs
+    We have 'num_layers' layers
+    The number of spaces we need is (num_layers * 100 * 3) for simplicity
+  */
+
+  /*
+    Book keeping rule, if a target operation is 41th operation (0-indexed) in 5th layer (0-indexed),
+    its first input's location is (5 * 300 + 100 * 0 + 41)
+    its second input's location is (5 * 300 + 100 * 1 + 41)
+    its third input's location is (5 * 300 + 100 * 2 + 41)
+    In generalization, x-th input of y-th operation in z-th layer
+    is located at (z * 300 + 100 * x + y)
+  */
+}
+
 void jpyo0803::SecLLM::Softmax(float* x, int B, int M, int N, int K) {
   // x: [B, M, N, K]
 
@@ -200,9 +220,9 @@ void Task0 () {
 
 extern "C" {
 
-void Ext_CreateSecLLM() {
+void Ext_CreateSecLLM(int num_layers) {
   if (secllm_ptr == nullptr) {
-    secllm_ptr = new jpyo0803::SecLLM();
+    secllm_ptr = new jpyo0803::SecLLM(num_layers);
   }
 }
 

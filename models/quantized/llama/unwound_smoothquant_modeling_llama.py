@@ -566,7 +566,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
 
         from secllm.secllm_wrapper import SecLLM
-        self.secllm_lib = SecLLM()
+        self.secllm_lib = SecLLM(config.num_hidden_layers)
 
         self.layers = nn.ModuleList(
             [SqLlamaDecoderLayer(config, layer_idx, self.secllm_lib) for layer_idx in range(config.num_hidden_layers)]

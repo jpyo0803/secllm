@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <memory>
+#include <iostream>
+#include <numeric>
 
 namespace jpyo0803 {
 

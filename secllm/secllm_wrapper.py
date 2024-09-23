@@ -4,15 +4,15 @@ import torch
 SECLLM_LIB_PATH = './secllm/libsecllm.so'
 
 class SecLLM:
-  def __new__(cls):
+  def __new__(cls, num_hidden_layers):
     if not hasattr(cls, 'instance'):
       cls._instance = super().__new__(cls)
       cls.lib = cdll.LoadLibrary(SECLLM_LIB_PATH)
 
-      cls.lib.Ext_CreateSecLLM()
+      cls.lib.Ext_CreateSecLLM(num_hidden_layers)
     return cls._instance
   
-  def __init__(self):
+  def __init__(self, num_hidden_layers):
     cls = type(self)
     if not hasattr(cls, '__init'):
       cls.__init = True
