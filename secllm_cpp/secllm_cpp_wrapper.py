@@ -1,7 +1,7 @@
 from ctypes import *
 import torch
 
-SECLLM_LIB_PATH = './secllm/libsecllm.so'
+SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
 MAX_NUM_OPERATIONS = 91
@@ -15,7 +15,7 @@ def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
 
   return layer_index * 300 + input_index * 100 + operation_index
 
-class SecLLM:
+class SecLLMCppWrapper:
   def __new__(cls, num_hidden_layers):
     if not hasattr(cls, 'instance'):
       cls._instance = super().__new__(cls)
