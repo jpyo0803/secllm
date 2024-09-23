@@ -9,35 +9,12 @@
 
 #include "secllm.h"
 
-namespace jpyo0803 {
-
-void SecLLM::TestPrint() {
-  std::cout << "Hello from SecLLM C++!, cnt = " << test_cnt_++  << std::endl;
-}
-
-} // namespace jpyo0803
-
 namespace {
   jpyo0803::SecLLM* secllm_ptr = nullptr;
-}
+} // namespace
 
-extern "C" {
 
-void CreateSecLLM() {
-  if (secllm_ptr == nullptr) {
-    secllm_ptr = new jpyo0803::SecLLM();
-  }
-}
-
-void SecLLMTestPrint() {
-  secllm_ptr->TestPrint();
-}
-
-void PrintHelloFromCpp() {
-  std::cout << "Hello from C++!" << std::endl;
-}
-
-void Softmax(float* x, int B, int M, int N, int K) {
+void jpyo0803::SecLLM::Softmax(float* x, int B, int M, int N, int K) {
   // x: [B, M, N, K]
 
   for (int b = 0; b < B; ++b) {
@@ -62,7 +39,7 @@ void Softmax(float* x, int B, int M, int N, int K) {
   }
 }
 
-void SiLU(float* x, int B, int M, int N) {
+void jpyo0803::SecLLM::SiLU(float* x, int B, int M, int N) {
   // x: [B, M, N]
   // silu(x) = x / (1 + exp(-x))
   
@@ -75,12 +52,12 @@ void SiLU(float* x, int B, int M, int N) {
   }
 }
 
-void SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
+void jpyo0803::SecLLM::SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
   // gate_in: [B, M, N]
   // up_in: [B, M, N]
   // swiglu(gate_in, up_in) = silu(gate_in) * up_in
 
-  SiLU(gate_in, B, M, N);
+  jpyo0803::SecLLM::SiLU(gate_in, B, M, N);
   // gate_in is silued
 
   for (int b = 0; b < B; ++b) {
@@ -92,7 +69,7 @@ void SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
   }
 }
 
-void RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps) {
+void jpyo0803::SecLLM::RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps) {
   // weight, x: [B, M, N]
 
   for (int b = 0; b < B; ++b) {
@@ -112,7 +89,7 @@ void RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps
   }
 }
 
-void ElementwiseAdd(float* x, float* y, int B, int M, int N) {
+void jpyo0803::SecLLM::ElementwiseAdd(float* x, float* y, int B, int M, int N) {
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
@@ -122,7 +99,7 @@ void ElementwiseAdd(float* x, float* y, int B, int M, int N) {
   }
 }
 
-void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K) {
+void jpyo0803::SecLLM::ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K) {
 /*
   shape of q = torch.Size([1, 32, 2048, 128])
   shape of k = torch.Size([1, 8, 2048, 128])
@@ -171,7 +148,7 @@ void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos,
   }
 }
 
-void LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const float* const position_ids, int position_ids_M, float* cos, float* sin) {
+void jpyo0803::SecLLM::LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const float* const position_ids, int position_ids_M, float* cos, float* sin) {
   /*
       inv_freq: [64]
       position_ids: [1, 2048], but treat it [2048]
@@ -196,13 +173,13 @@ void LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const flo
   }
 }
 
-uint32_t GenerateCPRNG() {
+uint32_t jpyo0803::SecLLM::GenerateCPRNG() {
   uint32_t cprng;
   GetCPRNG((unsigned char*)&cprng, sizeof(cprng));
   return cprng;
 }
 
-uint32_t GenerateMultKey() {
+uint32_t jpyo0803::SecLLM::GenerateMultKey() {
   uint64_t mod = 1ULL << 32;
   do {
     uint32_t key = GenerateCPRNG();
@@ -212,13 +189,57 @@ uint32_t GenerateMultKey() {
   } while (true);
 }
 
-uint32_t GenerateAddKey() {
+uint32_t jpyo0803::SecLLM::GenerateAddKey() {
   return GenerateCPRNG();
 }
 
 
 
 void Task0 () {
+}
+
+extern "C" {
+
+void Ext_CreateSecLLM() {
+  if (secllm_ptr == nullptr) {
+    secllm_ptr = new jpyo0803::SecLLM();
+  }
+}
+
+void Ext_Softmax(float* x, int B, int M, int N, int K) {
+  secllm_ptr->Softmax(x, B, M, N, K);
+}
+
+void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
+  secllm_ptr->SwiGLU(gate_in, up_in, B, M, N);
+}
+
+void Ext_RMSNorm(float* x, const float* const weight, int B, int M, int N, float eps) {
+  secllm_ptr->RMSNorm(x, weight, B, M, N, eps);
+}
+
+void Ext_ElementwiseAdd(float* x, float* y, int B, int M, int N) {
+  secllm_ptr->ElementwiseAdd(x, y, B, M, N);
+}
+
+void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K) {
+  secllm_ptr->ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
+}
+
+void Ext_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M, const float* const position_ids, int position_ids_M, float* cos, float* sin) {
+  secllm_ptr->LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids, position_ids_M, cos, sin);
+}
+
+uint32_t Ext_GenerateCPRNG() {
+  return secllm_ptr->GenerateCPRNG();
+}
+
+uint32_t Ext_GenerateMultKey() {
+  return secllm_ptr->GenerateMultKey();
+}
+
+uint32_t Ext_GenerateAddKey() {
+  return secllm_ptr->GenerateAddKey();
 }
 
 } // extern "C"

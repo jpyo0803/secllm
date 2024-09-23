@@ -9,7 +9,7 @@ class SecLLM:
       cls._instance = super().__new__(cls)
       cls.lib = cdll.LoadLibrary(SECLLM_LIB_PATH)
 
-      cls.lib.CreateSecLLM()
+      cls.lib.Ext_CreateSecLLM()
     return cls._instance
   
   def __init__(self):
@@ -19,11 +19,11 @@ class SecLLM:
 
   @classmethod
   def PrintHelloFromCpp(cls):
-    cls.lib.PrintHelloFromCpp()
+    cls.lib.Ext_PrintHelloFromCpp()
 
   @classmethod
   def SecLLMTestPrint(cls):
-    cls.lib.SecLLMTestPrint()
+    cls.lib.Ext_SecLLMTestPrint()
 
   @classmethod
   def Softmax(cls, x):
@@ -35,7 +35,7 @@ class SecLLM:
     dtype = x.dtype
     x = x.to(torch.float32)
     B, M, N, K = x.shape
-    cls.lib.Softmax(cast(x.data_ptr(), POINTER(c_float)), B, M, N, K)
+    cls.lib.Ext_Softmax(cast(x.data_ptr(), POINTER(c_float)), B, M, N, K)
     x = x.to(dtype)
     return x
 
@@ -54,7 +54,7 @@ class SecLLM:
     gate_in = gate_in.to(torch.float32)
     up_in = up_in.to(torch.float32)
     B, M, N = gate_in.shape
-    cls.lib.SwiGLU(cast(gate_in.data_ptr(), POINTER(c_float)), cast(up_in.data_ptr(), POINTER(c_float)), B, M, N)
+    cls.lib.Ext_SwiGLU(cast(gate_in.data_ptr(), POINTER(c_float)), cast(up_in.data_ptr(), POINTER(c_float)), B, M, N)
     gate_in = gate_in.to(dtype)
     return gate_in
 
@@ -73,7 +73,7 @@ class SecLLM:
     x = x.to(torch.float32)
     weight = weight.to(torch.float32) # should happen only once if necessary
     B, M, N = x.shape
-    cls.lib.RMSNorm(cast(x.data_ptr(), POINTER(c_float)), cast(weight.data_ptr(), POINTER(c_float)), B, M, N, c_float(eps))
+    cls.lib.Ext_RMSNorm(cast(x.data_ptr(), POINTER(c_float)), cast(weight.data_ptr(), POINTER(c_float)), B, M, N, c_float(eps))
     x = x.to(dtype)
     return x
 
@@ -91,7 +91,7 @@ class SecLLM:
     x = x.to(torch.float32)
     y = y.to(torch.float32)
     B, M, N = x.shape
-    cls.lib.ElementwiseAdd(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
+    cls.lib.Ext_ElementwiseAdd(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
     x = x.to(dtype)
     return x
   
@@ -116,7 +116,7 @@ class SecLLM:
     sin = sin.to(torch.float32)
     B, Q_M, N, K = q.shape
     _, K_M, _, _ = k.shape
-    cls.lib.ApplyRotaryPosEmb(cast(q.data_ptr(), POINTER(c_float)), cast(k.data_ptr(), POINTER(c_float)), cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)), B, Q_M, K_M, N, K)
+    cls.lib.Ext_ApplyRotaryPosEmb(cast(q.data_ptr(), POINTER(c_float)), cast(k.data_ptr(), POINTER(c_float)), cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)), B, Q_M, K_M, N, K)
     q_embed = q.to(dtype)
     k_embed = k.to(dtype)
     return q_embed, k_embed
@@ -136,7 +136,7 @@ class SecLLM:
     cos = torch.zeros(1, position_ids.shape[1], inv_freq.shape[0] * 2, dtype=torch.float32)
     sin = torch.zeros(1, position_ids.shape[1], inv_freq.shape[0] * 2, dtype=torch.float32)
 
-    cls.lib.LlamaRotaryEmbedding(cast(inv_freq.data_ptr(), POINTER(c_float)), inv_freq.shape[0], cast(position_ids.data_ptr(), POINTER(c_float)), position_ids.shape[1], cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)))
+    cls.lib.Ext_LlamaRotaryEmbedding(cast(inv_freq.data_ptr(), POINTER(c_float)), inv_freq.shape[0], cast(position_ids.data_ptr(), POINTER(c_float)), position_ids.shape[1], cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)))
     cos = cos.to(input_dtype)
     sin = sin.to(input_dtype)
     return cos, sin
