@@ -1,10 +1,10 @@
 #ifndef SECLLM_BOOK_KEEPER_H
 
 #include <memory>
-#include <vector>
 #include <stdexcept>
-#include <utility>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace jpyo0803 {
 
