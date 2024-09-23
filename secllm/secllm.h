@@ -13,6 +13,12 @@ class SecLLM {
   public:
     explicit SecLLM(int num_layers);
 
+  public: 
+    // member methods
+    void BookKeeperStore(int loc, std::shared_ptr<Tensor<float>>& data);
+
+    std::shared_ptr<Tensor<float>> BookKeeperLoad(int loc);
+
     void TestPrint();
 
   public:

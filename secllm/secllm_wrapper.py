@@ -3,6 +3,18 @@ import torch
 
 SECLLM_LIB_PATH = './secllm/libsecllm.so'
 
+MAX_NUM_LAYERS = 32
+MAX_NUM_OPERATIONS = 91
+MAX_NUM_INPUTS = 3
+
+def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
+  # NOTE(jpyo0803): debugging purpose
+  assert layer_index < MAX_NUM_LAYERS
+  assert operation_index < MAX_NUM_OPERATIONS
+  assert input_index < MAX_NUM_INPUTS
+
+  return layer_index * 300 + input_index * 100 + operation_index
+
 class SecLLM:
   def __new__(cls, num_hidden_layers):
     if not hasattr(cls, 'instance'):
@@ -10,6 +22,8 @@ class SecLLM:
       cls.lib = cdll.LoadLibrary(SECLLM_LIB_PATH)
 
       cls.lib.Ext_CreateSecLLM(num_hidden_layers)
+
+      cls.shape_bookkeeper = [None for _ in range(MAX_NUM_LAYERS * 300)]
     return cls._instance
   
   def __init__(self, num_hidden_layers):
@@ -142,9 +156,46 @@ class SecLLM:
     return cos, sin
 
 
-if __name__ == '__main__':
-    secllm = SecLLM()
-  #  secllm.PrintHelloFromCpp()
 
-    obj = secllm.CreateSecLLM()
-    secllm.SecLLMTestPrint(obj)
+  def BookKeeperStore(cls, layer_index, operation_index, input_index, data):
+    assert data.is_contiguous()
+    assert data.dtype == torch.float32
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    
+    # Convert shape to list
+    shape_list = torch.tensor(data.shape, dtype=torch.int32)
+
+    cls.shape_bookkeeper[loc] = data.shape
+
+    cls.lib.Ext_BookKeeperStore(loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+
+  def BookKeeperLoad(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    
+    shape = cls.shape_bookkeeper[loc]
+    assert shape is not None
+    cls.shape_bookkeeper[loc] = None
+    shape_list = torch.tensor(shape, dtype=torch.int32)
+    out = torch.empty(shape, dtype=torch.float32)
+
+    cls.lib.Ext_BookKeeperLoad(loc, cast(out.data_ptr(), POINTER(c_float)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+
+    return out
+
+if __name__ == '__main__':
+    secllm = SecLLM(32)
+
+    t = torch.randn(2, 3, 4)
+    print("t: ", t)
+    t_shape = t.shape
+    print("t shape : ", t_shape)
+    print("t sum : ", t.sum())
+
+    secllm.BookKeeperStore(25, 75, 2, t)
+
+    t2 = secllm.BookKeeperLoad(25, 75, 2)
+
+    print("t2: ", t2)
+    print("t2 shape : ", t2.shape)
+    print("t2 sum : ", t2.sum())
+

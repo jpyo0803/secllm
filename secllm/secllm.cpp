@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include <numeric>
+#include <stdexcept>
 
 #include "aes_stream.h"
 
@@ -14,7 +15,7 @@ namespace {
 } // namespace
 
 
-jpyo0803:: SecLLM::SecLLM(int num_layers) : num_layers_(num_layers) {
+jpyo0803::SecLLM::SecLLM(int num_layers) : num_layers_(num_layers) {
   std::cout << "SecLLM is created with " << num_layers_ << " layers." << std::endl;
   book_keepers_ = std::make_unique<BookKeeper<Tensor<float>>>(num_layers_ * 100 * 3);
   /*
@@ -32,6 +33,14 @@ jpyo0803:: SecLLM::SecLLM(int num_layers) : num_layers_(num_layers) {
     In generalization, x-th input of y-th operation in z-th layer
     is located at (z * 300 + 100 * x + y)
   */
+}
+
+void jpyo0803::SecLLM::BookKeeperStore(int loc, std::shared_ptr<jpyo0803::Tensor<float>>& data_ptr) {
+  book_keepers_->Keep({loc}, data_ptr);
+} 
+
+std::shared_ptr<jpyo0803::Tensor<float>> jpyo0803::SecLLM::BookKeeperLoad(int loc) {
+  return book_keepers_->Retrieve(loc);
 }
 
 void jpyo0803::SecLLM::Softmax(float* x, int B, int M, int N, int K) {
@@ -260,6 +269,35 @@ uint32_t Ext_GenerateMultKey() {
 
 uint32_t Ext_GenerateAddKey() {
   return secllm_ptr->GenerateAddKey();
+}
+
+void Ext_BookKeeperStore(int loc, float* data, int shape_len, int* shape) {
+  std::vector<int> shape_vec(shape, shape + shape_len);
+
+  int num_elements = std::accumulate(shape_vec.begin(), shape_vec.end(), 1, std::multiplies<int>());
+
+  std::vector<float> input_vec(data, data + num_elements);
+
+  jpyo0803::Tensor<float> tensor(shape_vec, input_vec); // this involves copy, so it may include some overhead
+
+  std::shared_ptr<jpyo0803::Tensor<float>> data_ptr = std::make_shared<jpyo0803::Tensor<float>>(tensor);
+
+  secllm_ptr->BookKeeperStore(loc, data_ptr);
+}
+
+void Ext_BookKeeperLoad(int loc, float* out, int shape_len, int* shape) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data = secllm_ptr->BookKeeperLoad(loc);
+  
+  if (retrieved_data == nullptr) {
+    throw std::runtime_error("No object at the location: " + std::to_string(loc));
+  }
+  for (int i = 0; i < shape_len; ++i) {
+    if (retrieved_data->shape()[i] != shape[i]) {
+      throw std::runtime_error("Shape mismatch at the location: " + std::to_string(loc));
+    }
+  }
+
+  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
 }
 
 } // extern "C"
