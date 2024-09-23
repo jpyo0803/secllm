@@ -265,7 +265,12 @@ class SqLlamaDecoderLayer(nn.Module):
                 Arbitrary kwargs to be ignored, used for FSDP and other methods that injects code
                 into the model
         """
-        residual = hidden_states
+
+        self.secllm_lib.BookKeeperStore(self.layer_idx, 4, 2, hidden_states.to(torch.float32))
+
+        hidden_states_ret = self.secllm_lib.BookKeeperLoad(self.layer_idx, 4, 2).to(torch.float16)
+
+        residual = hidden_states_ret
 
         # hidden_states = self.input_layernorm(hidden_states)
         hidden_states = self.secllm_lib.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
