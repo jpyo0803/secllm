@@ -3,7 +3,23 @@
 
 #include <stdint.h>
 
+namespace jpyo0803 {
+
+class SecLLM {
+  public:
+    void TestPrint();
+
+  // private:
+    int test_cnt_ = 0;
+};
+
+} // namespace jpyo0803
+
 extern "C" {
+
+void CreateSecLLM();
+
+void SecLLMTestPrint();
 
 void PrintHelloFromCpp();
 

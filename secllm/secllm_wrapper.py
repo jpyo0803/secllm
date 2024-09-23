@@ -8,6 +8,8 @@ class SecLLM:
     if not hasattr(cls, 'instance'):
       cls._instance = super().__new__(cls)
       cls.lib = cdll.LoadLibrary(SECLLM_LIB_PATH)
+
+      cls.lib.CreateSecLLM()
     return cls._instance
   
   def __init__(self):
@@ -18,6 +20,10 @@ class SecLLM:
   @classmethod
   def PrintHelloFromCpp(cls):
     cls.lib.PrintHelloFromCpp()
+
+  @classmethod
+  def SecLLMTestPrint(cls):
+    cls.lib.SecLLMTestPrint()
 
   @classmethod
   def Softmax(cls, x):
@@ -138,4 +144,7 @@ class SecLLM:
 
 if __name__ == '__main__':
     secllm = SecLLM()
-    secllm.PrintHelloFromCpp()
+  #  secllm.PrintHelloFromCpp()
+
+    obj = secllm.CreateSecLLM()
+    secllm.SecLLMTestPrint(obj)

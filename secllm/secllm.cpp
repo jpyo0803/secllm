@@ -7,7 +7,31 @@
 
 #include "aes_stream.h"
 
+#include "secllm.h"
+
+namespace jpyo0803 {
+
+void SecLLM::TestPrint() {
+  std::cout << "Hello from SecLLM C++!, cnt = " << test_cnt_++  << std::endl;
+}
+
+} // namespace jpyo0803
+
+namespace {
+  jpyo0803::SecLLM* secllm_ptr = nullptr;
+}
+
 extern "C" {
+
+void CreateSecLLM() {
+  if (secllm_ptr == nullptr) {
+    secllm_ptr = new jpyo0803::SecLLM();
+  }
+}
+
+void SecLLMTestPrint() {
+  secllm_ptr->TestPrint();
+}
 
 void PrintHelloFromCpp() {
   std::cout << "Hello from C++!" << std::endl;
@@ -190,6 +214,11 @@ uint32_t GenerateMultKey() {
 
 uint32_t GenerateAddKey() {
   return GenerateCPRNG();
+}
+
+
+
+void Task0 () {
 }
 
 } // extern "C"

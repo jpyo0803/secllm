@@ -164,7 +164,7 @@ class SqLlamaDecoderLayer(nn.Module):
         self.hidden_size = config.hidden_size
 
         # self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
-
+        secllm_lib.SecLLMTestPrint()
         # Common Delegate Open
         self.config = config
         self.layer_idx = layer_idx
@@ -291,16 +291,16 @@ class SqLlamaDecoderLayer(nn.Module):
         int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states)
 
         query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
-        key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
-        value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
-
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
+        value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # cos, sin = self.rotary_emb(value_states, position_ids)
         cos, sin = secllm_lib.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
-
         # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
         query_states, key_states = secllm_lib.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
 
@@ -349,7 +349,6 @@ class SqLlamaDecoderLayer(nn.Module):
         attn_weights_cupy = cupy.from_dlpack(int8_attn_weights.to(torch.int32))
 
         int8_value_states = (value_states / self.v_output_scale).round().clamp(-128, 127).to(torch.int8)
-
         int8_value_states = int8_value_states.to('cuda:0')
 
         value_states_cupy = cupy.from_dlpack(int8_value_states.to(torch.int32))
