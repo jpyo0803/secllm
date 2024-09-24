@@ -5,6 +5,11 @@ from torch_int.functional.quantization import (
     dynamic_quantize_activation_per_token_absmax,
 )
 
+from transformers.models.llama.modeling_llama import (
+    repeat_kv,
+    apply_rotary_pos_emb,
+)
+
 def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   # NOTE(jpyo0803): debugging purpose
   return layer_index * 300 + input_index * 100 + operation_index
@@ -366,7 +371,7 @@ class Task19(Task):
         # Decryption but for now it just bypasses
 
         src = GetBookKeeperLinearIndex(self.layer_idx, 19, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 24, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 0)]
 
         self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
 
@@ -383,7 +388,7 @@ class Task20(Task):
         # Decryption but for now it just bypasses
 
         src = GetBookKeeperLinearIndex(self.layer_idx, 20, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 25, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 1)]
 
         self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
 
@@ -400,7 +405,7 @@ class Task21(Task):
         # Decryption but for now it just bypasses
 
         src = GetBookKeeperLinearIndex(self.layer_idx, 21, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 47, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 2)]
 
         self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
 
@@ -414,7 +419,43 @@ class Task22(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        query_states = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 22, 0)
+        key_states = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 22, 1)
+        value_states = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 22, 2)
+
+        bsz = self.model.layers[self.layer_idx].bsz
+        q_len = self.model.layers[self.layer_idx].q_len
+        num_heads = self.model.layers[self.layer_idx].num_heads
+        num_key_value_heads = self.model.layers[self.layer_idx].num_key_value_heads
+        head_dim = self.model.layers[self.layer_idx].head_dim
+        inv_freq = self.model.layers[self.layer_idx].rotary_emb.inv_freq
+        position_ids = self.model.layers[self.layer_idx].position_ids
+        cache_position = self.model.layers[self.layer_idx].cache_position
+        past_key_value = self.model.layers[self.layer_idx].past_key_value
+
+        query_states = query_states.view(bsz, q_len, num_heads, head_dim).transpose(1, 2).contiguous()
+        key_states = key_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
+        value_states = value_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
+
+        cos, sin = self.secllm_cpp_wrapper.LlamaRotaryEmbedding(inv_freq, position_ids, torch.float32)
+        query_states, key_states = self.secllm_cpp_wrapper.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
+        # cos, sin = self.model.layers[self.layer_idx].rotary_emb(value_states, position_ids)
+        # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+        if past_key_value is not None:
+            # sin and cos are specific to RoPE models; cache_position needed for the static cache
+            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+
+        # query_states = query_states.contiguous()
+        # key_states = key_states.contiguous()
+        # value_states = value_states.contiguous()
+
+        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 28, 0, query_states.to(torch.float32))
+        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 29, 0, key_states.to(torch.float32))
+        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 47, 0, value_states.to(torch.float32))
+
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -424,7 +465,8 @@ class Task23(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        pass
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -434,7 +476,8 @@ class Task24(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        pass
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -444,7 +487,8 @@ class Task25(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        pass
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -454,7 +498,8 @@ class Task26(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        pass
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()

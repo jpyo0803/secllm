@@ -266,6 +266,14 @@ class SqLlamaDecoderLayer(nn.Module):
                 into the model
         """
 
+        self.bsz, self.q_len, _ = hidden_states.size()
+        self.attention_mask = attention_mask
+        self.position_ids = position_ids
+        self.past_key_value = past_key_value
+        self.output_attentions = output_attentions
+        self.use_cache = use_cache
+        self.cache_position = cache_position
+
         secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
 
         secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 1, 0, hidden_states.to(torch.float32)) # operation 1, input 0
@@ -298,25 +306,25 @@ class SqLlamaDecoderLayer(nn.Module):
         # key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
         # value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
 
-        self.secllm._task_scheduler(self.layer_idx)
-        
-        query_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 24, 0)
-        key_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 25, 0)
-        value_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 47, 0)
 
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        # query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        # key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        # value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         
         # cos, sin = self.rotary_emb(value_states, position_ids)
-        cos, sin = self.secllm._secllm_cpp_wrapper.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
+        # cos, sin = self.secllm._secllm_cpp_wrapper.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
         # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-        query_states, key_states = self.secllm._secllm_cpp_wrapper.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
+        # query_states, key_states = self.secllm._secllm_cpp_wrapper.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
 
-        if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+        # if past_key_value is not None:
+        #     # sin and cos are specific to RoPE models; cache_position needed for the static cache
+        #     cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+        #     key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+        self.secllm._task_scheduler(self.layer_idx)
+        
+        query_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 28, 0)
+        key_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 29, 0)
+        value_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 47, 0)
 
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
