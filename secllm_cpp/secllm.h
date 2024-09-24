@@ -23,7 +23,9 @@ class SecLLM {
 
  public:
   // static methods
-  static void Softmax(float* x, int B, int M, int N, int K);
+  static void Softmax_InPlace(float* x, int B, int M, int N, int K);
+
+  static void Softmax(float* out, float* in, int B, int M, int N, int K);
 
   static void SiLU(float* x, int B, int M, int N);
 
@@ -65,7 +67,9 @@ void Ext_PrintTest(int a, int b);
 
 void Ext_CreateSecLLM(int num_layers);
 
-void Ext_Softmax(float* x, int B, int M, int N, int K);
+void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K);
+
+void Ext_Softmax(int from, int to);
 
 void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N);
 

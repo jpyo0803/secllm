@@ -347,50 +347,49 @@ class SqLlamaDecoderLayer(nn.Module):
         #     causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
         #     attn_weights = attn_weights + causal_mask
 
-        self.secllm._task_scheduler(self.layer_idx)
+
+        # value_states = repeat_kv(value_states, self.num_key_value_groups)
+        # # upcast attention to fp32
+        # # attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        # attn_weights = self.secllm._secllm_cpp_wrapper.Softmax(attn_weights)
+        # attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
+        # # attn_output = torch.matmul(attn_weights, value_states)
+
+        # attn_weights.mul_(127).round_()
+        # int8_attn_weights = attn_weights.to(torch.int8)
+
+        # int8_attn_weights = int8_attn_weights.to('cuda:0')
+
+        # attn_weights_cupy = cupy.from_dlpack(int8_attn_weights.to(torch.int32))
+
+        # int8_value_states = (value_states / self.v_output_scale).round().clamp(-128, 127).to(torch.int8)
+        # int8_value_states = int8_value_states.to('cuda:0')
+
+        # value_states_cupy = cupy.from_dlpack(int8_value_states.to(torch.int32))
+
+        # attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
+
+        # attn_output = torch.from_dlpack(attn_output_cupy)
+
+        # attn_output = attn_output.to('cpu')
+        # attn_output = attn_output.to(torch.float32)
+
+        # attn_output *= self.v_output_scale / 127
+
+        # attn_output = attn_output.to(torch.float16)
+
+        # if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
+        #     raise ValueError(
+        #         f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"
+        #         f" {attn_output.size()}"
+        #     )
+
+        # attn_output = attn_output.transpose(1, 2).contiguous()
+
+        # attn_output = attn_output.reshape(bsz, q_len, -1)
         
-        attn_weights = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 43, 0)
-        value_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 47, 0)
-
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
-        # upcast attention to fp32
-        # attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        attn_weights = self.secllm._secllm_cpp_wrapper.Softmax(attn_weights)
-        attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
-        # attn_output = torch.matmul(attn_weights, value_states)
-
-        attn_weights.mul_(127).round_()
-        int8_attn_weights = attn_weights.to(torch.int8)
-
-        int8_attn_weights = int8_attn_weights.to('cuda:0')
-
-        attn_weights_cupy = cupy.from_dlpack(int8_attn_weights.to(torch.int32))
-
-        int8_value_states = (value_states / self.v_output_scale).round().clamp(-128, 127).to(torch.int8)
-        int8_value_states = int8_value_states.to('cuda:0')
-
-        value_states_cupy = cupy.from_dlpack(int8_value_states.to(torch.int32))
-
-        attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
-
-        attn_output = torch.from_dlpack(attn_output_cupy)
-
-        attn_output = attn_output.to('cpu')
-        attn_output = attn_output.to(torch.float32)
-
-        attn_output *= self.v_output_scale / 127
-
-        attn_output = attn_output.to(torch.float16)
-
-        if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
-            raise ValueError(
-                f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"
-                f" {attn_output.size()}"
-            )
-
-        attn_output = attn_output.transpose(1, 2).contiguous()
-
-        attn_output = attn_output.reshape(bsz, q_len, -1)
+        self.secllm._task_scheduler(self.layer_idx)
+        attn_output = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 62, 0)
 
         int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output)
         attn_output = self.o_proj(int8_attn_output, attn_output_scales)

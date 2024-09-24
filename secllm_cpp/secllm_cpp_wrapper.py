@@ -37,7 +37,7 @@ class SecLLMCppWrapper:
 
 
   @classmethod
-  def Softmax(cls, x):
+  def Softmax_InPlace(cls, x):
     '''
         NOTE(jpyo0803): in-place Softmax
     '''
@@ -46,9 +46,20 @@ class SecLLMCppWrapper:
     dtype = x.dtype
     x = x.to(torch.float32)
     B, M, N, K = x.shape
-    cls.lib.Ext_Softmax(cast(x.data_ptr(), POINTER(c_float)), B, M, N, K)
+    cls.lib.Ext_Softmax_InPlace(cast(x.data_ptr(), POINTER(c_float)), B, M, N, K)
     x = x.to(dtype)
     return x
+  
+  def Softmax(cls, src : int, dst: int):
+    '''
+        NOTE(jpyo0803): Softmax
+    '''
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[dst] = src_shape
+    cls.shape_bookkeeper[src] = None
+
+    cls.lib.Ext_Softmax(src, dst)
 
   def SwiGLU(cls, gate_in, up_in):
     '''

@@ -46,7 +46,7 @@ std::shared_ptr<jpyo0803::Tensor<float>> jpyo0803::SecLLM::BookKeeperLoad(
   return book_keepers_->Retrieve(loc);
 }
 
-void jpyo0803::SecLLM::Softmax(float* x, int B, int M, int N, int K) {
+void jpyo0803::SecLLM::Softmax_InPlace(float* x, int B, int M, int N, int K) {
   // x: [B, M, N, K]
 
   for (int b = 0; b < B; ++b) {
@@ -66,6 +66,32 @@ void jpyo0803::SecLLM::Softmax(float* x, int B, int M, int N, int K) {
 
         for (int k = 0; k < K; ++k) {
           x[b * M * N * K + m * N * K + n * K + k] /= sum;
+        }
+      }
+    }
+  }
+}
+
+void jpyo0803::SecLLM::Softmax(float* out, float* in, int B, int M, int N, int K) {
+  // x: [B, M, N, K]
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        float max_val = in[b * M * N * K + m * N * K + n * K];
+        for (int k = 1; k < K; ++k) {
+          max_val = std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
+        }
+
+        float sum = 0.0f;
+        for (int k = 0; k < K; ++k) {
+          out[b * M * N * K + m * N * K + n * K + k] =
+              std::exp(in[b * M * N * K + m * N * K + n * K + k] - max_val);
+          sum += out[b * M * N * K + m * N * K + n * K + k];
+        }
+
+        for (int k = 0; k < K; ++k) {
+          out[b * M * N * K + m * N * K + n * K + k] /= sum;
         }
       }
     }
@@ -283,8 +309,24 @@ void Ext_CreateSecLLM(int num_layers) {
   }
 }
 
-void Ext_Softmax(float* x, int B, int M, int N, int K) {
-  secllm_ptr->Softmax(x, B, M, N, K);
+void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
+  secllm_ptr->Softmax_InPlace(x, B, M, N, K);
+}
+
+void Ext_Softmax(int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data = secllm_ptr->BookKeeperLoad(from);
+  auto shape = retrieved_data->shape();
+
+  int B = shape[0];
+  int M = shape[1];
+  int N = shape[2];
+  int K = shape[3];
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(shape);
+  
+  secllm_ptr->Softmax(out->data().data(), retrieved_data->data().data(), B, M, N, K);
+  secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
