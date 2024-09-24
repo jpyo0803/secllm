@@ -3,11 +3,11 @@ from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper
 from secllm.task_scheduler import TaskScheduler
 
 class SecLLM:
-  def __new__(cls, config, model_info):
+  def __new__(cls, model_info):
     if not hasattr(cls, 'instance'):
       cls._instance = super(SecLLM, cls).__new__(cls)
 
-      cls._config = config
+      cls._config = model_info.config
 
       cls._secllm_cpp_wrapper = SecLLMCppWrapper(cls._config.num_hidden_layers)
 
@@ -24,7 +24,7 @@ class SecLLM:
 
     return cls._instance
   
-  def __init__(self, config, model_info):
+  def __init__(self, model_info):
     cls = type(self)
     if not hasattr(cls, '__init'):
       cls.__init = True

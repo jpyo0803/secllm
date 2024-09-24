@@ -15,28 +15,28 @@ import secllm.task
 class TaskScheduler:
     def __init__(self, graph, secllm_cpp_wrapper, model_info):
         task_order = TopologicalSort(graph)
-        self.tasks = []
+        self.tasks_per_layer = []
 
-        for task_id in task_order:
-            next_task_ids = graph[task_id]
-            class_name = f'Task{task_id}'
+        for layer_idx in range(model_info.config.num_hidden_layers):
+            tasks = []
+            for task_id in task_order:
+                next_task_ids = graph[task_id]
+                class_name = f'Task{task_id}'
 
-            task_class = getattr(secllm.task, class_name, None)
-            if task_class:
-                new_task = task_class(f'task {task_id}', task_id, next_task_ids, secllm_cpp_wrapper, model_info)
-                self.add_task(new_task)
-            else:
-                assert False, f'Class {class_name} not found'
+                task_class = getattr(secllm.task, class_name, None)
+                if task_class:
+                    new_task = task_class(f'task {task_id}', layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
+                    tasks.append(new_task)
+                else:
+                    assert False, f'Class {class_name} not found'
+            self.tasks_per_layer.append(tasks)
 
-    def add_task(self, task):
-        self.tasks.append(task)
-
-    def run(self):
-        for task in self.tasks:
+    def run(self, layer_idx):
+        for task in self.tasks_per_layer[layer_idx]:
             task()
 
-    def __call__(self):
-        self.run()
+    def __call__(self, layer_idx):
+        self.run(layer_idx)
 
 if __name__ == '__main__':
     # graph = {

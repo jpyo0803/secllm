@@ -268,6 +268,8 @@ class SqLlamaDecoderLayer(nn.Module):
 
         residual = hidden_states
 
+        self.secllm._task_scheduler(self.layer_idx)
+
         # hidden_states = self.input_layernorm(hidden_states)
         hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
 
@@ -381,6 +383,8 @@ class SqLlamaDecoderLayer(nn.Module):
         hidden_states = attn_output
         self_attn_weights = attn_weights
         present_key_value = past_key_value
+
+        
 
         # Self Attention Delegate Close
 
@@ -566,9 +570,11 @@ class LlamaModel(LlamaPreTrainedModel):
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
 
+        self.config = config
+
         # from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper
         from secllm.secllm import SecLLM
-        self.secllm = SecLLM(config, self)
+        self.secllm = SecLLM(self)
 
         self.layers = nn.ModuleList(
             [SqLlamaDecoderLayer(config, layer_idx, self.secllm) for layer_idx in range(config.num_hidden_layers)]

@@ -58,7 +58,7 @@ class SecLLM {
 
 extern "C" {
 
-void Ext_PrintTest(int num);
+void Ext_PrintTest(int a, int b);
 
 void Ext_CreateSecLLM(int num_layers);
 

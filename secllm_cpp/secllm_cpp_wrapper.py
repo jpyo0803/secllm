@@ -32,8 +32,8 @@ class SecLLMCppWrapper:
       cls.__init = True
 
   @classmethod
-  def PrintTest(cls, num):
-    cls.lib.Ext_PrintTest(num)
+  def PrintTest(cls, a, b):
+    cls.lib.Ext_PrintTest(a, b)
 
 
   @classmethod
