@@ -13,7 +13,7 @@ from secllm.topological_sort import TopologicalSort
 import secllm.task
 
 class TaskScheduler:
-    def __init__(self, graph, secllm_cpp_wrapper):
+    def __init__(self, graph, secllm_cpp_wrapper, model_info):
         task_order = TopologicalSort(graph)
         self.tasks = []
 
@@ -23,7 +23,7 @@ class TaskScheduler:
 
             task_class = getattr(secllm.task, class_name, None)
             if task_class:
-                new_task = task_class(f'task {task_id}', task_id, next_task_ids, secllm_cpp_wrapper)
+                new_task = task_class(f'task {task_id}', task_id, next_task_ids, secllm_cpp_wrapper, model_info)
                 self.add_task(new_task)
             else:
                 assert False, f'Class {class_name} not found'

@@ -2,11 +2,12 @@ from typing import Any
 
 
 class Task:
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
         self.name = name
         self.task_id = task_id
         self.next_task_ids = next_task_ids
         self.secllm_cpp_wrapper = secllm_cpp_wrapper
+        self.model_info = model_info
 
     def run(self):
         print(f"Task: {self.name, self.task_id, self.next_task_ids}")
@@ -15,18 +16,21 @@ class Task:
         self.run()
 
 class Task0(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
+        print("qqq:", self.model_info.layers[0].q_proj.weight)
+        assert False
+
 
     def __call__(self):
         self.run()
 
 class Task1(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -35,8 +39,8 @@ class Task1(Task):
         self.run()
 
 class Task2(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -45,8 +49,8 @@ class Task2(Task):
         self.run()
 
 class Task3(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -55,8 +59,8 @@ class Task3(Task):
         self.run()
 
 class Task4(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -65,8 +69,8 @@ class Task4(Task):
         self.run()
 
 class Task5(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -75,8 +79,8 @@ class Task5(Task):
         self.run()
 
 class Task6(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -85,8 +89,8 @@ class Task6(Task):
         self.run()
 
 class Task7(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -95,8 +99,8 @@ class Task7(Task):
         self.run()
 
 class Task8(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -105,8 +109,8 @@ class Task8(Task):
         self.run()
 
 class Task9(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -115,8 +119,8 @@ class Task9(Task):
         self.run()
 
 class Task10(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -125,8 +129,8 @@ class Task10(Task):
         self.run()
 
 class Task11(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -135,8 +139,8 @@ class Task11(Task):
         self.run()
 
 class Task12(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -145,8 +149,8 @@ class Task12(Task):
         self.run()
 
 class Task13(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -155,8 +159,8 @@ class Task13(Task):
         self.run()
 
 class Task14(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -165,8 +169,8 @@ class Task14(Task):
         self.run()
 
 class Task15(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -175,8 +179,8 @@ class Task15(Task):
         self.run()
 
 class Task16(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -185,8 +189,8 @@ class Task16(Task):
         self.run()
 
 class Task17(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -195,8 +199,8 @@ class Task17(Task):
         self.run()
 
 class Task18(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -205,8 +209,8 @@ class Task18(Task):
         self.run()
 
 class Task19(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -215,8 +219,8 @@ class Task19(Task):
         self.run()
 
 class Task20(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -225,8 +229,8 @@ class Task20(Task):
         self.run()
 
 class Task21(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -235,8 +239,8 @@ class Task21(Task):
         self.run()
 
 class Task22(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -245,8 +249,8 @@ class Task22(Task):
         self.run()
 
 class Task23(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -255,8 +259,8 @@ class Task23(Task):
         self.run()
 
 class Task24(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -265,8 +269,8 @@ class Task24(Task):
         self.run()
 
 class Task25(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -275,8 +279,8 @@ class Task25(Task):
         self.run()
 
 class Task26(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -285,8 +289,8 @@ class Task26(Task):
         self.run()
 
 class Task27(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -295,8 +299,8 @@ class Task27(Task):
         self.run()
 
 class Task28(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -305,8 +309,8 @@ class Task28(Task):
         self.run()
 
 class Task29(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -315,8 +319,8 @@ class Task29(Task):
         self.run()
 
 class Task30(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -325,8 +329,8 @@ class Task30(Task):
         self.run()
 
 class Task31(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -335,8 +339,8 @@ class Task31(Task):
         self.run()
 
 class Task32(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -345,8 +349,8 @@ class Task32(Task):
         self.run()
 
 class Task33(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -355,8 +359,8 @@ class Task33(Task):
         self.run()
 
 class Task34(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -365,8 +369,8 @@ class Task34(Task):
         self.run()
 
 class Task35(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -375,8 +379,8 @@ class Task35(Task):
         self.run()
 
 class Task36(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -385,8 +389,8 @@ class Task36(Task):
         self.run()
 
 class Task37(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -395,8 +399,8 @@ class Task37(Task):
         self.run()
 
 class Task38(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -405,8 +409,8 @@ class Task38(Task):
         self.run()
 
 class Task39(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -415,8 +419,8 @@ class Task39(Task):
         self.run()
 
 class Task40(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -425,8 +429,8 @@ class Task40(Task):
         self.run()
 
 class Task41(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -435,8 +439,8 @@ class Task41(Task):
         self.run()
 
 class Task42(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -445,8 +449,8 @@ class Task42(Task):
         self.run()
 
 class Task43(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -455,8 +459,8 @@ class Task43(Task):
         self.run()
 
 class Task44(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -465,8 +469,8 @@ class Task44(Task):
         self.run()
 
 class Task45(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -475,8 +479,8 @@ class Task45(Task):
         self.run()
 
 class Task46(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -485,8 +489,8 @@ class Task46(Task):
         self.run()
 
 class Task47(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -495,8 +499,8 @@ class Task47(Task):
         self.run()
 
 class Task48(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -505,8 +509,8 @@ class Task48(Task):
         self.run()
 
 class Task49(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -515,8 +519,8 @@ class Task49(Task):
         self.run()
 
 class Task50(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -525,8 +529,8 @@ class Task50(Task):
         self.run()
 
 class Task51(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -535,8 +539,8 @@ class Task51(Task):
         self.run()
 
 class Task52(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -545,8 +549,8 @@ class Task52(Task):
         self.run()
 
 class Task53(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -555,8 +559,8 @@ class Task53(Task):
         self.run()
 
 class Task54(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -565,8 +569,8 @@ class Task54(Task):
         self.run()
 
 class Task55(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -575,8 +579,8 @@ class Task55(Task):
         self.run()
 
 class Task56(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -585,8 +589,8 @@ class Task56(Task):
         self.run()
 
 class Task57(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -595,8 +599,8 @@ class Task57(Task):
         self.run()
 
 class Task58(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -605,8 +609,8 @@ class Task58(Task):
         self.run()
 
 class Task59(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -615,8 +619,8 @@ class Task59(Task):
         self.run()
 
 class Task60(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -625,8 +629,8 @@ class Task60(Task):
         self.run()
 
 class Task61(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -635,8 +639,8 @@ class Task61(Task):
         self.run()
 
 class Task62(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -645,8 +649,8 @@ class Task62(Task):
         self.run()
 
 class Task63(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -655,8 +659,8 @@ class Task63(Task):
         self.run()
 
 class Task64(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -665,8 +669,8 @@ class Task64(Task):
         self.run()
 
 class Task65(Task): 
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -675,8 +679,8 @@ class Task65(Task):
         self.run()
 
 class Task66(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -685,8 +689,8 @@ class Task66(Task):
         self.run()
 
 class Task67(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -695,8 +699,8 @@ class Task67(Task):
         self.run()
 
 class Task68(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -705,8 +709,8 @@ class Task68(Task):
         self.run()
 
 class Task69(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -715,8 +719,8 @@ class Task69(Task):
         self.run()
 
 class Task70(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -725,8 +729,8 @@ class Task70(Task):
         self.run()
 
 class Task71(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -735,8 +739,8 @@ class Task71(Task):
         self.run()
 
 class Task72(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -745,8 +749,8 @@ class Task72(Task):
         self.run()
 
 class Task73(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -755,8 +759,8 @@ class Task73(Task):
         self.run()
 
 class Task74(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -765,8 +769,8 @@ class Task74(Task):
         self.run()
 
 class Task75(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         
@@ -776,8 +780,8 @@ class Task75(Task):
         self.run()
 
 class Task76(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -786,8 +790,8 @@ class Task76(Task):
         self.run()
 
 class Task77(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -796,8 +800,8 @@ class Task77(Task):
         self.run()
 
 class Task78(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -806,8 +810,8 @@ class Task78(Task):
         self.run()
 
 class Task79(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -816,8 +820,8 @@ class Task79(Task):
         self.run()
 
 class Task80(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -826,8 +830,8 @@ class Task80(Task):
         self.run()
 
 class Task81(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -836,8 +840,8 @@ class Task81(Task):
         self.run()
 
 class Task82(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -846,8 +850,8 @@ class Task82(Task):
         self.run()
 
 class Task83(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -856,8 +860,8 @@ class Task83(Task):
         self.run()
 
 class Task84(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -866,8 +870,8 @@ class Task84(Task):
         self.run()
 
 class Task85(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -876,8 +880,8 @@ class Task85(Task):
         self.run()
 
 class Task86(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -886,8 +890,8 @@ class Task86(Task):
         self.run()
 
 class Task87(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -896,8 +900,8 @@ class Task87(Task):
         self.run()
 
 class Task88(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -906,8 +910,8 @@ class Task88(Task):
         self.run()
 
 class Task89(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -916,8 +920,8 @@ class Task89(Task):
         self.run()
 
 class Task90(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.task_id)
@@ -926,8 +930,8 @@ class Task90(Task):
         self.run()
 
 class TaskSubclassA(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         print(f"TaskSubclassA: {self.name, self.task_id, self.next_task_ids}")
@@ -936,8 +940,8 @@ class TaskSubclassA(Task):
         self.run()
 
 class TaskSubclassB(Task):
-    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper):
-        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper)
+    def __init__(self, name: str, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
+        super().__init__(name, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
         print(f"TaskSubclassB: {self.name, self.task_id, self.next_task_ids}")
