@@ -18,6 +18,8 @@ class SecLLM:
           key, value = line.strip().split(':')
           cls._graph[int(key)] = eval(value)
 
+      model_info.tensor_buffer = [None for _ in range(32 * 300)]
+
       cls._model_info = model_info
       
       cls._task_scheduler = TaskScheduler(cls._graph, cls._secllm_cpp_wrapper, cls._model_info)

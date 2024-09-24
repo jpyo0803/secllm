@@ -276,8 +276,6 @@ class SqLlamaDecoderLayer(nn.Module):
         # hidden_states = self.input_layernorm(hidden_states)
         # hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
 
-        self.secllm._task_scheduler(self.layer_idx)
-        hidden_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 3, 0)
 
         # Self Attention
         # hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -294,17 +292,22 @@ class SqLlamaDecoderLayer(nn.Module):
         # Self Attention Delegate Open
         bsz, q_len, _ = hidden_states.size()
  
-        int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states)
+        # int8_hidden_states, hidden_states_scales = dynamic_quantize_activation_per_token_absmax(hidden_states)
 
-        query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
+        # query_states = self.q_proj(int8_hidden_states, hidden_states_scales)
+        # key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
+        # value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
+
+        self.secllm._task_scheduler(self.layer_idx)
+        
+        query_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 24, 0)
+        key_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 25, 0)
+        value_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 47, 0)
+
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-
-        key_states = self.k_proj(int8_hidden_states, hidden_states_scales)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-
-        value_states = self.v_proj(int8_hidden_states, hidden_states_scales)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-
+        
         # cos, sin = self.rotary_emb(value_states, position_ids)
         cos, sin = self.secllm._secllm_cpp_wrapper.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
         # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
