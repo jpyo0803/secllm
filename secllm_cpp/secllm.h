@@ -15,7 +15,7 @@ class SecLLM {
 
  public:
   // member methods
-  void BookKeeperStore(int loc, std::shared_ptr<Tensor<float>>& data);
+  void BookKeeperStore(std::vector<int> locs, std::shared_ptr<Tensor<float>>& data);
 
   std::shared_ptr<Tensor<float>> BookKeeperLoad(int loc);
 
@@ -29,8 +29,11 @@ class SecLLM {
 
   static void SwiGLU(float* gate_in, float* up_in, int B, int M, int N);
 
-  static void RMSNorm(float* x, const float* const weight, int B, int M, int N,
+  static void RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
                       float eps);
+
+  static void RMSNorm(float* out, float* in, const float* const weight, int B,
+                               int M, int N, float eps);
 
   static void ElementwiseAdd(float* x, float* y, int B, int M, int N);
 
@@ -66,8 +69,10 @@ void Ext_Softmax(float* x, int B, int M, int N, int K);
 
 void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N);
 
-void Ext_RMSNorm(float* x, const float* const weight, int B, int M, int N,
+void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
                  float eps);
+
+void Ext_RMSNorm(int from, int to, const float* const weight, float eps);
 
 void Ext_ElementwiseAdd(float* x, float* y, int B, int M, int N);
 
@@ -84,6 +89,8 @@ uint32_t Ext_GenerateCPRNG();
 uint32_t Ext_GenerateMultKey();
 
 uint32_t Ext_GenerateAddKey();
+
+void Ext_ReplicateTensor(int from, int* to, int to_len);
 
 }  // extern "C"
 

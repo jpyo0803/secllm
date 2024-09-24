@@ -1,5 +1,8 @@
 from typing import Any
 
+def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
+  # NOTE(jpyo0803): debugging purpose
+  return layer_index * 300 + input_index * 100 + operation_index
 
 class Task:
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model_info):
@@ -32,7 +35,10 @@ class Task1(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        src = GetBookKeeperLinearIndex(self.layer_idx, 1, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 2, 0), GetBookKeeperLinearIndex(self.layer_idx, 67, 0)]
+        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
 
     def __call__(self):
         self.run()
@@ -42,7 +48,13 @@ class Task2(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model_info)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        src = GetBookKeeperLinearIndex(self.layer_idx, 2, 0)
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 3, 0)
+
+        input_layernorm = self.model_info.layers[self.layer_idx].input_layernorm
+
+        self.secllm_cpp_wrapper.RMSNorm(src, dst, input_layernorm.weight, input_layernorm.variance_epsilon)
 
     def __call__(self):
         self.run()

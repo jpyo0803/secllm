@@ -37,8 +37,8 @@ jpyo0803::SecLLM::SecLLM(int num_layers) : num_layers_(num_layers) {
 }
 
 void jpyo0803::SecLLM::BookKeeperStore(
-    int loc, std::shared_ptr<jpyo0803::Tensor<float>>& data_ptr) {
-  book_keepers_->Keep({loc}, data_ptr);
+    std::vector<int> locs, std::shared_ptr<jpyo0803::Tensor<float>>& data_ptr) {
+  book_keepers_->Keep(locs, data_ptr);
 }
 
 std::shared_ptr<jpyo0803::Tensor<float>> jpyo0803::SecLLM::BookKeeperLoad(
@@ -104,7 +104,7 @@ void jpyo0803::SecLLM::SwiGLU(float* gate_in, float* up_in, int B, int M,
   }
 }
 
-void jpyo0803::SecLLM::RMSNorm(float* x, const float* const weight, int B,
+void jpyo0803::SecLLM::RMSNorm_InPlace(float* x, const float* const weight, int B,
                                int M, int N, float eps) {
   // weight, x: [B, M, N]
 
@@ -120,6 +120,27 @@ void jpyo0803::SecLLM::RMSNorm(float* x, const float* const weight, int B,
       for (int n = 0; n < N; ++n) {
         x[b * M * N + m * N + n] /= std::sqrt(variance + eps);
         x[b * M * N + m * N + n] *= weight[n];
+      }
+    }
+  }
+}
+
+void jpyo0803::SecLLM::RMSNorm(float* out, float* in, const float* const weight, int B,
+                               int M, int N, float eps) {
+  // weight, x: [B, M, N]
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      float sqr_sum = 0.0f;
+      for (int n = 0; n < N; ++n) {
+        sqr_sum += in[b * M * N + m * N + n] * in[b * M * N + m * N + n];
+      }
+
+      float variance = sqr_sum / N;
+
+      for (int n = 0; n < N; ++n) {
+        out[b * M * N + m * N + n] = in[b * M * N + m * N + n] / std::sqrt(variance + eps);
+        out[b * M * N + m * N + n] *= weight[n];
       }
     }
   }
@@ -270,9 +291,25 @@ void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
   secllm_ptr->SwiGLU(gate_in, up_in, B, M, N);
 }
 
-void Ext_RMSNorm(float* x, const float* const weight, int B, int M, int N,
+void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
                  float eps) {
-  secllm_ptr->RMSNorm(x, weight, B, M, N, eps);
+  secllm_ptr->RMSNorm_InPlace(x, weight, B, M, N, eps);
+}
+
+void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data = secllm_ptr->BookKeeperLoad(from);
+  auto shape = retrieved_data->shape();
+
+  int B = shape[0];
+  int M = shape[1];
+  int N = shape[2];
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(shape);
+  
+  secllm_ptr->RMSNorm(out->data().data(), retrieved_data->data().data(), weight, B, M, N, eps);
+
+  secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_ElementwiseAdd(float* x, float* y, int B, int M, int N) {
@@ -320,7 +357,7 @@ void Ext_BookKeeperStore(int loc, float* data, int shape_len, int* shape) {
   std::shared_ptr<jpyo0803::Tensor<float>> data_ptr =
       std::make_shared<jpyo0803::Tensor<float>>(tensor);
 
-  secllm_ptr->BookKeeperStore(loc, data_ptr);
+  secllm_ptr->BookKeeperStore({loc}, data_ptr);
 }
 
 void Ext_BookKeeperLoad(int loc, float* out, int shape_len, int* shape) {
@@ -339,6 +376,15 @@ void Ext_BookKeeperLoad(int loc, float* out, int shape_len, int* shape) {
   }
 
   std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+}
+
+void Ext_ReplicateTensor(int from, int* to, int to_len) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from); 
+  // Notice, this removes a tensor in the book keeper
+
+  std::vector<int> locs(to, to + to_len);
+  secllm_ptr->BookKeeperStore(locs, retrieved_data);
 }
 
 }  // extern "C"

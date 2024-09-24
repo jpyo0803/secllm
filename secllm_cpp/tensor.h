@@ -43,7 +43,7 @@ class Tensor {
 
   int num_elements() const { return data_.size(); }
 
-  const std::vector<T>& data() const { return data_; }
+  std::vector<T>& data() { return data_; }
 
   void PrintData() const {
     std::cout << "data: [";

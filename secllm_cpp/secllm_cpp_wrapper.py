@@ -69,7 +69,7 @@ class SecLLMCppWrapper:
     gate_in = gate_in.to(dtype)
     return gate_in
 
-  def RMSNorm(cls, x, weight, eps):
+  def RMSNorm_InPlace(cls, x, weight, eps):
     '''
         NOTE(jpyo0803): in-place RMSNorm
         output will be stored in x
@@ -84,9 +84,23 @@ class SecLLMCppWrapper:
     x = x.to(torch.float32)
     weight = weight.to(torch.float32) # should happen only once if necessary
     B, M, N = x.shape
-    cls.lib.Ext_RMSNorm(cast(x.data_ptr(), POINTER(c_float)), cast(weight.data_ptr(), POINTER(c_float)), B, M, N, c_float(eps))
+    cls.lib.Ext_RMSNorm_InPlace(cast(x.data_ptr(), POINTER(c_float)), cast(weight.data_ptr(), POINTER(c_float)), B, M, N, c_float(eps))
     x = x.to(dtype)
     return x
+  
+  def RMSNorm(cls, src : int, dst: int, weight, eps):
+    '''
+        NOTE(jpyo0803): RMSNorm
+        output will be stored in dst
+    '''
+
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[dst] = src_shape
+    cls.shape_bookkeeper[src] = None
+
+    weight = weight.to(torch.float32) # should happen only once if necessary
+    cls.lib.Ext_RMSNorm(src, dst, cast(weight.data_ptr(), POINTER(c_float)), c_float(eps))
 
   def ElementwiseAdd(cls, x, y):
     '''
@@ -178,6 +192,16 @@ class SecLLMCppWrapper:
     cls.lib.Ext_BookKeeperLoad(loc, cast(out.data_ptr(), POINTER(c_float)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
+  
+  def ReplicateTensor(cls, src : int, dst : list):
+    # be careful src is in int64
+    for e in dst:
+      cls.shape_bookkeeper[e] = cls.shape_bookkeeper[src]
+    cls.shape_bookkeeper[src] = None
+
+    dst = torch.tensor(dst, dtype=torch.int32)
+    cls.lib.Ext_ReplicateTensor(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
+
 
 if __name__ == '__main__':
     secllm = SecLLM(32)

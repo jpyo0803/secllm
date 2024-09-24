@@ -266,12 +266,18 @@ class SqLlamaDecoderLayer(nn.Module):
                 into the model
         """
 
-        residual = hidden_states
+        secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
 
-        self.secllm._task_scheduler(self.layer_idx)
+        secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 1, 0, hidden_states.to(torch.float32)) # operation 1, input 0
+
+        # residual = hidden_states
+
 
         # hidden_states = self.input_layernorm(hidden_states)
-        hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
+        # hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
+
+        self.secllm._task_scheduler(self.layer_idx)
+        hidden_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 3, 0)
 
         # Self Attention
         # hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -389,12 +395,13 @@ class SqLlamaDecoderLayer(nn.Module):
         # Self Attention Delegate Close
 
         # hidden_states = residual + hidden_states
+        residual = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 67, 0)
         hidden_states = self.secllm._secllm_cpp_wrapper.ElementwiseAdd(hidden_states, residual)
 
         # Fully Connected
         residual = hidden_states
         # hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
+        hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm_InPlace(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
 
 
         # hidden_states = self.mlp(hidden_states)
