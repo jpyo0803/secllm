@@ -320,38 +320,39 @@ class SqLlamaDecoderLayer(nn.Module):
         #     # sin and cos are specific to RoPE models; cache_position needed for the static cache
         #     cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
         #     key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
-        self.secllm._task_scheduler(self.layer_idx)
-        
-        query_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 28, 0)
-        key_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 29, 0)
-        value_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 47, 0)
 
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        # key_states = repeat_kv(key_states, self.num_key_value_groups)
+        # value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        int8_query_states = (query_states / self.q_output_scale).round().clamp(-128, 127).to(torch.int8)
-        int8_key_states = (key_states / self.k_output_scale).round().clamp(-128, 127).to(torch.int8)
+        # int8_query_states = (query_states / self.q_output_scale).round().clamp(-128, 127).to(torch.int8)
+        # int8_key_states = (key_states / self.k_output_scale).round().clamp(-128, 127).to(torch.int8)
 
-        int8_query_states = int8_query_states.to('cuda:0')
-        int8_key_states = int8_key_states.to('cuda:0')
+        # int8_query_states = int8_query_states.to('cuda:0')
+        # int8_key_states = int8_key_states.to('cuda:0')
 
-        query_states_cupy = cupy.from_dlpack(int8_query_states.to(torch.int32))
-        key_states_T_cupy = cupy.from_dlpack(int8_key_states.transpose(-2, -1).to(torch.int32))
+        # query_states_cupy = cupy.from_dlpack(int8_query_states.to(torch.int32))
+        # key_states_T_cupy = cupy.from_dlpack(int8_key_states.transpose(-2, -1).to(torch.int32))
 
-        attn_weights_cupy = cupy.matmul(query_states_cupy, key_states_T_cupy)
-        attn_weights = torch.from_dlpack(attn_weights_cupy)
+        # attn_weights_cupy = cupy.matmul(query_states_cupy, key_states_T_cupy)
+        # attn_weights = torch.from_dlpack(attn_weights_cupy)
 
-        attn_weights = attn_weights.to('cpu')
-        attn_weights = attn_weights.to(torch.float32)
+        # attn_weights = attn_weights.to('cpu')
+        # attn_weights = attn_weights.to(torch.float32)
 
-        attn_weights = attn_weights * self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
+        # attn_weights = attn_weights * self.q_output_scale * self.k_output_scale / math.sqrt(self.head_dim)
 
         # attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
-        if attention_mask is not None:  # no matter the length, we just slice it
-            causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
-            attn_weights = attn_weights + causal_mask
+        # if attention_mask is not None:  # no matter the length, we just slice it
+        #     causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
+        #     attn_weights = attn_weights + causal_mask
 
+        self.secllm._task_scheduler(self.layer_idx)
+        
+        attn_weights = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 43, 0)
+        value_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 47, 0)
+
+        value_states = repeat_kv(value_states, self.num_key_value_groups)
         # upcast attention to fp32
         # attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
         attn_weights = self.secllm._secllm_cpp_wrapper.Softmax(attn_weights)
@@ -400,7 +401,6 @@ class SqLlamaDecoderLayer(nn.Module):
         hidden_states = attn_output
         self_attn_weights = attn_weights
         present_key_value = past_key_value
-
         
 
         # Self Attention Delegate Close
