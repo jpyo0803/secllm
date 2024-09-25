@@ -29,7 +29,9 @@ class SecLLM {
 
   static void SiLU(float* x, int B, int M, int N);
 
-  static void SwiGLU(float* gate_in, float* up_in, int B, int M, int N);
+  static void SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
+
+  static void SwiGLU(float* out, float* gate_in, float* up_in, int B, int M, int N);
 
   static void RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
                       float eps);
@@ -37,7 +39,9 @@ class SecLLM {
   static void RMSNorm(float* out, float* in, const float* const weight, int B,
                                int M, int N, float eps);
 
-  static void ElementwiseAdd(float* x, float* y, int B, int M, int N);
+  static void ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
+  
+  static void ElementWiseAdd(float* out, float* x, float* y, int B, int M, int N);
 
   static void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                                 const float* const cos, const float* const sin,
@@ -71,14 +75,18 @@ void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K);
 
 void Ext_Softmax(int from, int to);
 
-void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N);
+void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
+
+void Ext_SwiGLU(int from1, int from2, int to);
 
 void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
                  float eps);
 
 void Ext_RMSNorm(int from, int to, const float* const weight, float eps);
 
-void Ext_ElementwiseAdd(float* x, float* y, int B, int M, int N);
+void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
+
+void Ext_ElementWiseAdd(int from1, int from2, int to);
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                            const float* const cos, const float* const sin,

@@ -4,7 +4,7 @@ import torch
 SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
-MAX_NUM_OPERATIONS = 91
+MAX_NUM_OPERATIONS = 92
 MAX_NUM_INPUTS = 3
 
 def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
@@ -61,9 +61,9 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_Softmax(src, dst)
 
-  def SwiGLU(cls, gate_in, up_in):
+  def SwiGLU_InPlace(cls, gate_in, up_in):
     '''
-        NOTE(jpyo0803): in-place SwiGLU
+        NOTE(jpyo0803): in-place SwiGLU_InPlace
         output will be stored in gate_in
     '''
 
@@ -76,9 +76,26 @@ class SecLLMCppWrapper:
     gate_in = gate_in.to(torch.float32)
     up_in = up_in.to(torch.float32)
     B, M, N = gate_in.shape
-    cls.lib.Ext_SwiGLU(cast(gate_in.data_ptr(), POINTER(c_float)), cast(up_in.data_ptr(), POINTER(c_float)), B, M, N)
+    cls.lib.Ext_SwiGLU_InPlace(cast(gate_in.data_ptr(), POINTER(c_float)), cast(up_in.data_ptr(), POINTER(c_float)), B, M, N)
     gate_in = gate_in.to(dtype)
     return gate_in
+
+  def SwiGLU(cls, gate_in : int, up_in : int, dst : int):
+    '''
+        NOTE(jpyo0803): SwiGLU
+        output will be stored in dst
+    '''
+
+    gate_in_shape = cls.shape_bookkeeper[gate_in]
+    up_in_shape = cls.shape_bookkeeper[up_in]
+    assert gate_in_shape is not None
+    assert up_in_shape is not None
+    assert gate_in_shape == up_in_shape
+    cls.shape_bookkeeper[dst] = gate_in_shape
+    cls.shape_bookkeeper[gate_in] = None
+    cls.shape_bookkeeper[up_in] = None
+
+    cls.lib.Ext_SwiGLU(gate_in, up_in, dst)
 
   def RMSNorm_InPlace(cls, x, weight, eps):
     '''
@@ -113,7 +130,7 @@ class SecLLMCppWrapper:
     weight = weight.to(torch.float32) # should happen only once if necessary
     cls.lib.Ext_RMSNorm(src, dst, cast(weight.data_ptr(), POINTER(c_float)), c_float(eps))
 
-  def ElementwiseAdd(cls, x, y):
+  def ElementwiseAdd_InPlace(cls, x, y):
     '''
         NOTE(jpyo0803): in-place elementwise add
         output will be stored in x
@@ -127,9 +144,25 @@ class SecLLMCppWrapper:
     x = x.to(torch.float32)
     y = y.to(torch.float32)
     B, M, N = x.shape
-    cls.lib.Ext_ElementwiseAdd(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
+    cls.lib.Ext_ElementwiseAdd_InPlace(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
     x = x.to(dtype)
     return x
+  
+  def ElementwiseAdd(cls, src1 : int, src2 : int, dst : int):
+    '''
+        NOTE(jpyo0803): elementwise add
+        output will be stored in dst
+    '''
+    src1_shape = cls.shape_bookkeeper[src1]
+    src2_shape = cls.shape_bookkeeper[src2]
+    assert src1_shape is not None
+    assert src2_shape is not None
+    assert src1_shape == src2_shape
+    cls.shape_bookkeeper[dst] = src1_shape
+    cls.shape_bookkeeper[src1] = None
+    cls.shape_bookkeeper[src2] = None
+
+    cls.lib.Ext_ElementWiseAdd(src1, src2, dst)
   
   def ApplyRotaryPosEmb(cls, q, k, cos, sin):
     '''

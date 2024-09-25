@@ -112,11 +112,11 @@ void jpyo0803::SecLLM::SiLU(float* x, int B, int M, int N) {
   }
 }
 
-void jpyo0803::SecLLM::SwiGLU(float* gate_in, float* up_in, int B, int M,
+void jpyo0803::SecLLM::SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M,
                               int N) {
   // gate_in: [B, M, N]
   // up_in: [B, M, N]
-  // swiglu(gate_in, up_in) = silu(gate_in) * up_in
+  // SwiGLU_InPlace(gate_in, up_in) = silu(gate_in) * up_in
 
   jpyo0803::SecLLM::SiLU(gate_in, B, M, N);
   // gate_in is silued
@@ -125,6 +125,25 @@ void jpyo0803::SecLLM::SwiGLU(float* gate_in, float* up_in, int B, int M,
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
         gate_in[b * M * N + m * N + n] *= up_in[b * M * N + m * N + n];
+      }
+    }
+  }
+}
+
+void jpyo0803::SecLLM::SwiGLU(float* out, float* gate_in, float* up_in, int B,
+                      int M, int N) {
+  // gate_in: [B, M, N]
+  // up_in: [B, M, N]
+  // SwiGLU(gate_in, up_in) = silu(gate_in) * up_in
+
+  jpyo0803::SecLLM::SiLU(gate_in, B, M, N);
+  // gate_in is silued
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        out[b * M * N + m * N + n] = gate_in[b * M * N + m * N + n] *
+                                  up_in[b * M * N + m * N + n];
       }
     }
   }
@@ -172,11 +191,21 @@ void jpyo0803::SecLLM::RMSNorm(float* out, float* in, const float* const weight,
   }
 }
 
-void jpyo0803::SecLLM::ElementwiseAdd(float* x, float* y, int B, int M, int N) {
+void jpyo0803::SecLLM::ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
         x[b * M * N + m * N + n] += y[b * M * N + m * N + n];
+      }
+    }
+  }
+}
+
+void jpyo0803::SecLLM::ElementWiseAdd(float* out, float* x, float* y, int B, int M, int N) {
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        out[b * M * N + m * N + n] = x[b * M * N + m * N + n] + y[b * M * N + m * N + n];
       }
     }
   }
@@ -329,8 +358,25 @@ void Ext_Softmax(int from, int to) {
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
-void Ext_SwiGLU(float* gate_in, float* up_in, int B, int M, int N) {
-  secllm_ptr->SwiGLU(gate_in, up_in, B, M, N);
+void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
+  secllm_ptr->SwiGLU_InPlace(gate_in, up_in, B, M, N);
+}
+
+void Ext_SwiGLU(int from1, int from2, int to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 = secllm_ptr->BookKeeperLoad(from1);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 = secllm_ptr->BookKeeperLoad(from2);
+  auto shape = retrieved_data1->shape();
+
+  int B = shape[0];
+  int M = shape[1];
+  int N = shape[2];
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(shape);
+  
+  secllm_ptr->SwiGLU(out->data().data(), retrieved_data1->data().data(), retrieved_data2->data().data(), B, M, N);
+
+  secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
@@ -354,8 +400,25 @@ void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
-void Ext_ElementwiseAdd(float* x, float* y, int B, int M, int N) {
-  secllm_ptr->ElementwiseAdd(x, y, B, M, N);
+void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
+  secllm_ptr->ElementWiseAdd_InPlace(x, y, B, M, N);
+}
+
+void Ext_ElementWiseAdd(int from1, int from2, int to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 = secllm_ptr->BookKeeperLoad(from1);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 = secllm_ptr->BookKeeperLoad(from2);
+  auto shape = retrieved_data1->shape();
+
+  int B = shape[0];
+  int M = shape[1];
+  int N = shape[2];
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(shape);
+  
+  secllm_ptr->ElementWiseAdd(out->data().data(), retrieved_data1->data().data(), retrieved_data2->data().data(), B, M, N);
+
+  secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
@@ -364,6 +427,7 @@ void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
   secllm_ptr->ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N,
                                 K);
 }
+
 
 void Ext_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
                               const float* const position_ids,

@@ -387,62 +387,69 @@ class SqLlamaDecoderLayer(nn.Module):
         # attn_output = attn_output.transpose(1, 2).contiguous()
 
         # attn_output = attn_output.reshape(bsz, q_len, -1)
-        
-        self.secllm._task_scheduler(self.layer_idx)
-        attn_output = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 62, 0)
 
-        int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output)
-        attn_output = self.o_proj(int8_attn_output, attn_output_scales)
+        # attn_output = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 62, 0)
 
-        if not output_attentions:
-            attn_weights = None
+        # int8_attn_output, attn_output_scales = dynamic_quantize_activation_per_token_absmax(attn_output)
+        # attn_output = self.o_proj(int8_attn_output, attn_output_scales)
 
-        hidden_states = attn_output
-        self_attn_weights = attn_weights
-        present_key_value = past_key_value
+        # if not output_attentions:
+        #     attn_weights = None
+
+        # hidden_states = attn_output
+        # self_attn_weights = attn_weights
+        # present_key_value = past_key_value
         
 
         # Self Attention Delegate Close
 
         # hidden_states = residual + hidden_states
-        residual = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 67, 0)
-        hidden_states = self.secllm._secllm_cpp_wrapper.ElementwiseAdd(hidden_states, residual)
+        # residual = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 67, 0)
+        # hidden_states = self.secllm._secllm_cpp_wrapper.ElementwiseAdd(hidden_states, residual)
 
         # Fully Connected
-        residual = hidden_states
+        # residual = hidden_states
         # hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm_InPlace(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
+        # hidden_states = self.secllm._secllm_cpp_wrapper.RMSNorm_InPlace(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
 
 
         # hidden_states = self.mlp(hidden_states)
 
         # MLP Delegate Open
-        x = hidden_states
+        # x = hidden_states
 
-        int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x)
-        gate_out = self.gate_proj(int8_x, x_scales)
-        up_out = self.up_proj(int8_x, x_scales)
+        # int8_x, x_scales = dynamic_quantize_activation_per_token_absmax(x)
+        # gate_out = self.gate_proj(int8_x, x_scales)
+        # up_out = self.up_proj(int8_x, x_scales)
 
         # silu_out = secllm_lib.SiLU(gate_out)
         # silu_out = self.act_fn(gate_out)
         # swiglu_out = silu_out * up_out
-        swiglu_out = self.secllm._secllm_cpp_wrapper.SwiGLU(gate_out, up_out)
+        # swiglu_out = self.secllm._secllm_cpp_wrapper.SwiGLU(gate_out, up_out)
 
-        int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
-        down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)
+        # int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
+        # down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)
 
-        hidden_states = down_proj
+        # hidden_states = down_proj
 
         # MLP Delegate Close
         
         # hidden_states = residual + hidden_states
-        hidden_states = self.secllm._secllm_cpp_wrapper.ElementwiseAdd(hidden_states, residual)
+        # hidden_states = self.secllm._secllm_cpp_wrapper.ElementwiseAdd(hidden_states, residual)
+        self.secllm._task_scheduler(self.layer_idx)
+
+        hidden_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 91, 0)
 
         outputs = (hidden_states,)
+
+        self_attn_weights = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 91, 1)
+        if not output_attentions:
+            self_attn_weights = None
 
         if output_attentions:
             outputs += (self_attn_weights,)
 
+        present_key_value = self.past_key_value
         if use_cache:
             outputs += (present_key_value,)
 
