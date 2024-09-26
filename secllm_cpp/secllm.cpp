@@ -14,11 +14,14 @@ namespace {
 jpyo0803::SecLLM* secllm_ptr = nullptr;
 }  // namespace
 
-jpyo0803::SecLLM::SecLLM(int num_layers) : num_layers_(num_layers) {
-  std::cout << "SecLLM is created with " << num_layers_ << " layers."
+jpyo0803::SecLLM::SecLLM(int hidden_size, int intermediate_size,
+                         int max_position_embeddings, int num_attention_heads,
+                         int num_hidden_layers, int num_key_value_heads)
+    : num_hidden_layers_(num_hidden_layers) {
+  std::cout << "SecLLM is created with " << num_hidden_layers_ << " layers."
             << std::endl;
   book_keepers_ =
-      std::make_unique<BookKeeper<Tensor<float>>>(num_layers_ * 100 * 3);
+      std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 100 * 3);
   /*
     We have total 91 operations [0, 90]
     An operation has at most 3 inputs
@@ -72,7 +75,8 @@ void jpyo0803::SecLLM::Softmax_InPlace(float* x, int B, int M, int N, int K) {
   }
 }
 
-void jpyo0803::SecLLM::Softmax(float* out, float* in, int B, int M, int N, int K) {
+void jpyo0803::SecLLM::Softmax(float* out, float* in, int B, int M, int N,
+                               int K) {
   // x: [B, M, N, K]
 
   for (int b = 0; b < B; ++b) {
@@ -80,7 +84,8 @@ void jpyo0803::SecLLM::Softmax(float* out, float* in, int B, int M, int N, int K
       for (int n = 0; n < N; ++n) {
         float max_val = in[b * M * N * K + m * N * K + n * K];
         for (int k = 1; k < K; ++k) {
-          max_val = std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
+          max_val =
+              std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
         }
 
         float sum = 0.0f;
@@ -112,8 +117,8 @@ void jpyo0803::SecLLM::SiLU(float* x, int B, int M, int N) {
   }
 }
 
-void jpyo0803::SecLLM::SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M,
-                              int N) {
+void jpyo0803::SecLLM::SwiGLU_InPlace(float* gate_in, float* up_in, int B,
+                                      int M, int N) {
   // gate_in: [B, M, N]
   // up_in: [B, M, N]
   // SwiGLU_InPlace(gate_in, up_in) = silu(gate_in) * up_in
@@ -131,7 +136,7 @@ void jpyo0803::SecLLM::SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M
 }
 
 void jpyo0803::SecLLM::SwiGLU(float* out, float* gate_in, float* up_in, int B,
-                      int M, int N) {
+                              int M, int N) {
   // gate_in: [B, M, N]
   // up_in: [B, M, N]
   // SwiGLU(gate_in, up_in) = silu(gate_in) * up_in
@@ -142,15 +147,15 @@ void jpyo0803::SecLLM::SwiGLU(float* out, float* gate_in, float* up_in, int B,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] = gate_in[b * M * N + m * N + n] *
-                                  up_in[b * M * N + m * N + n];
+        out[b * M * N + m * N + n] =
+            gate_in[b * M * N + m * N + n] * up_in[b * M * N + m * N + n];
       }
     }
   }
 }
 
-void jpyo0803::SecLLM::RMSNorm_InPlace(float* x, const float* const weight, int B,
-                               int M, int N, float eps) {
+void jpyo0803::SecLLM::RMSNorm_InPlace(float* x, const float* const weight,
+                                       int B, int M, int N, float eps) {
   // weight, x: [B, M, N]
 
   for (int b = 0; b < B; ++b) {
@@ -170,8 +175,8 @@ void jpyo0803::SecLLM::RMSNorm_InPlace(float* x, const float* const weight, int 
   }
 }
 
-void jpyo0803::SecLLM::RMSNorm(float* out, float* in, const float* const weight, int B,
-                               int M, int N, float eps) {
+void jpyo0803::SecLLM::RMSNorm(float* out, float* in, const float* const weight,
+                               int B, int M, int N, float eps) {
   // weight, x: [B, M, N]
 
   for (int b = 0; b < B; ++b) {
@@ -184,14 +189,16 @@ void jpyo0803::SecLLM::RMSNorm(float* out, float* in, const float* const weight,
       float variance = sqr_sum / N;
 
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] = in[b * M * N + m * N + n] / std::sqrt(variance + eps);
+        out[b * M * N + m * N + n] =
+            in[b * M * N + m * N + n] / std::sqrt(variance + eps);
         out[b * M * N + m * N + n] *= weight[n];
       }
     }
   }
 }
 
-void jpyo0803::SecLLM::ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
+void jpyo0803::SecLLM::ElementWiseAdd_InPlace(float* x, float* y, int B, int M,
+                                              int N) {
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
@@ -201,11 +208,13 @@ void jpyo0803::SecLLM::ElementWiseAdd_InPlace(float* x, float* y, int B, int M, 
   }
 }
 
-void jpyo0803::SecLLM::ElementWiseAdd(float* out, float* x, float* y, int B, int M, int N) {
+void jpyo0803::SecLLM::ElementWiseAdd(float* out, float* x, float* y, int B,
+                                      int M, int N) {
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] = x[b * M * N + m * N + n] + y[b * M * N + m * N + n];
+        out[b * M * N + m * N + n] =
+            x[b * M * N + m * N + n] + y[b * M * N + m * N + n];
       }
     }
   }
@@ -332,9 +341,13 @@ void Ext_PrintTest(int a, int b) {
   std::cout << "Hello from C++: " << a << " / " << b << std::endl;
 }
 
-void Ext_CreateSecLLM(int num_layers) {
+void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
+                      int max_position_embeddings, int num_attention_heads,
+                      int num_hidden_layers, int num_key_value_heads) {
   if (secllm_ptr == nullptr) {
-    secllm_ptr = new jpyo0803::SecLLM(num_layers);
+    secllm_ptr = new jpyo0803::SecLLM(
+        hidden_size, intermediate_size, max_position_embeddings,
+        num_attention_heads, num_hidden_layers, num_key_value_heads);
   }
 }
 
@@ -343,7 +356,8 @@ void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
 }
 
 void Ext_Softmax(int from, int to) {
-  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data = secllm_ptr->BookKeeperLoad(from);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
   auto shape = retrieved_data->shape();
 
   int B = shape[0];
@@ -353,8 +367,9 @@ void Ext_Softmax(int from, int to) {
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
-  
-  secllm_ptr->Softmax(out->data().data(), retrieved_data->data().data(), B, M, N, K);
+
+  secllm_ptr->Softmax(out->data().data(), retrieved_data->data().data(), B, M,
+                      N, K);
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
@@ -363,8 +378,10 @@ void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
 }
 
 void Ext_SwiGLU(int from1, int from2, int to) {
-  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 = secllm_ptr->BookKeeperLoad(from1);
-  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 = secllm_ptr->BookKeeperLoad(from2);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
+      secllm_ptr->BookKeeperLoad(from1);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
+      secllm_ptr->BookKeeperLoad(from2);
   auto shape = retrieved_data1->shape();
 
   int B = shape[0];
@@ -373,19 +390,21 @@ void Ext_SwiGLU(int from1, int from2, int to) {
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
-  
-  secllm_ptr->SwiGLU(out->data().data(), retrieved_data1->data().data(), retrieved_data2->data().data(), B, M, N);
+
+  secllm_ptr->SwiGLU(out->data().data(), retrieved_data1->data().data(),
+                     retrieved_data2->data().data(), B, M, N);
 
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
-void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
-                 float eps) {
+void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
+                         int N, float eps) {
   secllm_ptr->RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
 void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
-  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data = secllm_ptr->BookKeeperLoad(from);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
   auto shape = retrieved_data->shape();
 
   int B = shape[0];
@@ -394,8 +413,9 @@ void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
-  
-  secllm_ptr->RMSNorm(out->data().data(), retrieved_data->data().data(), weight, B, M, N, eps);
+
+  secllm_ptr->RMSNorm(out->data().data(), retrieved_data->data().data(), weight,
+                      B, M, N, eps);
 
   secllm_ptr->BookKeeperStore({to}, out);
 }
@@ -405,8 +425,10 @@ void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
 }
 
 void Ext_ElementWiseAdd(int from1, int from2, int to) {
-  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 = secllm_ptr->BookKeeperLoad(from1);
-  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 = secllm_ptr->BookKeeperLoad(from2);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
+      secllm_ptr->BookKeeperLoad(from1);
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
+      secllm_ptr->BookKeeperLoad(from2);
   auto shape = retrieved_data1->shape();
 
   int B = shape[0];
@@ -415,8 +437,9 @@ void Ext_ElementWiseAdd(int from1, int from2, int to) {
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
-  
-  secllm_ptr->ElementWiseAdd(out->data().data(), retrieved_data1->data().data(), retrieved_data2->data().data(), B, M, N);
+
+  secllm_ptr->ElementWiseAdd(out->data().data(), retrieved_data1->data().data(),
+                             retrieved_data2->data().data(), B, M, N);
 
   secllm_ptr->BookKeeperStore({to}, out);
 }
@@ -427,7 +450,6 @@ void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
   secllm_ptr->ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N,
                                 K);
 }
-
 
 void Ext_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
                               const float* const position_ids,
@@ -486,7 +508,7 @@ void Ext_BookKeeperLoad(int loc, float* out, int shape_len, int* shape) {
 
 void Ext_ReplicateTensor(int from, int* to, int to_len) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
-      secllm_ptr->BookKeeperLoad(from); 
+      secllm_ptr->BookKeeperLoad(from);
   // Notice, this removes a tensor in the book keeper
 
   std::vector<int> locs(to, to + to_len);

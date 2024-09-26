@@ -16,12 +16,22 @@ def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   return layer_index * 300 + input_index * 100 + operation_index
 
 class SecLLMCppWrapper:
-  def __new__(cls, num_hidden_layers):
+  def __new__(cls, config):
     if not hasattr(cls, 'instance'):
       cls._instance = super().__new__(cls)
       cls.lib = cdll.LoadLibrary(SECLLM_LIB_PATH)
 
-      cls.lib.Ext_CreateSecLLM(num_hidden_layers)
+      '''
+         Pass
+         hidden_size,
+         intermediate_size,
+         max_position_embeddings,
+         num_attention_heads,
+         num_hidden_layers,
+         num_key_value_heads
+      '''
+
+      cls.lib.Ext_CreateSecLLM(config.hidden_size, config.intermediate_size, config.max_position_embeddings, config.num_attention_heads, config.num_hidden_layers, config.num_key_value_heads)
 
       cls.shape_bookkeeper = [None for _ in range(MAX_NUM_LAYERS * 300)]
     return cls._instance

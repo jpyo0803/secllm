@@ -9,7 +9,7 @@ class SecLLM:
 
       cls._config = model_info.config
 
-      cls._secllm_cpp_wrapper = SecLLMCppWrapper(cls._config.num_hidden_layers)
+      cls._secllm_cpp_wrapper = SecLLMCppWrapper(cls._config)
 
       # Load list from file from 'dependency_graph.txt'
       cls._graph = {}
