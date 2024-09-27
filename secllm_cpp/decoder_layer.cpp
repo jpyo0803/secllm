@@ -54,6 +54,13 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
                                                 std::vector<int>(hidden_size_));
 
   q_weight_scales_ = std::vector<float>(num_attention_heads_ * head_dim_);
+  k_weight_scales_ = std::vector<float>(num_key_value_heads_ * head_dim_);
+  v_weight_scales_ = std::vector<float>(num_key_value_heads_ * head_dim_);
+  o_weight_scales_ = std::vector<float>(hidden_size_);
+
+  up_weight_scales_ = std::vector<float>(intermediate_size_);
+  gate_weight_scales_ = std::vector<float>(intermediate_size_);
+  down_weight_scales_ = std::vector<float>(hidden_size_);
 }
 
 void DecoderLayer::SetEncKeyAndDecKey(
@@ -77,10 +84,30 @@ void DecoderLayer::SetLinearWeightScales_Q(float* weight_scales, int len) {
   q_weight_scales_.assign(weight_scales, weight_scales + len);
 }
 
+void DecoderLayer::SetLinearWeightScales_K(float* weight_scales, int len) {
+  k_weight_scales_.assign(weight_scales, weight_scales + len);
+}
+
+void DecoderLayer::SetLinearWeightScales_V(float* weight_scales, int len) {
+  v_weight_scales_.assign(weight_scales, weight_scales + len);
+}
+
 void DecoderLayer::SetEncKeyAndDecKey_Q(int* src_enc_key_pool,
                                         int* src_dec_key) {
   SetEncKeyAndDecKey(src_enc_key_pool, q_enc_key_pool_, src_dec_key,
                      q_dec_key_);
+}
+
+void DecoderLayer::SetEncKeyAndDecKey_K(int* src_enc_key_pool,
+                                        int* src_dec_key) {
+  SetEncKeyAndDecKey(src_enc_key_pool, k_enc_key_pool_, src_dec_key,
+                     k_dec_key_);
+}
+
+void DecoderLayer::SetEncKeyAndDecKey_V(int* src_enc_key_pool,
+                                        int* src_dec_key) {
+  SetEncKeyAndDecKey(src_enc_key_pool, v_enc_key_pool_, src_dec_key,
+                     v_dec_key_);
 }
 
 void DecoderLayer::EncryptLinearActivation_Q(
@@ -102,6 +129,45 @@ void DecoderLayer::EncryptLinearActivation_Q(
   }
 }
 
+void DecoderLayer::EncryptLinearActivation_K(
+    int* out, std::shared_ptr<Tensor<float>> k_tensor) {
+  int B = k_tensor->shape()[0];
+  int M = k_tensor->shape()[1];
+  int N = k_tensor->shape()[2];
+
+  auto [k_act, max_vals] =
+      DynamicQuantizeActivationPerTokenAbsmax(k_tensor->data(), B, M, N);
+  k_act_scales_ = std::move(max_vals);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        out[b * M * N + m * N + n] = k_act[b * M * N + m * N + n];
+      }
+    }
+  }
+}
+
+void DecoderLayer::EncryptLinearActivation_V(
+    int* out, std::shared_ptr<Tensor<float>> v_tensor) {
+  int B = v_tensor->shape()[0];
+  int M = v_tensor->shape()[1];
+  int N = v_tensor->shape()[2];
+
+  auto [v_act, max_vals] =
+      DynamicQuantizeActivationPerTokenAbsmax(v_tensor->data(), B, M, N);
+  v_act_scales_ = std::move(max_vals);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        out[b * M * N + m * N + n] = v_act[b * M * N + m * N + n];
+      }
+    }
+  }
+}
+
+
 void DecoderLayer::DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
                                              int* in) {
   int B = out->shape()[0];
@@ -110,6 +176,26 @@ void DecoderLayer::DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
 
   DequantizeActivationWPerChannelAPerChannel(
       out->data().data(), in, q_weight_scales_, q_act_scales_, B * M, N);
+}
+
+void DecoderLayer::DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out,
+                                             int* in) {
+  int B = out->shape()[0];
+  int M = out->shape()[1];
+  int N = out->shape()[2];
+
+  DequantizeActivationWPerChannelAPerChannel(
+      out->data().data(), in, k_weight_scales_, k_act_scales_, B * M, N);
+}
+
+void DecoderLayer::DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out,
+                                             int* in) {
+  int B = out->shape()[0];
+  int M = out->shape()[1];
+  int N = out->shape()[2];
+
+  DequantizeActivationWPerChannelAPerChannel(
+      out->data().data(), in, v_weight_scales_, v_act_scales_, B * M, N);
 }
 
 }  // namespace jpyo0803

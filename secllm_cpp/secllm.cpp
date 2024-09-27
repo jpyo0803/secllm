@@ -66,6 +66,14 @@ void jpyo0803::SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool,
       decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_Q(enc_key_pool,
                                                           dec_key);
       break;
+    case 1:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_K(enc_key_pool,
+                                                          dec_key);
+      break;
+    case 2:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_V(enc_key_pool,
+                                                          dec_key);
+      break;
     default:
       break;
   }
@@ -76,6 +84,12 @@ void jpyo0803::SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale,
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).SetLinearWeightScales_Q(weight_scale, len);
+      break;
+    case 1:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_K(weight_scale, len);
+      break;
+    case 2:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_V(weight_scale, len);
       break;
     default:
       break;
@@ -88,6 +102,12 @@ void jpyo0803::SecLLM::EncryptLinearActivation(
     case 0:
       decoder_layers_->at(layer_idx).EncryptLinearActivation_Q(out, in);
       break;
+    case 1:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_K(out, in);
+      break;
+    case 2:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_V(out, in);
+      break;
     default:
       break;
   }
@@ -98,6 +118,12 @@ void jpyo0803::SecLLM::DecryptLinearActivation(
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).DecryptLinearActivation_Q(out, in);
+      break;
+    case 1:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_K(out, in);
+      break;
+    case 2:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_V(out, in);
       break;
     default:
       break;

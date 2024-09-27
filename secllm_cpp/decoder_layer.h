@@ -21,13 +21,23 @@ class DecoderLayer {
                           std::vector<std::vector<int>>& dst_dec_key);
 
   void SetEncKeyAndDecKey_Q(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey_K(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey_V(int* src_enc_key_pool, int* src_dec_key);
 
   void SetLinearWeightScales_Q(float* weight_scales, int len);
+  void SetLinearWeightScales_K(float* weight_scales, int len);
+  void SetLinearWeightScales_V(float* weight_scales, int len);
 
   void EncryptLinearActivation_Q(int* out,
                                  std::shared_ptr<Tensor<float>> q_tensor);
+  void EncryptLinearActivation_K(int* out,
+                                 std::shared_ptr<Tensor<float>> k_tensor);
+  void EncryptLinearActivation_V(int* out,
+                                 std::shared_ptr<Tensor<float>> v_tensor);
 
   void DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out, int* in);
+  void DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out, int* in);
+  void DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out, int* in);
 
  private:
   int layer_idx_;
@@ -49,31 +59,37 @@ class DecoderLayer {
   std::vector<std::vector<int>> k_dec_key_;
   std::vector<int> sampled_k_enc_key_index_;
   std::vector<float> k_act_scales_;
+  std::vector<float> k_weight_scales_;
 
   std::vector<std::vector<int>> v_enc_key_pool_;
   std::vector<std::vector<int>> v_dec_key_;
   std::vector<int> sampled_v_enc_key_index_;
   std::vector<float> v_act_scales_;
+  std::vector<float> v_weight_scales_;
 
   std::vector<std::vector<int>> o_enc_key_pool_;
   std::vector<std::vector<int>> o_dec_key_;
   std::vector<int> sampled_o_enc_key_index_;
   std::vector<float> o_act_scales_;
+  std::vector<float> o_weight_scales_;
 
   std::vector<std::vector<int>> up_enc_key_pool_;
   std::vector<std::vector<int>> up_dec_key_;
   std::vector<int> sampled_up_enc_key_index_;
   std::vector<float> up_act_scales_;
+  std::vector<float> up_weight_scales_;
 
   std::vector<std::vector<int>> gate_enc_key_pool_;
   std::vector<std::vector<int>> gate_dec_key_;
   std::vector<int> sampled_gate_enc_key_index_;
   std::vector<float> gate_act_scales_;
+  std::vector<float> gate_weight_scales_;
 
   std::vector<std::vector<int>> down_enc_key_pool_;
   std::vector<std::vector<int>> down_dec_key_;
   std::vector<int> sampled_down_enc_key_index_;
   std::vector<float> down_act_scales_;
+  std::vector<float> down_weight_scales_;
 };
 
 }  // namespace jpyo0803
