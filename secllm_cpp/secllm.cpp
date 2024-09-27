@@ -8,6 +8,7 @@
 
 #include "aes_stream.h"
 
+#include "func_utils.h"
 #include "secllm.h"
 
 namespace {
@@ -16,12 +17,14 @@ jpyo0803::SecLLM* secllm_ptr = nullptr;
 
 jpyo0803::SecLLM::SecLLM(int hidden_size, int intermediate_size,
                          int max_position_embeddings, int num_attention_heads,
-                         int num_hidden_layers, int num_key_value_heads)
+                         int num_hidden_layers, int num_key_value_heads,
+                         int enc_key_pool_size)
     : num_hidden_layers_(num_hidden_layers) {
   std::cout << "SecLLM is created with " << num_hidden_layers_ << " layers."
             << std::endl;
-  book_keepers_ =
+  book_keeper_ =
       std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 100 * 3);
+
   /*
     We have total 91 operations [0, 90]
     An operation has at most 3 inputs
@@ -37,303 +40,69 @@ jpyo0803::SecLLM::SecLLM(int hidden_size, int intermediate_size,
     In generalization, x-th input of y-th operation in z-th layer
     is located at (z * 300 + 100 * x + y)
   */
+
+  decoder_layers_ = std::make_unique<std::vector<DecoderLayer>>();
+  for (int i = 0; i < num_hidden_layers_; ++i) {
+    decoder_layers_->emplace_back(i, hidden_size, intermediate_size,
+                                  max_position_embeddings, num_attention_heads,
+                                  num_key_value_heads, enc_key_pool_size);
+  }
 }
 
 void jpyo0803::SecLLM::BookKeeperStore(
     std::vector<int> locs, std::shared_ptr<jpyo0803::Tensor<float>>& data_ptr) {
-  book_keepers_->Keep(locs, data_ptr);
+  book_keeper_->Keep(locs, data_ptr);
 }
 
 std::shared_ptr<jpyo0803::Tensor<float>> jpyo0803::SecLLM::BookKeeperLoad(
     int loc) {
-  return book_keepers_->Retrieve(loc);
+  return book_keeper_->Retrieve(loc);
 }
 
-void jpyo0803::SecLLM::Softmax_InPlace(float* x, int B, int M, int N, int K) {
-  // x: [B, M, N, K]
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        float max_val = x[b * M * N * K + m * N * K + n * K];
-        for (int k = 1; k < K; ++k) {
-          max_val = std::max(max_val, x[b * M * N * K + m * N * K + n * K + k]);
-        }
-
-        float sum = 0.0f;
-        for (int k = 0; k < K; ++k) {
-          x[b * M * N * K + m * N * K + n * K + k] =
-              std::exp(x[b * M * N * K + m * N * K + n * K + k] - max_val);
-          sum += x[b * M * N * K + m * N * K + n * K + k];
-        }
-
-        for (int k = 0; k < K; ++k) {
-          x[b * M * N * K + m * N * K + n * K + k] /= sum;
-        }
-      }
-    }
+void jpyo0803::SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool,
+                                          int* dec_key, int type) {
+  switch (type) {
+    case 0:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_Q(enc_key_pool,
+                                                          dec_key);
+      break;
+    default:
+      break;
   }
 }
 
-void jpyo0803::SecLLM::Softmax(float* out, float* in, int B, int M, int N,
-                               int K) {
-  // x: [B, M, N, K]
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        float max_val = in[b * M * N * K + m * N * K + n * K];
-        for (int k = 1; k < K; ++k) {
-          max_val =
-              std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
-        }
-
-        float sum = 0.0f;
-        for (int k = 0; k < K; ++k) {
-          out[b * M * N * K + m * N * K + n * K + k] =
-              std::exp(in[b * M * N * K + m * N * K + n * K + k] - max_val);
-          sum += out[b * M * N * K + m * N * K + n * K + k];
-        }
-
-        for (int k = 0; k < K; ++k) {
-          out[b * M * N * K + m * N * K + n * K + k] /= sum;
-        }
-      }
-    }
+void jpyo0803::SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale,
+                                             int len, int type) {
+  switch (type) {
+    case 0:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_Q(weight_scale, len);
+      break;
+    default:
+      break;
   }
 }
 
-void jpyo0803::SecLLM::SiLU(float* x, int B, int M, int N) {
-  // x: [B, M, N]
-  // silu(x) = x / (1 + exp(-x))
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        x[b * M * N + m * N + n] = x[b * M * N + m * N + n] /
-                                   (1.0f + std::exp(-x[b * M * N + m * N + n]));
-      }
-    }
+void jpyo0803::SecLLM::EncryptLinearActivation(
+    int layer_idx, int* out, std::shared_ptr<Tensor<float>> in, int type) {
+  switch (type) {
+    case 0:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_Q(out, in);
+      break;
+    default:
+      break;
   }
 }
 
-void jpyo0803::SecLLM::SwiGLU_InPlace(float* gate_in, float* up_in, int B,
-                                      int M, int N) {
-  // gate_in: [B, M, N]
-  // up_in: [B, M, N]
-  // SwiGLU_InPlace(gate_in, up_in) = silu(gate_in) * up_in
-
-  jpyo0803::SecLLM::SiLU(gate_in, B, M, N);
-  // gate_in is silued
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        gate_in[b * M * N + m * N + n] *= up_in[b * M * N + m * N + n];
-      }
-    }
+void jpyo0803::SecLLM::DecryptLinearActivation(
+    int layer_idx, std::shared_ptr<Tensor<float>> out, int* in, int type) {
+  switch (type) {
+    case 0:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_Q(out, in);
+      break;
+    default:
+      break;
   }
 }
-
-void jpyo0803::SecLLM::SwiGLU(float* out, float* gate_in, float* up_in, int B,
-                              int M, int N) {
-  // gate_in: [B, M, N]
-  // up_in: [B, M, N]
-  // SwiGLU(gate_in, up_in) = silu(gate_in) * up_in
-
-  jpyo0803::SecLLM::SiLU(gate_in, B, M, N);
-  // gate_in is silued
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
-            gate_in[b * M * N + m * N + n] * up_in[b * M * N + m * N + n];
-      }
-    }
-  }
-}
-
-void jpyo0803::SecLLM::RMSNorm_InPlace(float* x, const float* const weight,
-                                       int B, int M, int N, float eps) {
-  // weight, x: [B, M, N]
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      float sqr_sum = 0.0f;
-      for (int n = 0; n < N; ++n) {
-        sqr_sum += x[b * M * N + m * N + n] * x[b * M * N + m * N + n];
-      }
-
-      float variance = sqr_sum / N;
-
-      for (int n = 0; n < N; ++n) {
-        x[b * M * N + m * N + n] /= std::sqrt(variance + eps);
-        x[b * M * N + m * N + n] *= weight[n];
-      }
-    }
-  }
-}
-
-void jpyo0803::SecLLM::RMSNorm(float* out, float* in, const float* const weight,
-                               int B, int M, int N, float eps) {
-  // weight, x: [B, M, N]
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      float sqr_sum = 0.0f;
-      for (int n = 0; n < N; ++n) {
-        sqr_sum += in[b * M * N + m * N + n] * in[b * M * N + m * N + n];
-      }
-
-      float variance = sqr_sum / N;
-
-      for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
-            in[b * M * N + m * N + n] / std::sqrt(variance + eps);
-        out[b * M * N + m * N + n] *= weight[n];
-      }
-    }
-  }
-}
-
-void jpyo0803::SecLLM::ElementWiseAdd_InPlace(float* x, float* y, int B, int M,
-                                              int N) {
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        x[b * M * N + m * N + n] += y[b * M * N + m * N + n];
-      }
-    }
-  }
-}
-
-void jpyo0803::SecLLM::ElementWiseAdd(float* out, float* x, float* y, int B,
-                                      int M, int N) {
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
-            x[b * M * N + m * N + n] + y[b * M * N + m * N + n];
-      }
-    }
-  }
-}
-
-void jpyo0803::SecLLM::ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
-                                         const float* const cos,
-                                         const float* const sin, int B, int Q_M,
-                                         int K_M, int N, int K) {
-  /*
-  shape of q = torch.Size([1, 32, 2048, 128])
-  shape of k = torch.Size([1, 8, 2048, 128])
-  shape of cos, sin = torch.Size([1, 2048, 128])
-*/
-  std::vector<float> result_buffer(N * K);
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < Q_M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          int k2 = (k + K / 2) % K;
-
-          float q_cos_val = q_tensor[b * Q_M * N * K + m * N * K + n * K + k] *
-                            cos[n * K + k];
-          float rh_q_sin_val =
-              q_tensor[b * Q_M * N * K + m * N * K + n * K + k2] *
-              sin[n * K + k];
-
-          result_buffer.at(n * K + k) =
-              k < K / 2 ? q_cos_val - rh_q_sin_val : q_cos_val + rh_q_sin_val;
-        }
-      }
-      // copy result_buffer to q_tensor
-      for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          q_tensor[b * Q_M * N * K + m * N * K + n * K + k] =
-              result_buffer.at(n * K + k);
-        }
-      }
-    }
-
-    for (int m = 0; m < K_M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          int k2 = (k + K / 2) % K;
-
-          float k_cos_val = k_tensor[b * K_M * N * K + m * N * K + n * K + k] *
-                            cos[n * K + k];
-          float rh_k_sin_val =
-              k_tensor[b * K_M * N * K + m * N * K + n * K + k2] *
-              sin[n * K + k];
-
-          result_buffer.at(n * K + k) =
-              k < K / 2 ? k_cos_val - rh_k_sin_val : k_cos_val + rh_k_sin_val;
-        }
-      }
-      // copy result_buffer to k_tensor
-      for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          k_tensor[b * K_M * N * K + m * N * K + n * K + k] =
-              result_buffer.at(n * K + k);
-        }
-      }
-    }
-  }
-}
-
-void jpyo0803::SecLLM::LlamaRotaryEmbedding(const float* const inv_freq,
-                                            int inv_freq_M,
-                                            const float* const position_ids,
-                                            int position_ids_M, float* cos,
-                                            float* sin) {
-  /*
-      inv_freq: [64]
-      position_ids: [1, 2048], but treat it [2048]
-
-      cos, sin: [1, 2048, 128]
-  */
-
-  std::vector<float> half_emb_buffer(position_ids_M * inv_freq_M);
-
-  for (int i = 0; i < position_ids_M; ++i) {
-    for (int j = 0; j < inv_freq_M; ++j) {
-      half_emb_buffer.at(i * inv_freq_M + j) = position_ids[i] * inv_freq[j];
-    }
-  }
-
-  int col_size = inv_freq_M * 2;
-  for (int i = 0; i < position_ids_M; ++i) {
-    for (int j = 0; j < inv_freq_M; ++j) {
-      cos[i * col_size + j] = cos[i * col_size + (inv_freq_M + j)] =
-          std::cos(half_emb_buffer.at(i * inv_freq_M + j));
-      sin[i * col_size + j] = sin[i * col_size + (inv_freq_M + j)] =
-          std::sin(half_emb_buffer.at(i * inv_freq_M + j));
-    }
-  }
-}
-
-uint32_t jpyo0803::SecLLM::GenerateCPRNG() {
-  uint32_t cprng;
-  GetCPRNG((unsigned char*)&cprng, sizeof(cprng));
-  return cprng;
-}
-
-uint32_t jpyo0803::SecLLM::GenerateMultKey() {
-  uint64_t mod = 1ULL << 32;
-  do {
-    uint32_t key = GenerateCPRNG();
-    if (std::gcd(mod, static_cast<uint64_t>(key)) == 1) {
-      return key;
-    }
-  } while (true);
-}
-
-uint32_t jpyo0803::SecLLM::GenerateAddKey() {
-  return GenerateCPRNG();
-}
-
-void Task0() {}
 
 extern "C" {
 
@@ -343,16 +112,18 @@ void Ext_PrintTest(int a, int b) {
 
 void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
                       int max_position_embeddings, int num_attention_heads,
-                      int num_hidden_layers, int num_key_value_heads) {
+                      int num_hidden_layers, int num_key_value_heads,
+                      int enc_key_pool_size) {
   if (secllm_ptr == nullptr) {
-    secllm_ptr = new jpyo0803::SecLLM(
-        hidden_size, intermediate_size, max_position_embeddings,
-        num_attention_heads, num_hidden_layers, num_key_value_heads);
+    secllm_ptr = new jpyo0803::SecLLM(hidden_size, intermediate_size,
+                                      max_position_embeddings,
+                                      num_attention_heads, num_hidden_layers,
+                                      num_key_value_heads, enc_key_pool_size);
   }
 }
 
 void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
-  secllm_ptr->Softmax_InPlace(x, B, M, N, K);
+  jpyo0803::Softmax_InPlace(x, B, M, N, K);
 }
 
 void Ext_Softmax(int from, int to) {
@@ -368,13 +139,13 @@ void Ext_Softmax(int from, int to) {
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
 
-  secllm_ptr->Softmax(out->data().data(), retrieved_data->data().data(), B, M,
-                      N, K);
+  jpyo0803::Softmax(out->data().data(), retrieved_data->data().data(), B, M, N,
+                    K);
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
-  secllm_ptr->SwiGLU_InPlace(gate_in, up_in, B, M, N);
+  jpyo0803::SwiGLU_InPlace(gate_in, up_in, B, M, N);
 }
 
 void Ext_SwiGLU(int from1, int from2, int to) {
@@ -391,15 +162,15 @@ void Ext_SwiGLU(int from1, int from2, int to) {
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
 
-  secllm_ptr->SwiGLU(out->data().data(), retrieved_data1->data().data(),
-                     retrieved_data2->data().data(), B, M, N);
+  jpyo0803::SwiGLU(out->data().data(), retrieved_data1->data().data(),
+                   retrieved_data2->data().data(), B, M, N);
 
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
                          int N, float eps) {
-  secllm_ptr->RMSNorm_InPlace(x, weight, B, M, N, eps);
+  jpyo0803::RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
 void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
@@ -414,14 +185,14 @@ void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
 
-  secllm_ptr->RMSNorm(out->data().data(), retrieved_data->data().data(), weight,
-                      B, M, N, eps);
+  jpyo0803::RMSNorm(out->data().data(), retrieved_data->data().data(), weight,
+                    B, M, N, eps);
 
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
 void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
-  secllm_ptr->ElementWiseAdd_InPlace(x, y, B, M, N);
+  jpyo0803::ElementWiseAdd_InPlace(x, y, B, M, N);
 }
 
 void Ext_ElementWiseAdd(int from1, int from2, int to) {
@@ -438,8 +209,8 @@ void Ext_ElementWiseAdd(int from1, int from2, int to) {
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
 
-  secllm_ptr->ElementWiseAdd(out->data().data(), retrieved_data1->data().data(),
-                             retrieved_data2->data().data(), B, M, N);
+  jpyo0803::ElementWiseAdd(out->data().data(), retrieved_data1->data().data(),
+                           retrieved_data2->data().data(), B, M, N);
 
   secllm_ptr->BookKeeperStore({to}, out);
 }
@@ -447,27 +218,26 @@ void Ext_ElementWiseAdd(int from1, int from2, int to) {
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                            const float* const cos, const float* const sin,
                            int B, int Q_M, int K_M, int N, int K) {
-  secllm_ptr->ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N,
-                                K);
+  jpyo0803::ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
 }
 
 void Ext_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
                               const float* const position_ids,
                               int position_ids_M, float* cos, float* sin) {
-  secllm_ptr->LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids,
-                                   position_ids_M, cos, sin);
+  jpyo0803::LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids,
+                                 position_ids_M, cos, sin);
 }
 
 uint32_t Ext_GenerateCPRNG() {
-  return secllm_ptr->GenerateCPRNG();
+  return jpyo0803::GenerateCPRNG();
 }
 
 uint32_t Ext_GenerateMultKey() {
-  return secllm_ptr->GenerateMultKey();
+  return jpyo0803::GenerateMultKey();
 }
 
 uint32_t Ext_GenerateAddKey() {
-  return secllm_ptr->GenerateAddKey();
+  return jpyo0803::GenerateAddKey();
 }
 
 void Ext_BookKeeperStore(int loc, float* data, int shape_len, int* shape) {
@@ -515,4 +285,43 @@ void Ext_ReplicateTensor(int from, int* to, int to_len) {
   secllm_ptr->BookKeeperStore(locs, retrieved_data);
 }
 
+void Ext_GetCprngTensor(int* out, int shape_len, int* shape) {
+  int num_elements =
+      std::accumulate(shape, shape + shape_len, 1, std::multiplies<int>());
+
+  for (int i = 0; i < num_elements; ++i) {
+    out[i] = jpyo0803::GenerateCPRNG();
+  }
+}
+
+void Ext_SetEncKeyAndDecKey(int layer_idx, int* src_enc_key_pool,
+                            int* src_dec_key, int type) {
+  secllm_ptr->SetEncKeyAndDecKey(layer_idx, src_enc_key_pool, src_dec_key,
+                                 type);
+}
+
+void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len,
+                               int type) {
+  // weight scales's dim == 1
+  secllm_ptr->SetLinearWeightScales(layer_idx, scales, len, type);
+}
+
+void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
+
+  secllm_ptr->EncryptLinearActivation(layer_idx, out, retrieved_data, type);
+}
+
+void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
+                                 int shape_len, int* shape, int type) {
+  std::vector<int> shape_vec(shape, shape + shape_len);
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(shape_vec);
+
+  secllm_ptr->DecryptLinearActivation(layer_idx, out, enc_tensor, type);
+
+  secllm_ptr->BookKeeperStore({to}, out);
+}
 }  // extern "C"

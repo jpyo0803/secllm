@@ -1,4 +1,5 @@
 #ifndef SECLLM_TENSOR_H
+#define SECLLM_TENSOR_H
 
 #include <iostream>
 #include <memory>
@@ -44,6 +45,26 @@ class Tensor {
   int num_elements() const { return data_.size(); }
 
   std::vector<T>& data() { return data_; }
+
+  T& operator[](int idx) { return data_[idx]; }
+
+  void PrintDataFirstAndLast10() const {
+    std::cout << "data: [";
+    for (int i = 0; i < 10; ++i) {
+      std::cout << data_[i];
+      if (i != 9) {
+        std::cout << ", ";
+      }
+    }
+    std::cout << ", ..., ";
+    for (int i = data_.size() - 10; i < data_.size(); ++i) {
+      std::cout << data_[i];
+      if (i != data_.size() - 1) {
+        std::cout << ", ";
+      }
+    }
+    std::cout << "]" << std::endl;
+  }
 
   void PrintData() const {
     std::cout << "data: [";

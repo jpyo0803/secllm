@@ -66,9 +66,6 @@ from torch_int.functional.quantization import (
 
 import cupy
 
-from secllm.secllm_wrapper import SecLLM
-
-secllm_lib = SecLLM()
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -205,7 +202,7 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
 
 
 class SqLlamaMLP(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, secllm):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
@@ -219,6 +216,8 @@ class SqLlamaMLP(nn.Module):
         self.down_proj = CustomW8A8BFP32OFP32Linear(self.intermediate_size, self.hidden_size)
 
         self.act_fn = ACT2FN[config.hidden_act]
+
+        self.secllm = secllm
 
     @staticmethod
     @torch.no_grad()
@@ -238,6 +237,8 @@ class SqLlamaMLP(nn.Module):
         return int8_module
 
     def forward(self, x):
+        secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
+
         if self.config.pretraining_tp > 1:
             slice = self.intermediate_size // self.config.pretraining_tp
             gate_proj_slices = self.gate_proj.weight.split(slice, dim=0)
@@ -259,10 +260,10 @@ class SqLlamaMLP(nn.Module):
             gate_out = self.gate_proj(int8_x, x_scales)
             up_out = self.up_proj(int8_x, x_scales)
 
-            # silu_out = secllm_lib.SiLU(gate_out)
+            # silu_out = secllm_cpp_wrapper.SiLU(gate_out)
             # silu_out = self.act_fn(gate_out)
             # swiglu_out = silu_out * up_out
-            swiglu_out = secllm_lib.SwiGLU(gate_out, up_out)
+            swiglu_out = secllm_cpp_wrapper.SwiGLU_InPlace(gate_out, up_out)
 
             int8_swiglu_out, swiglu_out_scales = dynamic_quantize_activation_per_token_absmax(swiglu_out)
             down_proj = self.down_proj(int8_swiglu_out, swiglu_out_scales)
@@ -285,7 +286,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
 class SqLlamaAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
-    def __init__(self, config: LlamaConfig, layer_idx: Optional[int] = None):
+    def __init__(self, config: LlamaConfig, secllm, layer_idx: Optional[int] = None):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
@@ -326,6 +327,8 @@ class SqLlamaAttention(nn.Module):
         self.register_buffer('v_output_scale', torch.tensor(1.0))
 
         self._init_rope()
+
+        self.secllm = secllm
 
     @staticmethod
     @torch.no_grad()
@@ -394,6 +397,8 @@ class SqLlamaAttention(nn.Module):
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         bsz, q_len, _ = hidden_states.size()
 
+        secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
+
         if self.config.pretraining_tp > 1:
             key_value_slicing = (self.num_key_value_heads * self.head_dim) // self.config.pretraining_tp
             query_slices = self.q_proj.weight.split(
@@ -423,10 +428,10 @@ class SqLlamaAttention(nn.Module):
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # cos, sin = self.rotary_emb(value_states, position_ids)
-        cos, sin = secllm_lib.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
+        cos, sin = secllm_cpp_wrapper.LlamaRotaryEmbedding(self.rotary_emb.inv_freq, position_ids, value_states.dtype)
 
         # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-        query_states, key_states = secllm_lib.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
+        query_states, key_states = secllm_cpp_wrapper.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             # sin and cos are specific to RoPE models; cache_position needed for the static cache
@@ -461,7 +466,7 @@ class SqLlamaAttention(nn.Module):
 
         # upcast attention to fp32
         # attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        attn_weights = secllm_lib.Softmax(attn_weights)
+        attn_weights = secllm_cpp_wrapper.Softmax_InPlace(attn_weights)
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
         # attn_output = torch.matmul(attn_weights, value_states)
 
@@ -807,16 +812,18 @@ LLAMA_ATTENTION_CLASSES = {
 
 
 class SqLlamaDecoderLayer(nn.Module):
-    def __init__(self, config: LlamaConfig, layer_idx: int):
+    def __init__(self, config: LlamaConfig, layer_idx: int, secllm):
         super().__init__()
         self.hidden_size = config.hidden_size
 
         assert config._attn_implementation == 'eager'
 
-        self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
+        self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, secllm=secllm, layer_idx=layer_idx)
+
+        self.secllm = secllm
 
         # self.mlp = LlamaMLP(config)
-        self.mlp = SqLlamaMLP(config)
+        self.mlp = SqLlamaMLP(config, secllm)
         # self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         # self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -873,8 +880,10 @@ class SqLlamaDecoderLayer(nn.Module):
         """
         residual = hidden_states
 
+        secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
+
         # hidden_states = self.input_layernorm(hidden_states)
-        hidden_states = secllm_lib.RMSNorm(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
+        hidden_states = secllm_cpp_wrapper.RMSNorm_InPlace(hidden_states, self.input_layernorm.weight, self.input_layernorm.variance_epsilon)
 
         # Self Attention
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
@@ -887,16 +896,16 @@ class SqLlamaDecoderLayer(nn.Module):
             cache_position=cache_position,
         )
         # hidden_states = residual + hidden_states
-        hidden_states = secllm_lib.ElementwiseAdd(hidden_states, residual)
+        hidden_states = secllm_cpp_wrapper.ElementwiseAdd_InPlace(hidden_states, residual)
 
         # Fully Connected
         residual = hidden_states
         # hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = secllm_lib.RMSNorm(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
+        hidden_states = secllm_cpp_wrapper.RMSNorm_InPlace(hidden_states, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon)
 
         hidden_states = self.mlp(hidden_states)
         # hidden_states = residual + hidden_states
-        hidden_states = secllm_lib.ElementwiseAdd(hidden_states, residual)
+        hidden_states = secllm_cpp_wrapper.ElementwiseAdd_InPlace(hidden_states, residual)
 
         outputs = (hidden_states,)
 
@@ -1045,9 +1054,12 @@ class LlamaModel(LlamaPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
+        from secllm.secllm import SecLLM
+        self.secllm = SecLLM(self)
+
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList(
-            [SqLlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+            [SqLlamaDecoderLayer(config, layer_idx, self.secllm) for layer_idx in range(config.num_hidden_layers)]
         )
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.gradient_checkpointing = False

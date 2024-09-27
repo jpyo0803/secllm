@@ -9,7 +9,9 @@ class SecLLM:
 
       cls._config = model_info.config
 
-      cls._secllm_cpp_wrapper = SecLLMCppWrapper(cls._config)
+      cls._enc_key_pool_size = 128
+
+      cls._secllm_cpp_wrapper = SecLLMCppWrapper(cls._config, cls._enc_key_pool_size)
 
       # Load list from file from 'dependency_graph.txt'
       cls._graph = {}

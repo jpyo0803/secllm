@@ -12,6 +12,8 @@
 
 #include "book_keeper.h"
 
+#include "func_utils.h"
+
 using namespace std;
 using namespace jpyo0803;
 
@@ -106,6 +108,31 @@ TEST(BookKeeperTest, BookKeeperTest) {
   ret_tensor1.reset();
 
   EXPECT_EQ(ret_tensor1.use_count(), 0);
+}
+
+TEST(DynamicQuantizeActivationPerTokenAbsmaxTest,
+     DynamicQuantizeActivationPerTokenAbsmaxTest) {
+  size_t B = 2, M = 3, N = 4;
+  std::vector<float> t = {-1.0, 0.5,  2.0,  -3.0, 4.5,  -6.0, 1.0,  -2.0,
+                          7.0,  8.0,  -9.0, 10.0, -2.5, 3.0,  -1.5, 1.0,
+                          6.0,  -7.5, 8.0,  -9.5, 1.5,  2.5,  3.5,  -4.0};
+
+  auto [q_act, max_vals] =
+      jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(t, B, M, N);
+
+  std::vector<int8_t> expected_q_act = {
+      -42,  21,  85,  -127, 95, -127, 21,  -42,  89, 102, -114, 127,
+      -106, 127, -64, 42,   80, -100, 107, -127, 48, 79,  111,  -127};
+
+  std::vector<float> expected_max_vals = {0.023622, 0.0472441, 0.0787402,
+                                          0.023622, 0.0748032, 0.0314961};
+
+  for (size_t i = 0; i < q_act.size(); ++i) {
+    EXPECT_EQ(q_act[i], expected_q_act[i]);
+  }
+  for (size_t i = 0; i < max_vals.size(); ++i) {
+    EXPECT_NEAR(max_vals[i], expected_max_vals[i], 1e-6);
+  }
 }
 
 int main(int argc, char** argv) {

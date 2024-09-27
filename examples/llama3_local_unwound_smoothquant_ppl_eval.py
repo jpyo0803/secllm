@@ -25,6 +25,7 @@ local_model_id = './pretrained_weights/Meta-Llama-3-8B-unwound-smoothquant.pt'
 '''
 
 model = UnwoundSqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='cpu', attn_implementation='eager')
+model.my_post_init()
 
 from datasets import load_dataset
 
@@ -32,7 +33,7 @@ tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
 
 # NOTE(jpyo0803): For faster evaluation, set n_samples to a smaller number
-evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, model.device, n_samples=10)
+evaluator = ppl_evaluator.Evaluator(dataset, tokenizer, model.device, n_samples=2)
 
 '''
     n_samples=10, cuda -> ppl=6.267731666564941

@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "book_keeper.h"
+#include "decoder_layer.h"
 #include "tensor.h"
 
 namespace jpyo0803 {
@@ -13,7 +14,7 @@ class SecLLM {
  public:
   SecLLM(int hidden_size, int intermediate_size, int max_position_embeddings,
          int num_attention_heads, int num_hidden_layers,
-         int num_key_value_heads);
+         int num_key_value_heads, int enc_key_pool_size);
 
  public:
   // member methods
@@ -22,55 +23,25 @@ class SecLLM {
 
   std::shared_ptr<Tensor<float>> BookKeeperLoad(int loc);
 
-  void TestPrint();
+  void SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
+                          int type);
 
- public:
-  // static methods
-  static void Softmax_InPlace(float* x, int B, int M, int N, int K);
+  void SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
+                             int type);
 
-  static void Softmax(float* out, float* in, int B, int M, int N, int K);
+  void EncryptLinearActivation(int layer_idx, int* out,
+                               std::shared_ptr<Tensor<float>> in, int type);
 
-  static void SiLU(float* x, int B, int M, int N);
-
-  static void SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
-
-  static void SwiGLU(float* out, float* gate_in, float* up_in, int B, int M,
-                     int N);
-
-  static void RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
-                              int N, float eps);
-
-  static void RMSNorm(float* out, float* in, const float* const weight, int B,
-                      int M, int N, float eps);
-
-  static void ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
-
-  static void ElementWiseAdd(float* out, float* x, float* y, int B, int M,
-                             int N);
-
-  static void ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
-                                const float* const cos, const float* const sin,
-                                int B, int Q_M, int K_M, int N, int K);
-
-  static void LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
-                                   const float* const position_ids,
-                                   int position_ids_M, float* cos, float* sin);
-
-  static uint32_t GenerateCPRNG();
-
-  static uint32_t GenerateMultKey();
-
-  static uint32_t GenerateAddKey();
+  void DecryptLinearActivation(int layer_idx,
+                               std::shared_ptr<Tensor<float>> out, int* in,
+                               int type);
 
  private:
-  int hidden_size_ = 0;
-  int intermediate_size_ = 0;
-  int max_position_embeddings_ = 0;
-  int num_attention_heads_ = 0;
-  int num_hidden_layers_ = 0;
-  int num_key_value_heads_ = 0;
+  int num_hidden_layers_ = -1;
 
-  std::unique_ptr<BookKeeper<Tensor<float>>> book_keepers_;
+  std::unique_ptr<BookKeeper<Tensor<float>>> book_keeper_;
+
+  std::unique_ptr<std::vector<DecoderLayer>> decoder_layers_;
 };
 
 }  // namespace jpyo0803
@@ -81,7 +52,8 @@ void Ext_PrintTest(int a, int b);
 
 void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
                       int max_position_embeddings, int num_attention_heads,
-                      int num_hidden_layers, int num_key_value_heads);
+                      int num_hidden_layers, int num_key_value_heads,
+                      int enc_key_pool_size);
 
 void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K);
 
@@ -115,6 +87,18 @@ uint32_t Ext_GenerateMultKey();
 uint32_t Ext_GenerateAddKey();
 
 void Ext_ReplicateTensor(int from, int* to, int to_len);
+
+void Ext_GetCprngTensor(int* out, int shape_len, int* shape);
+
+void Ext_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
+                            int type);
+
+void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len, int type);
+
+void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type);
+
+void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
+                                 int shape_len, int* shape, int type);
 
 }  // extern "C"
 

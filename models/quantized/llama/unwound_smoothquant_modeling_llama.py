@@ -455,6 +455,51 @@ class SqLlamaDecoderLayer(nn.Module):
 
         return outputs
 
+    def my_post_init(self):
+        secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
+
+        shape = (self.secllm._enc_key_pool_size, self.hidden_size)
+        q_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+        # k_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+        # v_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+        # o_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+
+        # up_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+        # gate_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+
+        # shape = (self.secllm._enc_key_pool_size, self.intermediate_size)
+        # down_proj_enc_key_pool = secllm_cpp_wrapper.GetCprngTensor(shape)
+        
+        precomputed_q_proj_dec_key = cupy.matmul(cupy.from_dlpack(q_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.q_proj.weight.t().to('cuda:0')))
+        precomputed_q_proj_dec_key = torch.from_dlpack(precomputed_q_proj_dec_key).to('cpu')
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, q_proj_enc_key_pool, precomputed_q_proj_dec_key, 0)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.q_proj.weight_scales.to(torch.float32), 0)
+
+        # precomputed_k_proj_dec_key = cupy.matmul(cupy.from_dlpack(k_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.k_proj.weight.t().to('cuda:0')))
+        # precomputed_k_proj_dec_key = torch.from_dlpack(precomputed_k_proj_dec_key).to('cpu')
+        # secllm_cpp_wrapper.SetEncKeyPoolAndDecKey(self.layer_idx, k_proj_enc_key_pool, precomputed_k_proj_dec_key, 1)
+
+        # precomputed_v_proj_dec_key = cupy.matmul(cupy.from_dlpack(v_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.v_proj.weight.t().to('cuda:0')))
+        # precomputed_v_proj_dec_key = torch.from_dlpack(precomputed_v_proj_dec_key).to('cpu')
+        # secllm_cpp_wrapper.SetEncKeyPoolAndDecKey(self.layer_idx, v_proj_enc_key_pool, precomputed_v_proj_dec_key, 2)
+
+        # precomputed_o_proj_dec_key = cupy.matmul(cupy.from_dlpack(o_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.o_proj.weight.t().to('cuda:0')))
+        # precomputed_o_proj_dec_key = torch.from_dlpack(precomputed_o_proj_dec_key).to('cpu')
+        # secllm_cpp_wrapper.SetEncKeyPoolAndDecKey(self.layer_idx, o_proj_enc_key_pool, precomputed_o_proj_dec_key, 3)
+
+        # precomputed_up_proj_dec_key = cupy.matmul(cupy.from_dlpack(up_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.up_proj.weight.t().to('cuda:0')))
+        # precomputed_up_proj_dec_key = torch.from_dlpack(precomputed_up_proj_dec_key).to('cpu')
+        # secllm_cpp_wrapper.SetEncKeyPoolAndDecKey(self.layer_idx, up_proj_enc_key_pool, precomputed_up_proj_dec_key, 4)
+
+        # precomputed_gate_proj_dec_key = cupy.matmul(cupy.from_dlpack(gate_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.gate_proj.weight.t().to('cuda:0')))
+        # precomputed_gate_proj_dec_key = torch.from_dlpack(precomputed_gate_proj_dec_key).to('cpu')
+        # secllm_cpp_wrapper.SetEncKeyPoolAndDecKey(self.layer_idx, gate_proj_enc_key_pool, precomputed_gate_proj_dec_key, 5)
+
+        # precomputed_down_proj_dec_key = cupy.matmul(cupy.from_dlpack(down_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.down_proj.weight.t().to('cuda:0')))
+        # precomputed_down_proj_dec_key = torch.from_dlpack(precomputed_down_proj_dec_key).to('cpu')
+        # secllm_cpp_wrapper.SetEncKeyPoolAndDecKey(self.layer_idx, down_proj_enc_key_pool, precomputed_down_proj_dec_key, 6)
+
+
 
 LLAMA_START_DOCSTRING = r"""
     This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
@@ -813,6 +858,11 @@ class LlamaModel(LlamaPreTrainedModel):
 
         return causal_mask
 
+    def my_post_init(self):
+        for layer in self.layers:
+            layer.my_post_init()
+
+
 
 class UnwoundSqLlamaForCausalLM(LlamaPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
@@ -1026,3 +1076,6 @@ class UnwoundSqLlamaForCausalLM(LlamaPreTrainedModel):
                 tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
             )
         return reordered_past
+    
+    def my_post_init(self):
+        self.model.my_post_init()

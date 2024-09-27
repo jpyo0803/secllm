@@ -1,11 +1,13 @@
 from ctypes import *
 import torch
+import cupy
 
 SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
 MAX_NUM_OPERATIONS = 92
 MAX_NUM_INPUTS = 3
+
 
 def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   # NOTE(jpyo0803): debugging purpose
@@ -16,7 +18,7 @@ def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   return layer_index * 300 + input_index * 100 + operation_index
 
 class SecLLMCppWrapper:
-  def __new__(cls, config):
+  def __new__(cls, config, enc_key_pool_size):
     if not hasattr(cls, 'instance'):
       cls._instance = super().__new__(cls)
       cls.lib = cdll.LoadLibrary(SECLLM_LIB_PATH)
@@ -31,12 +33,12 @@ class SecLLMCppWrapper:
          num_key_value_heads
       '''
 
-      cls.lib.Ext_CreateSecLLM(config.hidden_size, config.intermediate_size, config.max_position_embeddings, config.num_attention_heads, config.num_hidden_layers, config.num_key_value_heads)
+      cls.lib.Ext_CreateSecLLM(config.hidden_size, config.intermediate_size, config.max_position_embeddings, config.num_attention_heads, config.num_hidden_layers, config.num_key_value_heads, enc_key_pool_size)
 
       cls.shape_bookkeeper = [None for _ in range(MAX_NUM_LAYERS * 300)]
     return cls._instance
   
-  def __init__(self, num_hidden_layers):
+  def __init__(self, num_hidden_layers, enc_key_pool_size):
     cls = type(self)
     if not hasattr(cls, '__init'):
       cls.__init = True
@@ -154,7 +156,7 @@ class SecLLMCppWrapper:
     x = x.to(torch.float32)
     y = y.to(torch.float32)
     B, M, N = x.shape
-    cls.lib.Ext_ElementwiseAdd_InPlace(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
+    cls.lib.Ext_ElementWiseAdd_InPlace(cast(x.data_ptr(), POINTER(c_float)), cast(y.data_ptr(), POINTER(c_float)), B, M, N)
     x = x.to(dtype)
     return x
   
@@ -173,7 +175,23 @@ class SecLLMCppWrapper:
     cls.shape_bookkeeper[src2] = None
 
     cls.lib.Ext_ElementWiseAdd(src1, src2, dst)
-  
+
+  def ElementwiseSubtract(cls, src1 : int, src2 : int, dst : int):
+    '''
+        NOTE(jpyo0803): elementwise subtract
+        output will be stored in dst
+    '''
+    src1_shape = cls.shape_bookkeeper[src1]
+    src2_shape = cls.shape_bookkeeper[src2]
+    assert src1_shape is not None
+    assert src2_shape is not None
+    assert src1_shape == src2_shape
+    cls.shape_bookkeeper[dst] = src1_shape
+    cls.shape_bookkeeper[src1] = None
+    cls.shape_bookkeeper[src2] = None
+
+    cls.lib.Ext_ElementWiseSubtract(src1, src2, dst)
+
   def ApplyRotaryPosEmb(cls, q, k, cos, sin):
     '''
         NOTE(jpyo0803): in-place apply rotary position embedding
@@ -256,6 +274,52 @@ class SecLLMCppWrapper:
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_ReplicateTensor(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
+
+  def GetCprngTensor(cls, shape):
+    out = torch.empty(shape, dtype=torch.int32)
+    shape_list = torch.tensor(shape, dtype=torch.int32)
+    cls.lib.Ext_GetCprngTensor(cast(out.data_ptr(), POINTER(c_int)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+    return out
+  
+  def SetEncKeyAndDecKey(cls, layer_idx, enc_key_pool, dec_key, type):
+    '''
+        NOTE(jpyo0803): Set enc_key_pool and precomputed_dec_key
+    '''
+    assert type <= 6
+  
+    cls.lib.Ext_SetEncKeyAndDecKey(layer_idx, cast(enc_key_pool.data_ptr(), POINTER(c_int)), cast(dec_key.data_ptr(), POINTER(c_int)), type)
+
+  def SetLinearWeightScales(cls, layer_idx, weight_scales, type):
+    '''
+        NOTE(jpyo0803): Set weight scales
+    '''
+    assert type <= 6
+    assert weight_scales.dtype == torch.float32
+
+    cls.lib.Ext_SetLinearWeightScales(layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type)
+
+  def EncryptLinearActivation(cls, layer_idx, src, type):
+    '''
+        NOTE(jpyo0803): Encrypt and Project Activation
+    '''
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[src] = None
+
+    out = torch.empty(src_shape, dtype=torch.int32)
+
+    cls.lib.Ext_EncryptLinearActivation(layer_idx, cast(out.data_ptr(), POINTER(c_int)), src, type)
+    return out
+
+  def DecryptLinearActivation(cls, layer_idx, dst, enc_tensor, type):
+    '''
+        NOTE(jpyo0803): Decrypt Activation
+    '''
+    assert type <= 6
+    cls.shape_bookkeeper[dst] = enc_tensor.shape
+    enc_tensor_shape_list = torch.tensor(enc_tensor.shape, dtype=torch.int32)
+
+    cls.lib.Ext_DecryptLinearActivation(layer_idx, dst, cast(enc_tensor.data_ptr(), POINTER(c_int)), len(enc_tensor_shape_list), cast(enc_tensor_shape_list.data_ptr(), POINTER(c_int)), type)
 
 if __name__ == '__main__':
     secllm = SecLLM(32)

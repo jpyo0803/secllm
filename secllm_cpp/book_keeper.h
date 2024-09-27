@@ -1,4 +1,5 @@
 #ifndef SECLLM_BOOK_KEEPER_H
+#define SECLLM_BOOK_KEEPER_H
 
 #include <memory>
 #include <stdexcept>

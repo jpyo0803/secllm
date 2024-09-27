@@ -2,7 +2,7 @@ CC = g++
 CXXFLAGS = -fPIC -Wall -O2
 LDFLAGS = -shared
 
-SRCS = secllm.cpp aes_stream.cpp
+SRCS = secllm.cpp aes_stream.cpp func_utils.cpp decoder_layer.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 TARGET_LIB = libsecllm.so
