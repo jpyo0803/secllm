@@ -1157,8 +1157,7 @@ class Task61(Task):
 
     def run(self):
         # Move o_proj weight to GPU
-        o_proj_weight = self.model.layers[self.layer_idx].o_proj.weight
-        o_proj_weight = o_proj_weight.to('cuda:0')
+        self.model.layers[self.layer_idx].o_proj.weight = self.model.layers[self.layer_idx].o_proj.weight.to('cuda:0')
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1171,11 +1170,11 @@ class Task62(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 62, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 63, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 3) # O
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 63, 0)
+        self.model.tensor_buffer[dst] = enc_activation
 
     def __call__(self):
         self.run()
@@ -1185,14 +1184,15 @@ class Task63(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        # Bypass for now
-        activation = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 63, 0)
+        src = GetBookKeeperLinearIndex(self.layer_idx, 63, 0)
+        assert self.model.tensor_buffer[src] is not None
+        enc_activation = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
 
-        int8_activation, int8_scales = dynamic_quantize_activation_per_token_absmax(activation)
-        int8_activation = int8_activation.to('cuda:0')
+        enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
-        self.model.tensor_buffer[dst] = (int8_activation, int8_scales)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1207,18 +1207,21 @@ class Task64(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
         assert self.model.tensor_buffer[src] is not None
 
-        int8_activation, int8_scales = self.model.tensor_buffer[src]
+        x = self.model.tensor_buffer[src]
+        x_shape = x.shape
+        x = x.view(-1, x_shape[-1])
 
-        attn_output =  self.model.layers[self.layer_idx].o_proj(int8_activation, int8_scales)
+        x_cupy = cupy.from_dlpack(x.to(torch.int32))
+        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].o_proj.weight.transpose(-2, -1).to(torch.int32))
+        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+        y = torch.from_dlpack(y_cupy)
+
+        y = y.view(*x_shape[:-1], -1)
 
         self.model.tensor_buffer[src] = None
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
-        self.model.tensor_buffer[dst] = attn_output
-
-        # This is required to match the interface
-
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 91, 1, attn_output.to(torch.float32))
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1232,16 +1235,14 @@ class Task65(Task):
     def run(self):
         # Move o_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
-
         assert self.model.tensor_buffer[src] is not None
-
-        o_proj_out = self.model.tensor_buffer[src]
-
-        o_proj_out = o_proj_out.to('cpu')
-
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 66, 0, o_proj_out.to(torch.float32))
+        y = self.model.tensor_buffer[src]
+        y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 66, 0)
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1255,7 +1256,16 @@ class Task66(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 66, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 67, 1)]
+        assert self.model.tensor_buffer[src] is not None
+        y = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 67, 1)
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 3) # O
+
+        # Fix it
+        src = GetBookKeeperLinearIndex(self.layer_idx, 67, 1)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 67, 1), GetBookKeeperLinearIndex(self.layer_idx, 91, 1)]
 
         self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
 
@@ -1338,8 +1348,7 @@ class Task71(Task):
 
     def run(self):
         # Move gate_proj weight to GPU
-        gate_proj_weight = self.model.layers[self.layer_idx].gate_proj.weight
-        gate_proj_weight = gate_proj_weight.to('cuda:0')
+        self.model.layers[self.layer_idx].gate_proj.weight = self.model.layers[self.layer_idx].gate_proj.weight.to('cuda:0')
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1352,8 +1361,7 @@ class Task72(Task):
 
     def run(self):
         # Move up_proj weight to GPU
-        up_proj_weight = self.model.layers[self.layer_idx].up_proj.weight
-        up_proj_weight = up_proj_weight.to('cuda:0')
+        self.model.layers[self.layer_idx].up_proj.weight = self.model.layers[self.layer_idx].up_proj.weight.to('cuda:0')
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1367,9 +1375,11 @@ class Task73(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 73, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 75, 0)]
+        
+        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 5) # Gate
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 75, 0)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1383,9 +1393,11 @@ class Task74(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 74, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 76, 0)]
+        
+        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 4) # Up
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 76, 0)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1397,14 +1409,15 @@ class Task75(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        # Bypass for now
-        activation = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 75, 0)
+        src = GetBookKeeperLinearIndex(self.layer_idx, 75, 0)
+        assert self.model.tensor_buffer[src] is not None
+        enc_activation = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
 
-        int8_activation, int8_scales = dynamic_quantize_activation_per_token_absmax(activation)
-        int8_activation = int8_activation.to('cuda:0')
+        enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
-        self.model.tensor_buffer[dst] = (int8_activation, int8_scales)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1416,14 +1429,15 @@ class Task76(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        # Bypass for now
-        activation = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 76, 0)
+        src = GetBookKeeperLinearIndex(self.layer_idx, 76, 0)
+        assert self.model.tensor_buffer[src] is not None
+        enc_activation = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
 
-        int8_activation, int8_scales = dynamic_quantize_activation_per_token_absmax(activation)
-        int8_activation = int8_activation.to('cuda:0')
+        enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
-        self.model.tensor_buffer[dst] = (int8_activation, int8_scales)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1439,14 +1453,21 @@ class Task77(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
         assert self.model.tensor_buffer[src] is not None
 
-        int8_activation, int8_scales = self.model.tensor_buffer[src]
+        x = self.model.tensor_buffer[src]
+        x_shape = x.shape
+        x = x.view(-1, x_shape[-1])
 
-        gate_out = self.model.layers[self.layer_idx].gate_proj(int8_activation, int8_scales)
+        x_cupy = cupy.from_dlpack(x.to(torch.int32))
+        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].gate_proj.weight.transpose(-2, -1).to(torch.int32))
+        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+        y = torch.from_dlpack(y_cupy)
+
+        y = y.view(*x_shape[:-1], -1)
 
         self.model.tensor_buffer[src] = None
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
-        self.model.tensor_buffer[dst] = gate_out
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1462,15 +1483,21 @@ class Task78(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
         assert self.model.tensor_buffer[src] is not None
 
-        int8_activation, int8_scales = self.model.tensor_buffer[src]
+        x = self.model.tensor_buffer[src]
+        x_shape = x.shape
+        x = x.view(-1, x_shape[-1])
 
-        up_out = self.model.layers[self.layer_idx].up_proj(int8_activation, int8_scales)
+        x_cupy = cupy.from_dlpack(x.to(torch.int32))
+        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].up_proj.weight.transpose(-2, -1).to(torch.int32))
+        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+        y = torch.from_dlpack(y_cupy)
+
+        y = y.view(*x_shape[:-1], -1)
 
         self.model.tensor_buffer[src] = None
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 80, 0)
-        self.model.tensor_buffer[dst] = up_out
-
+        self.model.tensor_buffer[dst] = y
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1483,16 +1510,14 @@ class Task79(Task):
     def run(self):
         # Move gate_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
-
         assert self.model.tensor_buffer[src] is not None
-
-        gate_out = self.model.tensor_buffer[src]
-
-        gate_out = gate_out.to('cpu')
-
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 81, 0, gate_out.to(torch.float32))
+        y = self.model.tensor_buffer[src]
+        y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 81, 0)
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1506,16 +1531,14 @@ class Task80(Task):
     def run(self):
         # Move up_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 80, 0)
-
         assert self.model.tensor_buffer[src] is not None
-
-        up_out = self.model.tensor_buffer[src]
-
-        up_out = up_out.to('cpu')
-
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 82, 0, up_out.to(torch.float32))
+        y = self.model.tensor_buffer[src]
+        y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 82, 0)
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1527,11 +1550,14 @@ class Task81(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        # Bypass for now
+        # Decrypt gate_proj output
         src = GetBookKeeperLinearIndex(self.layer_idx, 81, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 83, 0)]
+        assert self.model.tensor_buffer[src] is not None
+        y = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 83, 0)
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 5) # Gate
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1543,11 +1569,14 @@ class Task82(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        # Bypass for now
+        # Decrypt up_proj output
         src = GetBookKeeperLinearIndex(self.layer_idx, 82, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 83, 1)]
+        assert self.model.tensor_buffer[src] is not None
+        y = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 83, 1)
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 4) # Up
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1578,8 +1607,7 @@ class Task84(Task):
 
     def run(self):
         # Move down_proj weight to GPU
-        down_proj_weight = self.model.layers[self.layer_idx].down_proj.weight
-        down_proj_weight = down_proj_weight.to('cuda:0')
+        self.model.layers[self.layer_idx].down_proj.weight = self.model.layers[self.layer_idx].down_proj.weight.to('cuda:0')
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1591,11 +1619,13 @@ class Task85(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        # Bypass for now
+        # Encrypt down_proj input
         src = GetBookKeeperLinearIndex(self.layer_idx, 85, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 86, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 6) # Down
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 86, 0)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1608,13 +1638,15 @@ class Task86(Task):
 
     def run(self):
         # Move enc_x to GPU
-        activation = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 86, 0)
-        int8_activation, int8_scales = dynamic_quantize_activation_per_token_absmax(activation)
-        int8_activation = int8_activation.to('cuda:0')
+        src = GetBookKeeperLinearIndex(self.layer_idx, 86, 0)
+        assert self.model.tensor_buffer[src] is not None
+        enc_activation = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
+
+        enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)
-        self.model.tensor_buffer[dst] = (int8_activation, int8_scales)
-
+        self.model.tensor_buffer[dst] = enc_activation
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1629,14 +1661,21 @@ class Task87(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)
         assert self.model.tensor_buffer[src] is not None
 
-        int8_activation, int8_scales = self.model.tensor_buffer[src]
+        x = self.model.tensor_buffer[src]
+        x_shape = x.shape
+        x = x.view(-1, x_shape[-1])
 
-        down_out = self.model.layers[self.layer_idx].down_proj(int8_activation, int8_scales)
+        x_cupy = cupy.from_dlpack(x.to(torch.int32))
+        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].down_proj.weight.transpose(-2, -1).to(torch.int32))
+        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+        y = torch.from_dlpack(y_cupy)
+
+        y = y.view(*x_shape[:-1], -1)
 
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)   
-        self.model.tensor_buffer[dst] = down_out
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1650,16 +1689,15 @@ class Task88(Task):
     def run(self):
         # Move down_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
-
         assert self.model.tensor_buffer[src] is not None
 
-        down_out = self.model.tensor_buffer[src]
-
-        down_out = down_out.to('cpu')
-
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 89, 0, down_out.to(torch.float32))
+        y = self.model.tensor_buffer[src]
+        y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 89, 0)
+        self.model.tensor_buffer[dst] = y
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1673,10 +1711,12 @@ class Task89(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 89, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 90, 0)]
+        assert self.model.tensor_buffer[src] is not None
+        y = self.model.tensor_buffer[src]
+        self.model.tensor_buffer[src] = None
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
-
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 90, 0)
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 6)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):

@@ -267,9 +267,10 @@ class SecLLMCppWrapper:
   
   def ReplicateTensor(cls, src : int, dst : list):
     # be careful src is in int64
-    for e in dst:
-      cls.shape_bookkeeper[e] = cls.shape_bookkeeper[src]
+    src_shape = cls.shape_bookkeeper[src]
     cls.shape_bookkeeper[src] = None
+    for e in dst:
+      cls.shape_bookkeeper[e] = src_shape
 
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_ReplicateTensor(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))

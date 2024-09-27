@@ -23,10 +23,18 @@ class DecoderLayer {
   void SetEncKeyAndDecKey_Q(int* src_enc_key_pool, int* src_dec_key);
   void SetEncKeyAndDecKey_K(int* src_enc_key_pool, int* src_dec_key);
   void SetEncKeyAndDecKey_V(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey_O(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey_Up(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey_Gate(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey_Down(int* src_enc_key_pool, int* src_dec_key);
 
   void SetLinearWeightScales_Q(float* weight_scales, int len);
   void SetLinearWeightScales_K(float* weight_scales, int len);
   void SetLinearWeightScales_V(float* weight_scales, int len);
+  void SetLinearWeightScales_O(float* weight_scales, int len);
+  void SetLinearWeightScales_Up(float* weight_scales, int len);
+  void SetLinearWeightScales_Gate(float* weight_scales, int len);
+  void SetLinearWeightScales_Down(float* weight_scales, int len);
 
   void EncryptLinearActivation_Q(int* out,
                                  std::shared_ptr<Tensor<float>> q_tensor);
@@ -34,10 +42,24 @@ class DecoderLayer {
                                  std::shared_ptr<Tensor<float>> k_tensor);
   void EncryptLinearActivation_V(int* out,
                                  std::shared_ptr<Tensor<float>> v_tensor);
+  void EncryptLinearActivation_O(int* out,
+                                 std::shared_ptr<Tensor<float>> o_tensor);
+  void EncryptLinearActivation_Up(int* out,
+                                  std::shared_ptr<Tensor<float>> up_tensor);
+  void EncryptLinearActivation_Gate(int* out,
+                                    std::shared_ptr<Tensor<float>> gate_tensor);
+  void EncryptLinearActivation_Down(int* out,
+                                    std::shared_ptr<Tensor<float>> down_tensor);
 
   void DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out, int* in);
   void DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out, int* in);
   void DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out, int* in);
+  void DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out, int* in);
+  void DecryptLinearActivation_Up(std::shared_ptr<Tensor<float>> out, int* in);
+  void DecryptLinearActivation_Gate(std::shared_ptr<Tensor<float>> out,
+                                    int* in);
+  void DecryptLinearActivation_Down(std::shared_ptr<Tensor<float>> out,
+                                    int* in);
 
  private:
   int layer_idx_;

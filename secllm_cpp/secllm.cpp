@@ -74,6 +74,22 @@ void jpyo0803::SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool,
       decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_V(enc_key_pool,
                                                           dec_key);
       break;
+    case 3:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_O(enc_key_pool,
+                                                          dec_key);
+      break;
+    case 4:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_Up(enc_key_pool,
+                                                           dec_key);
+      break;
+    case 5:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_Gate(enc_key_pool,
+                                                             dec_key);
+      break;
+    case 6:
+      decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_Down(enc_key_pool,
+                                                             dec_key);
+      break;
     default:
       break;
   }
@@ -90,6 +106,21 @@ void jpyo0803::SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale,
       break;
     case 2:
       decoder_layers_->at(layer_idx).SetLinearWeightScales_V(weight_scale, len);
+      break;
+    case 3:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_O(weight_scale, len);
+      break;
+    case 4:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_Up(weight_scale,
+                                                              len);
+      break;
+    case 5:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_Gate(weight_scale,
+                                                                len);
+      break;
+    case 6:
+      decoder_layers_->at(layer_idx).SetLinearWeightScales_Down(weight_scale,
+                                                                len);
       break;
     default:
       break;
@@ -108,6 +139,18 @@ void jpyo0803::SecLLM::EncryptLinearActivation(
     case 2:
       decoder_layers_->at(layer_idx).EncryptLinearActivation_V(out, in);
       break;
+    case 3:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_O(out, in);
+      break;
+    case 4:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_Up(out, in);
+      break;
+    case 5:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_Gate(out, in);
+      break;
+    case 6:
+      decoder_layers_->at(layer_idx).EncryptLinearActivation_Down(out, in);
+      break;
     default:
       break;
   }
@@ -124,6 +167,18 @@ void jpyo0803::SecLLM::DecryptLinearActivation(
       break;
     case 2:
       decoder_layers_->at(layer_idx).DecryptLinearActivation_V(out, in);
+      break;
+    case 3:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_O(out, in);
+      break;
+    case 4:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_Up(out, in);
+      break;
+    case 5:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_Gate(out, in);
+      break;
+    case 6:
+      decoder_layers_->at(layer_idx).DecryptLinearActivation_Down(out, in);
       break;
     default:
       break;
