@@ -61,6 +61,23 @@ class DecoderLayer {
   void DecryptLinearActivation_Down(std::shared_ptr<Tensor<float>> out,
                                     int* in);
 
+  void SetQKVOutputScales(float q_output_scale, float k_output_scale,
+                          float v_output_scale);
+
+  void QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+  void UnshiftAndDequantizeQK(std::shared_ptr<Tensor<float>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in);
+
+  void QuantizeAndShiftP(std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+  void UnshiftAndDequantizePV(std::shared_ptr<Tensor<float>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in);
+
  private:
   int layer_idx_;
   int hidden_size_;
@@ -76,18 +93,21 @@ class DecoderLayer {
   std::vector<int> sampled_q_enc_key_index_;
   std::vector<float> q_act_scales_;
   std::vector<float> q_weight_scales_;
+  float q_output_scale_;
 
   std::vector<std::vector<int>> k_enc_key_pool_;
   std::vector<std::vector<int>> k_dec_key_;
   std::vector<int> sampled_k_enc_key_index_;
   std::vector<float> k_act_scales_;
   std::vector<float> k_weight_scales_;
+  float k_output_scale_;
 
   std::vector<std::vector<int>> v_enc_key_pool_;
   std::vector<std::vector<int>> v_dec_key_;
   std::vector<int> sampled_v_enc_key_index_;
   std::vector<float> v_act_scales_;
   std::vector<float> v_weight_scales_;
+  float v_output_scale_;
 
   std::vector<std::vector<int>> o_enc_key_pool_;
   std::vector<std::vector<int>> o_dec_key_;
@@ -112,6 +132,14 @@ class DecoderLayer {
   std::vector<int> sampled_down_enc_key_index_;
   std::vector<float> down_act_scales_;
   std::vector<float> down_weight_scales_;
+
+  std::vector<std::vector<std::vector<int>>>
+      qk_x_row_shift_sum_;  // input is 4D
+  std::vector<std::vector<std::vector<int>>> qk_y_col_shift_sum_;
+  int qk_share_dim_;
+
+  // std::vector<std::vector<int>> pv_x_row_shift_sum_;
+  // std::vector<std::vector<int>> pv_y_col_shift_sum_;
 };
 
 }  // namespace jpyo0803

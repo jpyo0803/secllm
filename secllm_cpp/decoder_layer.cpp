@@ -4,7 +4,10 @@
 
 #include "aes_stream.h"
 
+#include <cmath>
 #include "func_utils.h"
+
+#define SHIFT_AMT 129
 
 namespace jpyo0803 {
 
@@ -514,6 +517,113 @@ void DecoderLayer::DecryptLinearActivation_Down(
 
   DequantizeActivationWPerChannelAPerChannel(
       out->data().data(), in, down_weight_scales_, down_act_scales_, B * M, N);
+}
+
+void DecoderLayer::SetQKVOutputScales(float q_output_scale,
+                                      float k_output_scale,
+                                      float v_output_scale) {
+  q_output_scale_ = q_output_scale;
+  k_output_scale_ = k_output_scale;
+  v_output_scale_ = v_output_scale;
+}
+
+void DecoderLayer::QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
+                                     std::shared_ptr<Tensor<float>> in) {
+  int B = in->shape().at(0);
+  int M = in->shape().at(1);
+  int K = in->shape().at(2);
+  int N = in->shape().at(3);
+
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
+
+  auto q_act = QuantizeActivationPerTensor(in->data(), len, q_output_scale_);
+
+  for (int i = 0; i < len; ++i) {
+    out->data().at(i) = (uint32_t)((int)q_act[i]);
+  }
+}
+
+void DecoderLayer::QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
+                                     std::shared_ptr<Tensor<float>> in) {
+  int B = in->shape().at(0);
+  int M = in->shape().at(1);
+  int K = in->shape().at(2);
+  int N = in->shape().at(3);
+
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
+
+  auto k_act = QuantizeActivationPerTensor(in->data(), len, k_output_scale_);
+
+  for (int i = 0; i < len; ++i) {
+    out->data().at(i) = (uint32_t)((int)k_act[i]);
+  }
+}
+
+void DecoderLayer::UnshiftAndDequantizeQK(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
+  int B = out->shape().at(0);
+  int M = out->shape().at(1);
+  int K = out->shape().at(2);
+  int N = out->shape().at(3);
+
+  int len = static_cast<int64_t>(B) * M * K * N;
+
+  for (int i = 0; i < len; ++i) {
+    out->data().at(i) = (float)((int)in->data().at(i));
+  }
+
+  float scale =
+      q_output_scale_ * k_output_scale_ / sqrtf(head_dim_);  // Correct
+  DequantizeActivationPerTensor(out->data(), len, scale);
+}
+
+void DecoderLayer::QuantizeAndShiftP(std::shared_ptr<Tensor<uint32_t>> out,
+                                     std::shared_ptr<Tensor<float>> in) {
+  int B = in->shape().at(0);
+  int M = in->shape().at(1);
+  int K = in->shape().at(2);
+  int N = in->shape().at(3);
+
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
+
+  auto p_act = QuantizeActivationPerTensor(in->data(), len, 1.0 / 127);
+
+  for (int i = 0; i < len; ++i) {
+    out->data().at(i) = (uint32_t)((int)p_act[i]);
+  }
+}
+
+void DecoderLayer::QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
+                                     std::shared_ptr<Tensor<float>> in) {
+  int B = in->shape().at(0);
+  int M = in->shape().at(1);
+  int K = in->shape().at(2);
+  int N = in->shape().at(3);
+
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
+
+  auto v_act = QuantizeActivationPerTensor(in->data(), len, v_output_scale_);
+
+  for (int i = 0; i < len; ++i) {
+    out->data().at(i) = (uint32_t)((int)v_act[i]);
+  }
+}
+
+void DecoderLayer::UnshiftAndDequantizePV(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
+
+  int B = out->shape().at(0);
+  int M = out->shape().at(1);
+  int N = out->shape().at(2);
+
+  int64_t len = static_cast<int64_t>(B) * M * N;
+
+  for (int i = 0; i < len; ++i) {
+    out->data().at(i) = (float)((int)in->data().at(i));
+  }
+
+  float scale = 1.0 / 127 * v_output_scale_;  // Correct
+  DequantizeActivationPerTensor(out->data(), len, scale);
 }
 
 }  // namespace jpyo0803

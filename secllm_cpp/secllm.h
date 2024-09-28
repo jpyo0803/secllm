@@ -23,6 +23,11 @@ class SecLLM {
 
   std::shared_ptr<Tensor<float>> BookKeeperLoad(int loc);
 
+  void BookKeeperStore_Uint32(std::vector<int> locs,
+                              std::shared_ptr<Tensor<uint32_t>>& data);
+
+  std::shared_ptr<Tensor<uint32_t>> BookKeeperLoad_Uint32(int loc);
+
   void SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
                           int type);
 
@@ -36,12 +41,43 @@ class SecLLM {
                                std::shared_ptr<Tensor<float>> out, int* in,
                                int type);
 
+  void SetQKVOutputScales(int layer_idx, float q_output_scale,
+                          float k_output_scale, float v_output_scale);
+
+  void QuantizeAndShiftQ(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+
+  void QuantizeAndShiftK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+
+  void UnshiftAndDequantizeQK(int layer_idx, std::shared_ptr<Tensor<float>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in);
+
+  void QuantizeAndShiftP(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+
+  void QuantizeAndShiftV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<float>> in);
+
+  void UnshiftAndDequantizePV(int layer_idx, std::shared_ptr<Tensor<float>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in);
+
+  void SetAttentionMask(float* mask, int M, int N);
+
  private:
   int num_hidden_layers_ = -1;
 
   std::unique_ptr<BookKeeper<Tensor<float>>> book_keeper_;
 
+  // NOTE(jpyo0803): Although QK^T and PV operation will be done in uint32,
+  // here I use int32 since torch does not support uint32.
+  std::unique_ptr<BookKeeper<Tensor<uint32_t>>> book_keeper_uint32_;
+
   std::unique_ptr<std::vector<DecoderLayer>> decoder_layers_;
+
+ public:
+  std::vector<std::vector<float>> attn_mask_;
+  // std::unique_ptr<Tensor<float>> attn_mask_tensor_;
 };
 
 }  // namespace jpyo0803
@@ -88,6 +124,8 @@ uint32_t Ext_GenerateAddKey();
 
 void Ext_ReplicateTensor(int from, int* to, int to_len);
 
+void Ext_ReplicateTensor_Uint32(int from, int* to, int to_len);
+
 void Ext_GetCprngTensor(int* out, int shape_len, int* shape);
 
 void Ext_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
@@ -99,6 +137,15 @@ void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type);
 
 void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
                                  int shape_len, int* shape, int type);
+
+void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
+                            float k_output_scale, float v_output_scale);
+
+void Ext_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to);
+
+void Ext_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
+
+void Ext_SetAttentionMask(float* mask, int M, int N);
 
 }  // extern "C"
 

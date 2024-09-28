@@ -27,6 +27,31 @@ std::vector<float> max_abs_per_token(const std::vector<float>& t, size_t B,
 }
 }  // namespace
 
+std::vector<int8_t> jpyo0803::QuantizeActivationPerTensor(
+    const std::vector<float>& t, int64_t len, float scale) {
+  std::vector<int8_t> q_act(len);  // Quantized result in flattened form
+
+  // Quantize the matrix
+  for (int64_t i = 0; i < len; ++i) {
+    // Convert t to int8_t, and apply the scaling
+    float q_val = t[i] / scale;
+    q_val = std::round(q_val);                   // Round
+    q_val = std::clamp(q_val, -128.0f, 127.0f);  // Clamp between -128 and 127
+    q_act[i] = static_cast<int8_t>(q_val);       // Store quantized value
+  }
+
+  return q_act;
+}
+
+void jpyo0803::DequantizeActivationPerTensor(std::vector<float>& t, int64_t len,
+                                             float scale) {
+  // Iterate through the batch and the dimension
+  for (int64_t i = 0; i < len; ++i) {
+    // Convert t to float, and apply the scaling
+    t[i] = static_cast<float>(t[i]) * scale;
+  }
+}
+
 std::pair<std::vector<int8_t>, std::vector<float>>
 jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t,
                                                   size_t B, size_t M,

@@ -20,6 +20,12 @@ void DequantizeActivationWPerChannelAPerChannel(
     size_t dim                           // Dimension
 );
 
+std::vector<int8_t> QuantizeActivationPerTensor(const std::vector<float>& t,
+                                                int64_t len, float scale);
+
+void DequantizeActivationPerTensor(std::vector<float>& t, int64_t len,
+                                   float scale);
+
 void Softmax_InPlace(float* x, int B, int M, int N, int K);
 
 void Softmax(float* out, float* in, int B, int M, int N, int K);

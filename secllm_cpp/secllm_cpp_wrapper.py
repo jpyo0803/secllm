@@ -36,6 +36,8 @@ class SecLLMCppWrapper:
       cls.lib.Ext_CreateSecLLM(config.hidden_size, config.intermediate_size, config.max_position_embeddings, config.num_attention_heads, config.num_hidden_layers, config.num_key_value_heads, enc_key_pool_size)
 
       cls.shape_bookkeeper = [None for _ in range(MAX_NUM_LAYERS * 300)]
+      cls.shape_bookkeeper_uint32 = [None for _ in range(MAX_NUM_LAYERS * 300)]
+
     return cls._instance
   
   def __init__(self, num_hidden_layers, enc_key_pool_size):
@@ -252,6 +254,18 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_BookKeeperStore(loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
+  def BookKeeperStore_Uint32(cls, layer_index, operation_index, input_index, data):
+    assert data.is_contiguous()
+    assert data.dtype == torch.uint32
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    
+    # Convert shape to list
+    shape_list = torch.tensor(data.shape, dtype=torch.int32)
+
+    cls.shape_bookkeeper_uint32[loc] = data.shape
+
+    cls.lib.Ext_BookKeeperStore_Uint32(loc, cast(data.data_ptr(), POINTER(c_uint32)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+
   def BookKeeperLoad(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     
@@ -264,7 +278,20 @@ class SecLLMCppWrapper:
     cls.lib.Ext_BookKeeperLoad(loc, cast(out.data_ptr(), POINTER(c_float)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
-  
+
+  def BookKeeperLoad_Uint32(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    
+    shape = cls.shape_bookkeeper_uint32[loc]
+    assert shape is not None
+    cls.shape_bookkeeper_uint32[loc] = None
+    shape_list = torch.tensor(shape, dtype=torch.int32)
+    out = torch.empty(shape, dtype=torch.uint32)
+
+    cls.lib.Ext_BookKeeperLoad_Uint32(loc, cast(out.data_ptr(), POINTER(c_int)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+
+    return out
+
   def ReplicateTensor(cls, src : int, dst : list):
     # be careful src is in int64
     src_shape = cls.shape_bookkeeper[src]
@@ -275,6 +302,15 @@ class SecLLMCppWrapper:
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_ReplicateTensor(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
+  def ReplicateTensor_Uint32(cls, src : int, dst : list):
+    # be careful src is in int64
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    cls.shape_bookkeeper_uint32[src] = None
+    for e in dst:
+      cls.shape_bookkeeper_uint32[e] = src_shape
+
+    dst = torch.tensor(dst, dtype=torch.int32)
+    cls.lib.Ext_ReplicateTensor_Uint32(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
   def GetCprngTensor(cls, shape):
     out = torch.empty(shape, dtype=torch.int32)
@@ -321,6 +357,100 @@ class SecLLMCppWrapper:
     enc_tensor_shape_list = torch.tensor(enc_tensor.shape, dtype=torch.int32)
 
     cls.lib.Ext_DecryptLinearActivation(layer_idx, dst, cast(enc_tensor.data_ptr(), POINTER(c_int)), len(enc_tensor_shape_list), cast(enc_tensor_shape_list.data_ptr(), POINTER(c_int)), type)
+
+  def SetQKVOutputScales(cls, layer_idx, q_output_scale, k_output_scale, v_output_scale):
+    '''
+        NOTE(jpyo0803): Set QKV output scales
+    '''
+
+    cls.lib.Ext_SetQKVOutputScales(layer_idx, c_float(q_output_scale), c_float(k_output_scale), c_float(v_output_scale))
+
+  def QuantizeAndShiftQ(cls, layer_idx: int, src : int, dst : list):
+    '''
+        NOTE(jpyo0803): Quantize and Shift Q
+    '''
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[src] = None
+    for e in dst:
+      cls.shape_bookkeeper_uint32[e] = src_shape
+
+    dst_list = torch.tensor(dst, dtype=torch.int32)
+
+    cls.lib.Ext_QuantizeAndShiftQ(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+
+  def QuantizeAndShiftK(cls, layer_idx: int, src : int, dst : list):
+    '''
+        NOTE(jpyo0803): Quantize and Shift K
+    '''
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[src] = None
+    for e in dst:
+      cls.shape_bookkeeper_uint32[e] = src_shape
+
+    dst_list = torch.tensor(dst, dtype=torch.int32)
+
+    cls.lib.Ext_QuantizeAndShiftK(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+
+  def QuantizeAndShiftP(cls, layer_idx: int, src : int, dst : list):
+    '''
+        NOTE(jpyo0803): Quantize and Shift P
+    '''
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[src] = None
+    for e in dst:
+      cls.shape_bookkeeper_uint32[e] = src_shape
+
+    dst_list = torch.tensor(dst, dtype=torch.int32)
+
+    cls.lib.Ext_QuantizeAndShiftP(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+
+  def QuantizeAndShiftV(cls, layer_idx: int, src : int, dst : list):
+    '''
+        NOTE(jpyo0803): Quantize and Shift V
+    '''
+    src_shape = cls.shape_bookkeeper[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[src] = None
+    for e in dst:
+      cls.shape_bookkeeper_uint32[e] = src_shape
+
+    dst_list = torch.tensor(dst, dtype=torch.int32)
+
+    cls.lib.Ext_QuantizeAndShiftV(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+
+  def UnshiftAndDequantizeQK(cls, layer_idx: int, src : int, dst : int):
+    '''
+        NOTE(jpyo0803): Unshift and Dequantize QK
+    '''
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[dst] = src_shape
+    cls.shape_bookkeeper_uint32[src] = None
+
+    cls.lib.Ext_UnshiftAndDequantizeQK(layer_idx, src, dst)
+
+  def UnshiftAndDequantizePV(cls, layer_idx: int, src : int, dst : int):
+    '''
+        NOTE(jpyo0803): Unshift and Dequantize PV
+    '''
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper[dst] = src_shape
+    cls.shape_bookkeeper_uint32[src] = None
+
+    cls.lib.Ext_UnshiftAndDequantizePV(layer_idx, src, dst)
+
+
+  def SetAttentionMask(cls, attn_mask):
+    '''
+        NOTE(jpyo0803): Set Attention Mask
+    '''
+    assert attn_mask.is_contiguous()
+    attn_mask = attn_mask.to(torch.float32)
+    cls.lib.Ext_SetAttentionMask(cast(attn_mask.data_ptr(), POINTER(c_float)), attn_mask.shape[-2], attn_mask.shape[-1])
 
 if __name__ == '__main__':
     secllm = SecLLM(32)

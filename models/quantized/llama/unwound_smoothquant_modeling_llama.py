@@ -276,6 +276,8 @@ class SqLlamaDecoderLayer(nn.Module):
 
         secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
 
+        secllm_cpp_wrapper.SetAttentionMask(attention_mask)
+
         secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 1, 0, hidden_states.to(torch.float32)) # operation 1, input 0
 
         # residual = hidden_states
@@ -505,6 +507,7 @@ class SqLlamaDecoderLayer(nn.Module):
         secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, down_proj_enc_key_pool, precomputed_down_proj_dec_key, 6)
         secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.down_proj.weight_scales.to(torch.float32), 6)
 
+        secllm_cpp_wrapper.SetQKVOutputScales(self.layer_idx, self.q_output_scale, self.k_output_scale, self.v_output_scale)
 
 LLAMA_START_DOCSTRING = r"""
     This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the

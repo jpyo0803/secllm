@@ -15,15 +15,20 @@ namespace {
 jpyo0803::SecLLM* secllm_ptr = nullptr;
 }  // namespace
 
-jpyo0803::SecLLM::SecLLM(int hidden_size, int intermediate_size,
-                         int max_position_embeddings, int num_attention_heads,
-                         int num_hidden_layers, int num_key_value_heads,
-                         int enc_key_pool_size)
+namespace jpyo0803 {
+
+SecLLM::SecLLM(int hidden_size, int intermediate_size,
+               int max_position_embeddings, int num_attention_heads,
+               int num_hidden_layers, int num_key_value_heads,
+               int enc_key_pool_size)
     : num_hidden_layers_(num_hidden_layers) {
   std::cout << "SecLLM is created with " << num_hidden_layers_ << " layers."
             << std::endl;
   book_keeper_ =
       std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 100 * 3);
+
+  book_keeper_uint32_ = std::make_unique<BookKeeper<Tensor<uint32_t>>>(
+      num_hidden_layers_ * 100 * 3);
 
   /*
     We have total 91 operations [0, 90]
@@ -49,18 +54,26 @@ jpyo0803::SecLLM::SecLLM(int hidden_size, int intermediate_size,
   }
 }
 
-void jpyo0803::SecLLM::BookKeeperStore(
-    std::vector<int> locs, std::shared_ptr<jpyo0803::Tensor<float>>& data_ptr) {
+void SecLLM::BookKeeperStore(std::vector<int> locs,
+                             std::shared_ptr<Tensor<float>>& data_ptr) {
   book_keeper_->Keep(locs, data_ptr);
 }
 
-std::shared_ptr<jpyo0803::Tensor<float>> jpyo0803::SecLLM::BookKeeperLoad(
-    int loc) {
+std::shared_ptr<Tensor<float>> SecLLM::BookKeeperLoad(int loc) {
   return book_keeper_->Retrieve(loc);
 }
 
-void jpyo0803::SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool,
-                                          int* dec_key, int type) {
+void SecLLM::BookKeeperStore_Uint32(
+    std::vector<int> locs, std::shared_ptr<Tensor<uint32_t>>& data_ptr) {
+  book_keeper_uint32_->Keep(locs, data_ptr);
+}
+
+std::shared_ptr<Tensor<uint32_t>> SecLLM::BookKeeperLoad_Uint32(int loc) {
+  return book_keeper_uint32_->Retrieve(loc);
+}
+
+void SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
+                                int type) {
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).SetEncKeyAndDecKey_Q(enc_key_pool,
@@ -95,8 +108,8 @@ void jpyo0803::SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool,
   }
 }
 
-void jpyo0803::SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale,
-                                             int len, int type) {
+void SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
+                                   int type) {
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).SetLinearWeightScales_Q(weight_scale, len);
@@ -127,8 +140,9 @@ void jpyo0803::SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale,
   }
 }
 
-void jpyo0803::SecLLM::EncryptLinearActivation(
-    int layer_idx, int* out, std::shared_ptr<Tensor<float>> in, int type) {
+void SecLLM::EncryptLinearActivation(int layer_idx, int* out,
+                                     std::shared_ptr<Tensor<float>> in,
+                                     int type) {
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).EncryptLinearActivation_Q(out, in);
@@ -156,8 +170,9 @@ void jpyo0803::SecLLM::EncryptLinearActivation(
   }
 }
 
-void jpyo0803::SecLLM::DecryptLinearActivation(
-    int layer_idx, std::shared_ptr<Tensor<float>> out, int* in, int type) {
+void SecLLM::DecryptLinearActivation(int layer_idx,
+                                     std::shared_ptr<Tensor<float>> out,
+                                     int* in, int type) {
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).DecryptLinearActivation_Q(out, in);
@@ -184,6 +199,60 @@ void jpyo0803::SecLLM::DecryptLinearActivation(
       break;
   }
 }
+
+void SecLLM::SetQKVOutputScales(int layer_idx, float q_output_scale,
+                                float k_output_scale, float v_output_scale) {
+  decoder_layers_->at(layer_idx).SetQKVOutputScales(
+      q_output_scale, k_output_scale, v_output_scale);
+}
+
+void SecLLM::QuantizeAndShiftQ(int layer_idx,
+                               std::shared_ptr<Tensor<uint32_t>> out,
+                               std::shared_ptr<Tensor<float>> in) {
+  decoder_layers_->at(layer_idx).QuantizeAndShiftQ(out, in);
+}
+
+void SecLLM::QuantizeAndShiftK(int layer_idx,
+                               std::shared_ptr<Tensor<uint32_t>> out,
+                               std::shared_ptr<Tensor<float>> in) {
+  decoder_layers_->at(layer_idx).QuantizeAndShiftK(out, in);
+}
+
+void SecLLM::UnshiftAndDequantizeQK(int layer_idx,
+                                    std::shared_ptr<Tensor<float>> out,
+                                    std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).UnshiftAndDequantizeQK(out, in);
+}
+
+void SecLLM::QuantizeAndShiftP(int layer_idx,
+                               std::shared_ptr<Tensor<uint32_t>> out,
+                               std::shared_ptr<Tensor<float>> in) {
+  decoder_layers_->at(layer_idx).QuantizeAndShiftP(out, in);
+}
+
+void SecLLM::QuantizeAndShiftV(int layer_idx,
+                               std::shared_ptr<Tensor<uint32_t>> out,
+                               std::shared_ptr<Tensor<float>> in) {
+  decoder_layers_->at(layer_idx).QuantizeAndShiftV(out, in);
+}
+
+void SecLLM::UnshiftAndDequantizePV(int layer_idx,
+                                    std::shared_ptr<Tensor<float>> out,
+                                    std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).UnshiftAndDequantizePV(out, in);
+}
+
+void SecLLM::SetAttentionMask(float* mask, int M, int N) {
+
+  attn_mask_ = std::vector<std::vector<float>>(M, std::vector<float>(N));
+  for (int i = 0; i < M; ++i) {
+    for (int j = 0; j < N; ++j) {
+      attn_mask_.at(i).at(j) = mask[i * N + j];
+    }
+  }
+}
+
+}  // namespace jpyo0803
 
 extern "C" {
 
@@ -220,8 +289,12 @@ void Ext_Softmax(int from, int to) {
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
 
+  // retrieved_data->PrintAsTorchStyle();
+  // exit(-1);
+
   jpyo0803::Softmax(out->data().data(), retrieved_data->data().data(), B, M, N,
                     K);
+
   secllm_ptr->BookKeeperStore({to}, out);
 }
 
@@ -321,6 +394,7 @@ uint32_t Ext_GenerateAddKey() {
   return jpyo0803::GenerateAddKey();
 }
 
+// TODO(jpyo0803): Where is its declaration?
 void Ext_BookKeeperStore(int loc, float* data, int shape_len, int* shape) {
   std::vector<int> shape_vec(shape, shape + shape_len);
 
@@ -339,9 +413,43 @@ void Ext_BookKeeperStore(int loc, float* data, int shape_len, int* shape) {
   secllm_ptr->BookKeeperStore({loc}, data_ptr);
 }
 
+void Ext_BookKeeperStore_Uint32(int loc, int* data, int shape_len, int* shape) {
+  std::vector<int> shape_vec(shape, shape + shape_len);
+
+  int num_elements = std::accumulate(shape_vec.begin(), shape_vec.end(), 1,
+                                     std::multiplies<int>());
+
+  std::vector<uint32_t> input_vec(data, data + num_elements);
+
+  jpyo0803::Tensor<uint32_t> tensor(shape_vec, input_vec);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> data_ptr =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(tensor);
+
+  secllm_ptr->BookKeeperStore_Uint32({loc}, data_ptr);
+}
+
 void Ext_BookKeeperLoad(int loc, float* out, int shape_len, int* shape) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(loc);
+
+  if (retrieved_data == nullptr) {
+    throw std::runtime_error("No object at the location: " +
+                             std::to_string(loc));
+  }
+  for (int i = 0; i < shape_len; ++i) {
+    if (retrieved_data->shape()[i] != shape[i]) {
+      throw std::runtime_error("Shape mismatch at the location: " +
+                               std::to_string(loc));
+    }
+  }
+
+  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+}
+
+void Ext_BookKeeperLoad_Uint32(int loc, int* out, int shape_len, int* shape) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(loc);
 
   if (retrieved_data == nullptr) {
     throw std::runtime_error("No object at the location: " +
@@ -364,6 +472,15 @@ void Ext_ReplicateTensor(int from, int* to, int to_len) {
 
   std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore(locs, retrieved_data);
+}
+
+void Ext_ReplicateTensor_Uint32(int from, int* to, int to_len) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+  // Notice, this removes a tensor in the book keeper
+
+  std::vector<int> locs(to, to + to_len);
+  secllm_ptr->BookKeeperStore_Uint32(locs, retrieved_data);
 }
 
 void Ext_GetCprngTensor(int* out, int shape_len, int* shape) {
@@ -404,5 +521,109 @@ void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
   secllm_ptr->DecryptLinearActivation(layer_idx, out, enc_tensor, type);
 
   secllm_ptr->BookKeeperStore({to}, out);
+}
+
+void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
+                            float k_output_scale, float v_output_scale) {
+  secllm_ptr->SetQKVOutputScales(layer_idx, q_output_scale, k_output_scale,
+                                 v_output_scale);
+}
+
+void Ext_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->QuantizeAndShiftQ(layer_idx, out, retrieved_data);
+
+  std::vector<int> locs(to, to + to_len);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
+}
+
+void Ext_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->QuantizeAndShiftK(layer_idx, out, retrieved_data);
+
+  std::vector<int> locs(to, to + to_len);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
+}
+
+void Ext_UnshiftAndDequantizeQK(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(retrieved_data->shape());
+
+  secllm_ptr->UnshiftAndDequantizeQK(layer_idx, out, retrieved_data);
+
+  auto shape = out->shape();
+
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          out->data()[b * M * K * N + m * K * N + k * N + n] +=
+              secllm_ptr->attn_mask_.at(k).at(n);
+        }
+      }
+    }
+  }
+
+  secllm_ptr->BookKeeperStore({to}, out);
+}
+
+void Ext_QuantizeAndShiftP(int layer_idx, int from, int to_len, int* to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->QuantizeAndShiftP(layer_idx, out, retrieved_data);
+
+  std::vector<int> locs(to, to + to_len);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
+}
+
+void Ext_QuantizeAndShiftV(int layer_idx, int from, int to_len, int* to) {
+  std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
+      secllm_ptr->BookKeeperLoad(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->QuantizeAndShiftV(layer_idx, out, retrieved_data);
+
+  std::vector<int> locs(to, to + to_len);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
+}
+
+void Ext_UnshiftAndDequantizePV(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<float>> out =
+      std::make_shared<jpyo0803::Tensor<float>>(retrieved_data->shape());
+
+  secllm_ptr->UnshiftAndDequantizePV(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore({to}, out);
+}
+
+void Ext_SetAttentionMask(float* mask, int M, int N) {
+  secllm_ptr->SetAttentionMask(mask, M, N);
 }
 }  // extern "C"

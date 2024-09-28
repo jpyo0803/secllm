@@ -1,9 +1,9 @@
 from typing import Any
 import torch
 
-from torch_int.functional.quantization import (
-    dynamic_quantize_activation_per_token_absmax,
-)
+# from torch_int.functional.quantization import (
+#     dynamic_quantize_activation_per_token_absmax,
+# )
 
 from transformers.models.llama.modeling_llama import (
     repeat_kv,
@@ -568,9 +568,9 @@ class Task28(Task):
     def run(self):
         # Bypass shift for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 28, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 31, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 33, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.QuantizeAndShiftQ(self.layer_idx, src, dst)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -583,9 +583,9 @@ class Task29(Task):
     def run(self):
         # Bypass shift for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 29, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 32, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 34, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.QuantizeAndShiftK(self.layer_idx, src, dst)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -607,11 +607,7 @@ class Task31(Task):
 
     def run(self):
         # Broadcast
-
-        src = GetBookKeeperLinearIndex(self.layer_idx, 31, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 33, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 0)]
-
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -623,11 +619,7 @@ class Task32(Task):
 
     def run(self):
         # Broadcast
-
-        src = GetBookKeeperLinearIndex(self.layer_idx, 32, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 34, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 0)]
-
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -642,7 +634,7 @@ class Task33(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 33, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 36, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -658,7 +650,7 @@ class Task34(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 34, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 37, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -681,17 +673,12 @@ class Task36(Task):
 
     def run(self):
         # Move Enc_Q to GPU
-        q_output_scale = self.model.layers[self.layer_idx].q_output_scale
-
-        enc_q = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 36, 0)
-
-        int8_enc_q = (enc_q / q_output_scale).round().clamp(-128, 127).to(torch.int8)
-
-        int8_enc_q = int8_enc_q.to('cuda:0')
+        enc_q = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 36, 0)
         
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 0)
+        enc_q = enc_q.to('cuda:0')
 
-        self.model.tensor_buffer[dst] = int8_enc_q
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 0)
+        self.model.tensor_buffer[dst] = enc_q
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -704,17 +691,12 @@ class Task37(Task):
 
     def run(self):
         # Move Enc_K to GPU
-        k_output_scale = self.model.layers[self.layer_idx].k_output_scale
+        enc_k = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 37, 0)
 
-        enc_k = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 37, 0)
-
-        int8_enc_k = (enc_k / k_output_scale).round().clamp(-128, 127).to(torch.int8)
-
-        int8_enc_k = int8_enc_k.to('cuda:0')
+        enc_k = enc_k.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 1)
-
-        self.model.tensor_buffer[dst] = int8_enc_k
+        self.model.tensor_buffer[dst] = enc_k
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -746,19 +728,23 @@ class Task39(Task):
         src_k = GetBookKeeperLinearIndex(self.layer_idx, 39, 1)
         assert self.model.tensor_buffer[src_k] is not None
 
-        int8_enc_q = self.model.tensor_buffer[src_q]
-        int8_enc_k = self.model.tensor_buffer[src_k]
+        enc_q = self.model.tensor_buffer[src_q]
+        enc_k = self.model.tensor_buffer[src_k]
 
-        int8_enc_k = repeat_kv(int8_enc_k, num_key_value_groups)
+        assert enc_q.dtype == torch.uint32
+        assert enc_k.dtype == torch.uint32
+        assert enc_q.shape[-1] == enc_k.shape[-1]
 
-        int8_enc_q_cupy = cupy.from_dlpack(int8_enc_q.to(torch.int32))
-        int8_enc_k_T_cupy = cupy.from_dlpack(int8_enc_k.transpose(-2, -1).to(torch.int32))
 
-        attn_weights_cupy = cupy.matmul(int8_enc_q_cupy, int8_enc_k_T_cupy)
-        attn_weights = torch.from_dlpack(attn_weights_cupy)
+        enc_k = repeat_kv(enc_k, num_key_value_groups)
 
+        enc_q_cupy = cupy.from_dlpack(enc_q.to(torch.int32))
+        enc_k_T_cupy = cupy.from_dlpack(enc_k.transpose(-2, -1).to(torch.int32))
+
+        attn_weights_cupy = cupy.matmul(enc_q_cupy, enc_k_T_cupy)
+        attn_weights = torch.from_dlpack(attn_weights_cupy).to(torch.uint32)
         dst = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
-        self.model.tensor_buffer[dst] = (attn_weights, int8_enc_k.shape[-2])
+        self.model.tensor_buffer[dst] = (attn_weights, enc_k.shape[-2]) # Before transposed
 
         self.model.tensor_buffer[src_q] = None
         self.model.tensor_buffer[src_k] = None
@@ -773,28 +759,25 @@ class Task40(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        q_output_scale = self.model.layers[self.layer_idx].q_output_scale
-        k_output_scale = self.model.layers[self.layer_idx].k_output_scale
+        # q_output_scale = self.model.layers[self.layer_idx].q_output_scale
+        # k_output_scale = self.model.layers[self.layer_idx].k_output_scale
 
-        head_dim = self.model.layers[self.layer_idx].head_dim
+        # head_dim = self.model.layers[self.layer_idx].head_dim
 
-        attention_mask = self.model.layers[self.layer_idx].attention_mask
+        # attention_mask = self.model.layers[self.layer_idx].attention_mask
 
         src = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
         assert self.model.tensor_buffer[src] is not None
 
-        attn_weights, int8_enc_k_shape_minus_2 = self.model.tensor_buffer[src]
+        attn_weights, _ = self.model.tensor_buffer[src]
 
         attn_weights = attn_weights.to('cpu')
-        attn_weights = attn_weights.to(torch.float32)
 
-        attn_weights = attn_weights * q_output_scale * k_output_scale / math.sqrt(head_dim)
-
-        if attention_mask is not None:
-            causal_mask = attention_mask[:, :, :, : int8_enc_k_shape_minus_2]
-            attn_weights = attn_weights + causal_mask
-
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 41, 0, attn_weights)
+        # if attention_mask is not None:
+        #     causal_mask = attention_mask[:, :, :, : enc_k_shape_minus_2]
+        #     attn_weights = attn_weights + causal_mask
+        
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 41, 0, attn_weights)
         
         self.model.tensor_buffer[src] = None
 
@@ -813,7 +796,7 @@ class Task41(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 41, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 42, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -827,9 +810,12 @@ class Task42(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 42, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 43, 0)]
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 43, 0)
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.UnshiftAndDequantizeQK(self.layer_idx, src, dst)
+
+        # Do un shift and dequantize
+        # self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -879,9 +865,9 @@ class Task46(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 46, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 49, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 51, 0), GetBookKeeperLinearIndex(self.layer_idx, 53, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.QuantizeAndShiftP(self.layer_idx, src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -895,9 +881,9 @@ class Task47(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 47, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 50, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 52, 0), GetBookKeeperLinearIndex(self.layer_idx, 53, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.QuantizeAndShiftV(self.layer_idx, src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -920,10 +906,7 @@ class Task49(Task):
 
     def run(self):
         # Broadcast
-        src = GetBookKeeperLinearIndex(self.layer_idx, 49, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 51, 0), GetBookKeeperLinearIndex(self.layer_idx, 53, 0)]
-
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        pass
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -936,10 +919,7 @@ class Task50(Task):
 
     def run(self):
         # Broadcast
-        src = GetBookKeeperLinearIndex(self.layer_idx, 50, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 52, 0), GetBookKeeperLinearIndex(self.layer_idx, 53, 0)]
-
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        pass
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -955,7 +935,7 @@ class Task51(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 51, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 54, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -971,7 +951,7 @@ class Task52(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 52, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 55, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -994,16 +974,17 @@ class Task54(Task):
 
     def run(self):
         # Move enc_P to GPU
-        attn_weights = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 54, 0)
-        attn_weights.mul_(127).round_()
+        enc_q_attn_weights = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 54, 0)
+        # attn_weights.mul_(127).round_()
 
-        int8_attn_weights = attn_weights.to(torch.int8)
+        # int8_attn_weights = attn_weights.to(torch.int8)
 
-        int8_attn_weights = int8_attn_weights.to('cuda:0')
+        # int8_attn_weights = int8_attn_weights.to('cuda:0')
+        enc_q_attn_weights = enc_q_attn_weights.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 0)
 
-        self.model.tensor_buffer[dst] = int8_attn_weights
+        self.model.tensor_buffer[dst] = enc_q_attn_weights
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1016,15 +997,16 @@ class Task55(Task):
 
     def run(self):
         # Move enc_V to GPU
-        v_output_scale = self.model.layers[self.layer_idx].v_output_scale
+        # v_output_scale = self.model.layers[self.layer_idx].v_output_scale
 
-        value_states = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 55, 0)
-        int8_value_states = (value_states / v_output_scale).round().clamp(-128, 127).to(torch.int8)
-        int8_value_states = int8_value_states.to('cuda:0')
+        enc_v = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 55, 0)
+        # int8_value_states = (value_states / v_output_scale).round().clamp(-128, 127).to(torch.int8)
+        # int8_value_states = int8_value_states.to('cuda:0')
+        enc_v = enc_v.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
 
-        self.model.tensor_buffer[dst] = int8_value_states
+        self.model.tensor_buffer[dst] = enc_v
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1056,17 +1038,17 @@ class Task57(Task):
         src_v = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
         assert self.model.tensor_buffer[src_v] is not None
 
-        int8_attn_weights = self.model.tensor_buffer[src_p]
-        int8_value_states = self.model.tensor_buffer[src_v]
+        attn_weights = self.model.tensor_buffer[src_p]
+        value_states = self.model.tensor_buffer[src_v]
 
-        int8_value_states = repeat_kv(int8_value_states, num_key_value_groups)
+        value_states = repeat_kv(value_states, num_key_value_groups)
 
-        int8_attn_weights_cupy = cupy.from_dlpack(int8_attn_weights.to(torch.int32))
-        int8_value_states_cupy = cupy.from_dlpack(int8_value_states.to(torch.int32))
+        attn_weights_cupy = cupy.from_dlpack(attn_weights.to(torch.int32))
+        value_states_cupy = cupy.from_dlpack(value_states.to(torch.int32))
 
-        attn_output_cupy = cupy.matmul(int8_attn_weights_cupy, int8_value_states_cupy)
+        attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
 
-        attn_output = torch.from_dlpack(attn_output_cupy)
+        attn_output = torch.from_dlpack(attn_output_cupy).to(torch.uint32)
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 58, 0)
         self.model.tensor_buffer[dst] = attn_output
@@ -1097,9 +1079,9 @@ class Task58(Task):
         attn_output = self.model.tensor_buffer[src_attn_output]
 
         attn_output = attn_output.to('cpu')
-        attn_output = attn_output.to(torch.float32)
+        # attn_output = attn_output.to(torch.float32)
 
-        attn_output *= v_output_scale / 127
+        # attn_output *= v_output_scale / 127
 
         if attn_output.size() != (bsz, num_heads, q_len, head_dim):
             raise ValueError(
@@ -1110,7 +1092,7 @@ class Task58(Task):
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.reshape(bsz, q_len, -1)
 
-        self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 59, 0, attn_output)
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 59, 0, attn_output)
 
         self.model.tensor_buffer[src_attn_output] = None
 
@@ -1128,7 +1110,7 @@ class Task59(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, 59, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 60, 0)]
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1142,9 +1124,9 @@ class Task60(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 60, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 62, 0)]
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 62, 0)
 
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        self.secllm_cpp_wrapper.UnshiftAndDequantizePV(self.layer_idx, src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
