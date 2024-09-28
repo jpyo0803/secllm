@@ -1,10 +1,10 @@
 import torch
-from .._CUDA import (linear_a8_w8_b32_o32,
-                     linear_relu_a8_w8_b8_o8,
-                     linear_a8_w8_b8_o8,
-                     linear_a8_w8_b32_o32_with_scaling,
-                     linear_a8_w8_bfp32_ofp32
-                     )
+# from .._CUDA import (linear_a8_w8_b32_o32,
+#                      linear_relu_a8_w8_b8_o8,
+#                      linear_a8_w8_b8_o8,
+#                      linear_a8_w8_b32_o32_with_scaling,
+#                      linear_a8_w8_bfp32_ofp32
+#                      )
 from ..functional.quantization import (
     quantize_per_tensor_absmax,
     quantize_weight_per_channel_absmax,
