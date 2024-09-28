@@ -5,6 +5,7 @@
 #include <memory>
 #include <numeric>
 #include <vector>
+#include <iomanip>  // For setting precision
 
 namespace jpyo0803 {
 
@@ -48,23 +49,16 @@ class Tensor {
 
   T& operator[](int idx) { return data_[idx]; }
 
-  void PrintDataFirstAndLast10() const {
-    std::cout << "data: [";
-    for (int i = 0; i < 10; ++i) {
-      std::cout << data_[i];
-      if (i != 9) {
-        std::cout << ", ";
-      }
+    // New print function
+    void PrintAsTorchStyle(int precision = 4, int threshold = 50) const {
+        std::cout << "tensor(";
+        if (data_.size() > threshold) {
+            PrintMultiDimTorchStyle(0, {}, true, precision);  // Start recursion with empty indices
+        } else {
+            PrintMultiDimTorchStyle(0, {}, false, precision); // No truncation if below threshold
+        }
+        std::cout << ")" << std::endl;
     }
-    std::cout << ", ..., ";
-    for (int i = data_.size() - 10; i < data_.size(); ++i) {
-      std::cout << data_[i];
-      if (i != data_.size() - 1) {
-        std::cout << ", ";
-      }
-    }
-    std::cout << "]" << std::endl;
-  }
 
   void PrintData() const {
     std::cout << "data: [";
@@ -91,6 +85,79 @@ class Tensor {
  private:
   const std::vector<int> shape_;
   std::vector<T> data_;
+
+ private:
+    // Helper to calculate the flat index based on the multi-dimensional indices
+    int CalculateIndex(const std::vector<int>& indices) const {
+        int index = 0;
+        int stride = 1;
+        for (int i = shape_.size() - 1; i >= 0; --i) {
+            index += indices[i] * stride;
+            stride *= shape_[i];
+        }
+        return index;
+    }
+
+    // Main print function handling each dimension
+    void PrintMultiDimTorchStyle(int dim, std::vector<int> indices, bool truncate, int precision) const {
+        if (dim == shape_.size() - 1) {  // Last dimension (base case)
+            std::cout << "[";
+            int limit = (truncate && shape_[dim] > 3) ? 3 : shape_[dim];  // Truncate if dimension > 3
+            // Print first 3 elements
+            for (int i = 0; i < limit; ++i) {
+                std::vector<int> new_indices = indices;
+                new_indices.push_back(i);
+                int idx = CalculateIndex(new_indices);
+                if (idx >= data_.size()) throw std::runtime_error("Index out of bounds in Tensor data access.");
+
+                std::cout << std::setw(precision + 6) << std::setprecision(precision)
+                          << std::scientific << data_[idx];
+                if (i != limit - 1) {
+                    std::cout << ", ";
+                }
+            }
+            // Truncate and print the last 3 elements if dimension is large
+            if (truncate && shape_[dim] > 3) {
+                std::cout << ", ..., ";
+                for (int i = shape_[dim] - 3; i < shape_[dim]; ++i) {
+                    std::vector<int> new_indices = indices;
+                    new_indices.push_back(i);
+                    int idx = CalculateIndex(new_indices);
+                    std::cout << std::setw(precision + 6) << std::setprecision(precision)
+                              << std::scientific << data_[idx];
+                    if (i != shape_[dim] - 1) {
+                        std::cout << ", ";
+                    }
+                }
+            }
+            std::cout << "]";
+        } else {  // Higher dimensions
+            std::cout << "[";
+            int limit = (truncate && shape_[dim] > 3) ? 3 : shape_[dim];  // Truncate if dimension > 3
+            // Print the first 3 slices
+            for (int i = 0; i < limit; ++i) {
+                std::vector<int> new_indices = indices;
+                new_indices.push_back(i);
+                PrintMultiDimTorchStyle(dim + 1, new_indices, truncate, precision);
+                if (i != limit - 1) {
+                    std::cout << ",\n" << std::string(dim + 1, ' ');
+                }
+            }
+            // Truncate and print the last 3 slices if dimension is large
+            if (truncate && shape_[dim] > 3) {
+                std::cout << ",\n" << std::string(dim + 1, ' ') << "...,\n";
+                for (int i = shape_[dim] - 3; i < shape_[dim]; ++i) {
+                    std::vector<int> new_indices = indices;
+                    new_indices.push_back(i);
+                    PrintMultiDimTorchStyle(dim + 1, new_indices, truncate, precision);
+                    if (i != shape_[dim] - 1) {
+                        std::cout << ",\n" << std::string(dim + 1, ' ');
+                    }
+                }
+            }
+            std::cout << "]";
+        }
+    }
 };
 
 }  // namespace jpyo0803
