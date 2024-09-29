@@ -242,10 +242,9 @@ void SecLLM::QuantizeAndShiftV(int layer_idx,
   decoder_layers_->at(layer_idx).QuantizeAndShiftV(out, in);
 }
 
-void SecLLM::UnshiftAndDequantizePV(int layer_idx,
-                                    std::shared_ptr<Tensor<float>> out,
-                                    std::shared_ptr<Tensor<uint32_t>> in) {
-  decoder_layers_->at(layer_idx).UnshiftAndDequantizePV(out, in);
+std::shared_ptr<Tensor<float>> SecLLM::UnshiftAndDequantizePV(
+    int layer_idx, std::shared_ptr<Tensor<uint32_t>> in) {
+  return decoder_layers_->at(layer_idx).UnshiftAndDequantizePV(in);
 }
 
 void SecLLM::SetAttentionMask(float* mask, int M, int N) {
@@ -631,11 +630,9 @@ void Ext_UnshiftAndDequantizePV(int layer_idx, int from, int to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
-  std::shared_ptr<jpyo0803::Tensor<float>> out =
-      std::make_shared<jpyo0803::Tensor<float>>(retrieved_data->shape());
-
-  secllm_ptr->UnshiftAndDequantizePV(layer_idx, out, retrieved_data);
-
+  auto out = secllm_ptr->UnshiftAndDequantizePV(layer_idx, retrieved_data);
+  // out->PrintShape();
+  // exit(-1);
   secllm_ptr->BookKeeperStore({to}, out);
 }
 

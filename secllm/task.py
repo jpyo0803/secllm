@@ -896,7 +896,8 @@ class Task48(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        pass
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -1090,10 +1091,10 @@ class Task58(Task):
                 f" {attn_output.size()}"
             )
         
-        attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.reshape(bsz, q_len, -1)
+        # attn_output = attn_output.transpose(1, 2).contiguous()
+        # attn_output = attn_output.reshape(bsz, q_len, -1)
 
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 59, 0, attn_output)
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 59, 0, attn_output, (bsz, q_len, num_heads * head_dim))
 
         self.model.tensor_buffer[src_attn_output] = None
 
@@ -1196,6 +1197,7 @@ class Task64(Task):
 
         x_cupy = cupy.from_dlpack(x.to(torch.int32))
         weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].o_proj.weight.transpose(-2, -1).to(torch.int32))
+        
         y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
         y = torch.from_dlpack(y_cupy)
 

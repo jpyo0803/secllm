@@ -267,7 +267,6 @@ void DecoderLayer::EncryptLinearActivation_O(
     std::cout << "Encryption is called twice in a row!" << std::endl;
     exit(-1);
   }
-
   // Sample encryption keys from the pool
   for (int i = 0; i < B * M; ++i) {
     sampled_o_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
@@ -604,7 +603,7 @@ void DecoderLayer::UnshiftAndDequantizeQK(
   int K = out->shape().at(2);
   int N = out->shape().at(3);
 
-  std::cout << num_key_value_groups_ << std::endl;
+  // std::cout << num_key_value_groups_ << std::endl;
   // Unshift
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
@@ -667,21 +666,34 @@ void DecoderLayer::QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
   }
 }
 
-void DecoderLayer::UnshiftAndDequantizePV(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
+std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
+    std::shared_ptr<Tensor<uint32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
-  int B = out->shape().at(0);
-  int M = out->shape().at(1);
-  int N = out->shape().at(2);
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
 
-  int64_t len = static_cast<int64_t>(B) * M * N;
+  Tensor<float> tmp_tensor({B, M, K, N});
+  // std::cout << "tmp tensor shape: ";
+  // tmp_tensor.PrintShape();
 
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (float)((int)in->data().at(i));
+    tmp_tensor.data().at(i) = (float)((int)in->data().at(i));
   }
 
   float scale = 1.0 / 127 * v_output_scale_;  // Correct
-  DequantizeActivationPerTensor(out->data(), len, scale);
+  DequantizeActivationPerTensor(tmp_tensor.data(), len, scale);
+
+  auto tmp_tensor2 = tmp_tensor.Transpose(1, 2);
+  // std::cout << "tmp tensor2 shape: ";
+  // tmp_tensor2.PrintShape();
+  auto tmp_tensor3 = tmp_tensor2.Reshape({B, K, M * N});
+  // std::cout << "tmp tensor3 shape: ";
+  // tmp_tensor3.PrintShape();
+  return std::make_shared<Tensor<float>>(tmp_tensor3);
 }
 
 }  // namespace jpyo0803

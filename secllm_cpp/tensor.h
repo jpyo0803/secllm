@@ -146,6 +146,43 @@ class Tensor {
     }
   }
 
+  // Member function to transpose the tensor
+  Tensor<T> Transpose(int dim1, int dim2) {
+    if (dim1 >= shape_.size() || dim2 >= shape_.size()) {
+      throw std::runtime_error("Invalid dimensions for transpose.");
+    }
+
+    std::vector<int> new_shape = shape_;
+    std::swap(new_shape[dim1], new_shape[dim2]);
+
+    Tensor<T> result(new_shape);
+
+    // Transpose the data by swapping the specified dimensions
+    std::vector<int> strides = CalculateStrides(shape_);
+    std::vector<int> new_strides = CalculateStrides(new_shape);
+
+    for (int i = 0; i < data_.size(); ++i) {
+      std::vector<int> old_indices = UnravelIndex(i, strides);
+      std::swap(old_indices[dim1], old_indices[dim2]);
+      int new_idx = RavelIndex(old_indices, new_strides);
+      result.data_[new_idx] = data_[i];
+    }
+
+    return result;
+  }
+
+  // Member function to reshape the tensor
+  Tensor<T> Reshape(const std::vector<int>& new_shape) {
+    int total_elements = std::accumulate(new_shape.begin(), new_shape.end(), 1,
+                                         std::multiplies<int>());
+    if (total_elements != num_elements()) {
+      throw std::runtime_error(
+          "New shape must have the same number of elements as the original.");
+    }
+
+    return Tensor<T>(new_shape, data_);
+  }
+
  private:
   const std::vector<int> shape_;
   std::vector<T> data_;
@@ -228,6 +265,37 @@ class Tensor {
       }
       std::cout << "]";
     }
+  }
+
+  // Helper function to calculate strides for a given shape
+  std::vector<int> CalculateStrides(const std::vector<int>& shape) const {
+    std::vector<int> strides(shape.size());
+    int stride = 1;
+    for (int i = shape.size() - 1; i >= 0; --i) {
+      strides[i] = stride;
+      stride *= shape[i];
+    }
+    return strides;
+  }
+
+  // Helper function to convert a flat index to multidimensional indices
+  std::vector<int> UnravelIndex(int idx,
+                                const std::vector<int>& strides) const {
+    std::vector<int> indices(strides.size());
+    for (int i = 0; i < strides.size(); ++i) {
+      indices[i] = (idx / strides[i]) % shape_[i];
+    }
+    return indices;
+  }
+
+  // Helper function to convert multidimensional indices to a flat index
+  int RavelIndex(const std::vector<int>& indices,
+                 const std::vector<int>& strides) const {
+    int idx = 0;
+    for (int i = 0; i < indices.size(); ++i) {
+      idx += indices[i] * strides[i];
+    }
+    return idx;
   }
 };
 

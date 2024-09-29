@@ -254,7 +254,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_BookKeeperStore(loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
-  def BookKeeperStore_Uint32(cls, layer_index, operation_index, input_index, data):
+  def BookKeeperStore_Uint32(cls, layer_index, operation_index, input_index, data, new_shape = None):
     assert data.is_contiguous()
     assert data.dtype == torch.uint32
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
@@ -262,7 +262,7 @@ class SecLLMCppWrapper:
     # Convert shape to list
     shape_list = torch.tensor(data.shape, dtype=torch.int32)
 
-    cls.shape_bookkeeper_uint32[loc] = data.shape
+    cls.shape_bookkeeper_uint32[loc] = data.shape if new_shape is None else new_shape
 
     cls.lib.Ext_BookKeeperStore_Uint32(loc, cast(data.data_ptr(), POINTER(c_uint32)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
@@ -291,6 +291,10 @@ class SecLLMCppWrapper:
     cls.lib.Ext_BookKeeperLoad_Uint32(loc, cast(out.data_ptr(), POINTER(c_int)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
+
+  def BookKeeperReshape_Uint32(cls, index, new_shape):
+    assert cls.shape_bookkeeper_uint32[index] is not None
+    cls.shape_bookkeeper_uint32[index] = new_shape
 
   def ReplicateTensor(cls, src : int, dst : list):
     # be careful src is in int64

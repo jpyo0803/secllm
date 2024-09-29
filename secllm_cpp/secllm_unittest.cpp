@@ -135,6 +135,25 @@ TEST(DynamicQuantizeActivationPerTokenAbsmaxTest,
   }
 }
 
+TEST(TransposeAndReshapeTest, TransposeAndReshapeTest) {
+  std::vector<int> shape{1, 2, 3, 4};
+  jpyo0803::Tensor<float> tensor(
+      shape, {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
+              13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24});
+
+  tensor.PrintAsTorchStyle();
+  tensor.PrintShape();
+
+  auto tensor2 = tensor.Transpose(1, 2);
+  tensor2.PrintAsTorchStyle();
+  tensor2.PrintShape();
+
+  std::vector<int> new_shape{1, 12, 2};
+  auto tensor3 = tensor2.Reshape(new_shape);
+  tensor3.PrintAsTorchStyle();
+  tensor3.PrintShape();
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 

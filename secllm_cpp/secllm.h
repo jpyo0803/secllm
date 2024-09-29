@@ -61,8 +61,8 @@ class SecLLM {
   void QuantizeAndShiftV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                          std::shared_ptr<Tensor<float>> in);
 
-  void UnshiftAndDequantizePV(int layer_idx, std::shared_ptr<Tensor<float>> out,
-                              std::shared_ptr<Tensor<uint32_t>> in);
+  std::shared_ptr<Tensor<float>> UnshiftAndDequantizePV(
+      int layer_idx, std::shared_ptr<Tensor<uint32_t>> in);
 
   void SetAttentionMask(float* mask, int M, int N);
 

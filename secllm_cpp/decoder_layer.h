@@ -75,8 +75,8 @@ class DecoderLayer {
                          std::shared_ptr<Tensor<float>> in);
   void QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
                          std::shared_ptr<Tensor<float>> in);
-  void UnshiftAndDequantizePV(std::shared_ptr<Tensor<float>> out,
-                              std::shared_ptr<Tensor<uint32_t>> in);
+  std::shared_ptr<Tensor<float>> UnshiftAndDequantizePV(
+      std::shared_ptr<Tensor<uint32_t>> in);
 
   void Reset();
 
