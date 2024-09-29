@@ -477,8 +477,8 @@ class Task22(Task):
         head_dim = self.model.layers[self.layer_idx].head_dim
         inv_freq = self.model.layers[self.layer_idx].rotary_emb.inv_freq
         position_ids = self.model.layers[self.layer_idx].position_ids
-        cache_position = self.model.layers[self.layer_idx].cache_position
-        past_key_value = self.model.layers[self.layer_idx].past_key_value
+        # cache_position = self.model.layers[self.layer_idx].cache_position
+        # past_key_value = self.model.layers[self.layer_idx].past_key_value
 
         query_states = query_states.view(bsz, q_len, num_heads, head_dim).transpose(1, 2).contiguous()
         key_states = key_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
@@ -489,14 +489,14 @@ class Task22(Task):
         # cos, sin = self.model.layers[self.layer_idx].rotary_emb(value_states, position_ids)
         # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
-        if past_key_value is not None:
+        # if past_key_value is not None:
             # sin and cos are specific to RoPE models; cache_position needed for the static cache
             # cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             # key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
             # key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx)
             # print("type : ", type(past_key_value))
-            key_states = past_key_value.update_key(key_states, self.layer_idx)
-            value_states = past_key_value.update_value(value_states, self.layer_idx)
+            # key_states = past_key_value.update_key(key_states, self.layer_idx)
+            # value_states = past_key_value.update_value(value_states, self.layer_idx)
 
         # query_states = query_states.contiguous()
         # key_states = key_states.contiguous()
@@ -739,6 +739,9 @@ class Task39(Task):
         assert enc_k.dtype == torch.uint32
         assert enc_q.shape[-1] == enc_k.shape[-1]
 
+        past_key_value = self.model.layers[self.layer_idx].past_key_value
+        if past_key_value is not None:
+            enc_k = past_key_value.update_key(enc_k, self.layer_idx)
 
         enc_k = repeat_kv(enc_k, num_key_value_groups)
 
@@ -1046,6 +1049,10 @@ class Task57(Task):
 
         attn_weights = self.model.tensor_buffer[src_p]
         value_states = self.model.tensor_buffer[src_v]
+
+        past_key_value = self.model.layers[self.layer_idx].past_key_value
+        if past_key_value is not None:
+            value_states = past_key_value.update_value(value_states, self.layer_idx)
 
         value_states = repeat_kv(value_states, num_key_value_groups)
 
