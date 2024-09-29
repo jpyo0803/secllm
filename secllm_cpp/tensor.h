@@ -84,6 +84,59 @@ class Tensor {
     std::cout << "]" << std::endl;
   }
 
+  double GetMean() const {
+    double sum = 0;
+    for (int i = 0; i < data_.size(); ++i) {
+      sum += data_[i];
+    }
+    return sum / data_.size();
+  }
+
+  void PrintCharacteristics() const {
+    int dim = shape_.size();
+    if (dim > 4) {
+      std::cout << "Dim > 4 is not supported." << std::endl;
+    } else {
+      std::cout << "Dim: " << dim << std::endl;
+
+      if (dim == 4) {
+        int B = shape_[0];
+        int M = shape_[1];
+        int K = shape_[2];
+        int N = shape_[3];
+
+        for (int b = 0; b < B; ++b) {
+          for (int m = 0; m < M; ++m) {
+            std::cout << "[" << b << ", " << m << ", 0, 0] = "
+                      << data_[b * M * K * N + m * K * N]
+                      << ", [" << b << ", " << m << ", " << K - 1 << ", " << N - 1
+                      << "] = " << data_[b * M * K * N + m * K * N + K * N - 1]
+                      << std::endl; 
+          }
+        }
+      } else if (dim == 3) {
+        int B = shape_[0];
+        int M = shape_[1];
+        int N = shape_[2];
+
+        for (int b = 0; b < B; ++b) {
+          std::cout << "[" << b << ", 0, 0] = " << data_[b * M * N]
+                    << ", [" << b << ", " << M - 1 << ", " << N - 1 << "] = "
+                    << data_[b * M * N + M * N - 1] << std::endl;
+        }
+      } else if (dim == 2) {
+        int M = shape_[0];
+        int N = shape_[1];
+
+        std::cout << "[0, 0] = " << data_[0] << ", [" << M - 1 << ", " << N - 1
+                  << "] = " << data_[M * N - 1] << std::endl;
+      } else if (dim == 1) {
+        std::cout << "[0] = " << data_[0] << ", [" << shape_[0] - 1
+                  << "] = " << data_[shape_[0] - 1] << std::endl;
+      }
+    }
+  }
+
  private:
   const std::vector<int> shape_;
   std::vector<T> data_;
