@@ -23,7 +23,9 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       num_key_value_heads_(num_key_value_heads),
       head_dim_(hidden_size / num_attention_heads),
       enc_key_pool_size_(enc_key_pool_size),
-      num_key_value_groups_(num_attention_heads / num_key_value_heads) {
+      num_key_value_groups_(num_attention_heads / num_key_value_heads),
+      present_token_len_(0),
+      bsz_(0) {
 
   std::cout << "Decoder Layer " << layer_idx_ << " is created." << std::endl;
 
@@ -68,8 +70,14 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
 }
 
 void DecoderLayer::Reset() {
+  bsz_ = 0;
+  present_token_len_ = 0;
+
   qk_x_row_shift_sum_.clear();
   qk_y_col_shift_sum_.clear();
+
+  pv_x_row_shift_sum_.clear();
+  pv_y_col_shift_sum_.clear();
 }
 
 void DecoderLayer::SetEncKeyAndDecKey(
@@ -645,8 +653,24 @@ void DecoderLayer::QuantizeAndShiftP(std::shared_ptr<Tensor<uint32_t>> out,
 
   auto p_act = QuantizeActivationPerTensor(in->data(), len, 1.0 / 127);
 
+  pv_x_row_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
+      B, std::vector<std::vector<int>>(M));  // input is 4D
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        int sum = 0;
+        for (int n = 0; n < N; ++n) {
+          sum += (int)p_act[b * M * K * N + m * K * N + k * N + n];
+        }
+        pv_x_row_shift_sum_[b][m].push_back(sum);
+      }
+    }
+  }
+
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)p_act[i]);
+    out->data().at(i) = (uint32_t)((int)p_act[i] + SHIFT_AMT);
+    // out->data().at(i) = (uint32_t)((int)p_act[i]);
   }
 }
 
@@ -661,8 +685,26 @@ void DecoderLayer::QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
 
   auto v_act = QuantizeActivationPerTensor(in->data(), len, v_output_scale_);
 
+  if (pv_y_col_shift_sum_.empty()) {
+    pv_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
+        B, std::vector<std::vector<int>>(
+               M, std::vector<int>(N, 0)));  // input is 4D
+  }
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          pv_y_col_shift_sum_[b][m][n] +=
+              (int)v_act[b * M * K * N + m * K * N + k * N + n];
+        }
+      }
+    }
+  }
+
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)v_act[i]);
+    out->data().at(i) = (uint32_t)((int)v_act[i] + SHIFT_AMT);
+    // out->data().at(i) = (uint32_t)((int)v_act[i]);
   }
 }
 
@@ -680,9 +722,34 @@ std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
   // std::cout << "tmp tensor shape: ";
   // tmp_tensor.PrintShape();
 
-  for (int i = 0; i < len; ++i) {
-    tmp_tensor.data().at(i) = (float)((int)in->data().at(i));
+  // Unshift
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      // std::cout << "m vs. other : " << m << " / " << m / num_key_value_groups_ << std::endl;
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          int unshift_factor =
+              (pv_x_row_shift_sum_[b][m][k] +
+               pv_y_col_shift_sum_[b][m / num_key_value_groups_][n]) *
+                  SHIFT_AMT +
+              present_token_len_ * SHIFT_AMT * SHIFT_AMT;
+          tmp_tensor.data().at(b * M * K * N + m * K * N + k * N + n) =
+              (float)((int)in->data().at(b * M * K * N + m * K * N + k * N +
+                                         n) -
+                      unshift_factor);
+        }
+      }
+    }
   }
+  // tmp_tensor.PrintAsTorchStyle();
+  // tmp_tensor.PrintCharacteristics();
+  // std::cout << tmp_tensor.GetMean() << std::endl;
+  // std::cout << tmp_tensor.PosDepSum() << std::endl;
+  // exit(-1);
+  // for (int i = 0; i < len; ++i) {
+  //   tmp_tensor.data().at(i) = (float)((int)in->data().at(i));
+  // }
 
   float scale = 1.0 / 127 * v_output_scale_;  // Correct
   DequantizeActivationPerTensor(tmp_tensor.data(), len, scale);
@@ -694,6 +761,11 @@ std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
   // std::cout << "tmp tensor3 shape: ";
   // tmp_tensor3.PrintShape();
   return std::make_shared<Tensor<float>>(tmp_tensor3);
+}
+
+void DecoderLayer::SetBatchSizeAndTokenLength(int bsz, int token_len) {
+  bsz_ = bsz;
+  present_token_len_ += token_len;
 }
 
 }  // namespace jpyo0803

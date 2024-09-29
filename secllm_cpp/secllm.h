@@ -66,6 +66,8 @@ class SecLLM {
 
   void SetAttentionMask(float* mask, int M, int N);
 
+  void SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length);
+
  private:
   int num_hidden_layers_ = -1;
 
@@ -150,6 +152,8 @@ void Ext_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to);
 void Ext_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
 
 void Ext_SetAttentionMask(float* mask, int M, int N);
+
+void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length);
 
 }  // extern "C"
 

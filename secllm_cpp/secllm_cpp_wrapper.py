@@ -460,6 +460,9 @@ class SecLLMCppWrapper:
     print("decoder reset")
     cls.lib.Ext_Reset()
 
+  def SetBatchSizeAndTokenLength(cls, layer_idx, bsz, token_length):
+    cls.lib.Ext_SetBatchSizeAndTokenLength(layer_idx, bsz, token_length)
+
 if __name__ == '__main__':
     secllm = SecLLM(32)
 

@@ -277,6 +277,7 @@ class SqLlamaDecoderLayer(nn.Module):
         secllm_cpp_wrapper = self.secllm._secllm_cpp_wrapper
 
         secllm_cpp_wrapper.SetAttentionMask(attention_mask)
+        secllm_cpp_wrapper.SetBatchSizeAndTokenLength(self.layer_idx, self.bsz, self.q_len)
 
         secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 1, 0, hidden_states.to(torch.float32)) # operation 1, input 0
 
@@ -441,7 +442,6 @@ class SqLlamaDecoderLayer(nn.Module):
         self.secllm._task_scheduler(self.layer_idx)
 
         hidden_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 91, 0)
-
         outputs = (hidden_states,)
 
         self_attn_weights = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 91, 1)

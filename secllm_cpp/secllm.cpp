@@ -257,6 +257,11 @@ void SecLLM::SetAttentionMask(float* mask, int M, int N) {
   }
 }
 
+void SecLLM::SetBatchSizeAndTokenLength(int layer_idx, int bsz,
+                                        int token_length) {
+  decoder_layers_->at(layer_idx).SetBatchSizeAndTokenLength(bsz, token_length);
+}
+
 }  // namespace jpyo0803
 
 extern "C" {
@@ -639,4 +644,9 @@ void Ext_UnshiftAndDequantizePV(int layer_idx, int from, int to) {
 void Ext_SetAttentionMask(float* mask, int M, int N) {
   secllm_ptr->SetAttentionMask(mask, M, N);
 }
+
+void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length) {
+  secllm_ptr->SetBatchSizeAndTokenLength(layer_idx, bsz, token_length);
+}
+
 }  // extern "C"

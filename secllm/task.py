@@ -1045,8 +1045,8 @@ class Task57(Task):
 
         value_states = repeat_kv(value_states, num_key_value_groups)
 
-        attn_weights_cupy = cupy.from_dlpack(attn_weights.to(torch.int32))
-        value_states_cupy = cupy.from_dlpack(value_states.to(torch.int32))
+        attn_weights_cupy = cupy.from_dlpack(attn_weights.to(torch.uint32))
+        value_states_cupy = cupy.from_dlpack(value_states.to(torch.uint32))
 
         attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
 

@@ -80,6 +80,8 @@ class DecoderLayer {
 
   void Reset();
 
+  void SetBatchSizeAndTokenLength(int bsz, int token_len);
+
  private:
   int layer_idx_;
   int hidden_size_;
@@ -90,6 +92,9 @@ class DecoderLayer {
   int head_dim_;
   int enc_key_pool_size_;
   int num_key_value_groups_;
+
+  int present_token_len_;
+  int bsz_;
 
   std::vector<std::vector<int>> q_enc_key_pool_;
   std::vector<std::vector<int>> q_dec_key_;
@@ -139,8 +144,8 @@ class DecoderLayer {
   std::vector<std::vector<std::vector<int>>>
       qk_x_row_shift_sum_;  // input is 4D
   std::vector<std::vector<std::vector<int>>> qk_y_col_shift_sum_;
-  // std::vector<std::vector<int>> pv_x_row_shift_sum_;
-  // std::vector<std::vector<int>> pv_y_col_shift_sum_;
+  std::vector<std::vector<std::vector<int>>> pv_x_row_shift_sum_;
+  std::vector<std::vector<std::vector<int>>> pv_y_col_shift_sum_;
 };
 
 }  // namespace jpyo0803
