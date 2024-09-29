@@ -49,6 +49,19 @@ class Tensor {
 
   T& operator[](int idx) { return data_[idx]; }
 
+  void PrintDebugInfo() const {
+    PrintShape();
+    PrintAsTorchStyle();
+    PrintCharacteristics();
+    std::cout << "Mean: " << GetMean() << std::endl;
+    std::cout << "PosDepSum: " << PosDepSum() << std::endl;
+  }
+
+  void PrintDebugInfoBreak() const {
+    PrintDebugInfo();
+    exit(-1);
+  }
+
   // New print function
   void PrintAsTorchStyle(int precision = 4, int threshold = 50) const {
     std::cout << "tensor(";
