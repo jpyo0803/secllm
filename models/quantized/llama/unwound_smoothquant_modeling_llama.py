@@ -27,13 +27,13 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from transformers.activations import ACT2FN
-from transformers.cache_utils import Cache, DynamicCache, StaticCache
+from transformers.cache_utils import Cache, StaticCache
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
 )
-from transformers.modeling_utils import PreTrainedModel
+# from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -54,6 +54,10 @@ from torch_int.custom.linear import (
 from torch_int.functional.quantization import (
     dynamic_quantize_activation_per_token_absmax,
 )
+
+from models.modeling_utils import PreTrainedModel as CustomPreTrainedModel
+
+from models.custom_dynamic_cache import DynamicCache
 
 import cupy
 
@@ -525,12 +529,11 @@ LLAMA_START_DOCSTRING = r"""
             [`~PreTrainedModel.from_pretrained`] method to load the model weights.
 """
 
-
 @add_start_docstrings(
     "The bare LLaMA Model outputting raw hidden-states without any specific head on top.",
     LLAMA_START_DOCSTRING,
 )
-class LlamaPreTrainedModel(PreTrainedModel):
+class LlamaPreTrainedModel(CustomPreTrainedModel):
     config_class = LlamaConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
@@ -710,6 +713,7 @@ class LlamaModel(LlamaPreTrainedModel):
         return_legacy_cache = False
         if use_cache and not isinstance(past_key_values, Cache):  # kept for BC (non `Cache` `past_key_values` inputs)
             return_legacy_cache = True
+
             past_key_values = DynamicCache.from_legacy_cache(past_key_values)
             logger.warning_once(
                 "We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. "

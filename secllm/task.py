@@ -491,8 +491,12 @@ class Task22(Task):
 
         if past_key_value is not None:
             # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+            # cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            # key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+            # key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx)
+            # print("type : ", type(past_key_value))
+            key_states = past_key_value.update_key(key_states, self.layer_idx)
+            value_states = past_key_value.update_value(value_states, self.layer_idx)
 
         # query_states = query_states.contiguous()
         # key_states = key_states.contiguous()

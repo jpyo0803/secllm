@@ -81,7 +81,7 @@ class DynamicCache(Cache):
         Return:
             The updated key states.
         """
-        print("update_key")
+        # print("update_key")
         # Update the number of seen tokens
         if layer_idx == 0:
             self._seen_tokens += key_states.shape[-2]
@@ -115,7 +115,7 @@ class DynamicCache(Cache):
         Return:
             The updated value states.
         """
-        print("update_value")
+        # print("update_value")
         # Update the cache
         if len(self.value_cache) <= layer_idx:
             self.value_cache.append(value_states)
