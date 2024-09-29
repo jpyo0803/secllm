@@ -92,6 +92,14 @@ class Tensor {
     return sum / data_.size();
   }
 
+  double PosDepSum() const {
+    double sum = 0;
+    for (int i = 0; i < data_.size(); ++i) {
+      sum += data_[i] * (i + 1);
+    }
+    return sum;
+  }
+
   void PrintCharacteristics() const {
     int dim = shape_.size();
     if (dim > 4) {
