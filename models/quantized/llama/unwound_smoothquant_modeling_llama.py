@@ -669,6 +669,9 @@ class LlamaModel(LlamaPreTrainedModel):
     def set_input_embeddings(self, value):
         self.embed_tokens = value
 
+    def reset(self):
+        self.secllm._secllm_cpp_wrapper.Reset()
+
     @add_start_docstrings_to_model_forward(LLAMA_INPUTS_DOCSTRING)
     def forward(
         self,
@@ -905,6 +908,10 @@ class UnwoundSqLlamaForCausalLM(LlamaPreTrainedModel):
 
     def get_decoder(self):
         return self.model
+    
+    def reset(self):
+        self.model.reset()
+
 
     @add_start_docstrings_to_model_forward(LLAMA_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)

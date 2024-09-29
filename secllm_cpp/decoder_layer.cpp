@@ -22,7 +22,8 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       num_attention_heads_(num_attention_heads),
       num_key_value_heads_(num_key_value_heads),
       head_dim_(hidden_size / num_attention_heads),
-      enc_key_pool_size_(enc_key_pool_size) {
+      enc_key_pool_size_(enc_key_pool_size),
+      num_key_value_groups_(num_attention_heads / num_key_value_heads) {
 
   std::cout << "Decoder Layer " << layer_idx_ << " is created." << std::endl;
 
@@ -64,6 +65,11 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
   up_weight_scales_ = std::vector<float>(intermediate_size_);
   gate_weight_scales_ = std::vector<float>(intermediate_size_);
   down_weight_scales_ = std::vector<float>(hidden_size_);
+}
+
+void DecoderLayer::Reset() {
+  qk_x_row_shift_sum_.clear();
+  qk_y_col_shift_sum_.clear();
 }
 
 void DecoderLayer::SetEncKeyAndDecKey(
@@ -529,33 +535,65 @@ void DecoderLayer::SetQKVOutputScales(float q_output_scale,
 
 void DecoderLayer::QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
                                      std::shared_ptr<Tensor<float>> in) {
-  int B = in->shape().at(0);
-  int M = in->shape().at(1);
-  int K = in->shape().at(2);
-  int N = in->shape().at(3);
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
-
   auto q_act = QuantizeActivationPerTensor(in->data(), len, q_output_scale_);
 
+  qk_x_row_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
+      B, std::vector<std::vector<int>>(M));  // input is 4D
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        int sum = 0;
+        for (int n = 0; n < N; ++n) {
+          sum += (int)q_act.at(b * M * K * N + m * K * N + k * N + n);
+        }
+        qk_x_row_shift_sum_[b][m].push_back(sum);
+      }
+    }
+  }
+
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)q_act[i]);
+    out->data().at(i) = (uint32_t)((int)q_act[i] + SHIFT_AMT);
   }
 }
 
 void DecoderLayer::QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
                                      std::shared_ptr<Tensor<float>> in) {
-  int B = in->shape().at(0);
-  int M = in->shape().at(1);
-  int K = in->shape().at(2);
-  int N = in->shape().at(3);
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
 
   auto k_act = QuantizeActivationPerTensor(in->data(), len, k_output_scale_);
 
+  if (qk_y_col_shift_sum_.empty()) {
+    qk_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
+        B, std::vector<std::vector<int>>(M));  // input is 4D
+  }
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        int sum = 0;
+        for (int n = 0; n < N; ++n) {
+          sum += (int)k_act[b * M * K * N + m * K * N + k * N + n];
+        }
+        qk_y_col_shift_sum_[b][m].push_back(sum);
+      }
+    }
+  }
+
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)k_act[i]);
+    out->data().at(i) = (uint32_t)((int)k_act[i] + SHIFT_AMT);
   }
 }
 
@@ -566,11 +604,31 @@ void DecoderLayer::UnshiftAndDequantizeQK(
   int K = out->shape().at(2);
   int N = out->shape().at(3);
 
+  std::cout << num_key_value_groups_ << std::endl;
+  // Unshift
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      // std::cout << "m vs. other : " << m << " / " << m / num_key_value_groups_ << std::endl;
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          int unshift_factor =
+              (qk_x_row_shift_sum_[b][m][k] +
+               qk_y_col_shift_sum_[b][m / num_key_value_groups_][n]) *
+                  SHIFT_AMT +
+              head_dim_ * SHIFT_AMT * SHIFT_AMT;
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+              (float)((int)in->data().at(b * M * K * N + m * K * N + k * N +
+                                         n) -
+                      unshift_factor);
+        }
+      }
+    }
+  }
   int len = static_cast<int64_t>(B) * M * K * N;
 
-  for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (float)((int)in->data().at(i));
-  }
+  // for (int i = 0; i < len; ++i) {
+  //   out->data().at(i) = (float)((int)in->data().at(i));
+  // }
 
   float scale =
       q_output_scale_ * k_output_scale_ / sqrtf(head_dim_);  // Correct

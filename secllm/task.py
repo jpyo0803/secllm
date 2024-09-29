@@ -738,8 +738,8 @@ class Task39(Task):
 
         enc_k = repeat_kv(enc_k, num_key_value_groups)
 
-        enc_q_cupy = cupy.from_dlpack(enc_q.to(torch.int32))
-        enc_k_T_cupy = cupy.from_dlpack(enc_k.transpose(-2, -1).to(torch.int32))
+        enc_q_cupy = cupy.from_dlpack(enc_q.to(torch.uint32))
+        enc_k_T_cupy = cupy.from_dlpack(enc_k.transpose(-2, -1).to(torch.uint32))
 
         attn_weights_cupy = cupy.matmul(enc_q_cupy, enc_k_T_cupy)
         attn_weights = torch.from_dlpack(attn_weights_cupy).to(torch.uint32)
@@ -772,6 +772,7 @@ class Task40(Task):
         attn_weights, _ = self.model.tensor_buffer[src]
 
         attn_weights = attn_weights.to('cpu')
+        assert attn_weights.is_contiguous()
 
         # if attention_mask is not None:
         #     causal_mask = attention_mask[:, :, :, : enc_k_shape_minus_2]

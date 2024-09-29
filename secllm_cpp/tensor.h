@@ -115,11 +115,12 @@ class Tensor {
 
         for (int b = 0; b < B; ++b) {
           for (int m = 0; m < M; ++m) {
-            std::cout << "[" << b << ", " << m << ", 0, 0] = "
-                      << data_[b * M * K * N + m * K * N]
-                      << ", [" << b << ", " << m << ", " << K - 1 << ", " << N - 1
+            std::cout << "[" << b << ", " << m
+                      << ", 0, 0] = " << data_[b * M * K * N + m * K * N]
+                      << ", [" << b << ", " << m << ", " << K - 1 << ", "
+                      << N - 1
                       << "] = " << data_[b * M * K * N + m * K * N + K * N - 1]
-                      << std::endl; 
+                      << std::endl;
           }
         }
       } else if (dim == 3) {
@@ -128,9 +129,9 @@ class Tensor {
         int N = shape_[2];
 
         for (int b = 0; b < B; ++b) {
-          std::cout << "[" << b << ", 0, 0] = " << data_[b * M * N]
-                    << ", [" << b << ", " << M - 1 << ", " << N - 1 << "] = "
-                    << data_[b * M * N + M * N - 1] << std::endl;
+          std::cout << "[" << b << ", 0, 0] = " << data_[b * M * N] << ", ["
+                    << b << ", " << M - 1 << ", " << N - 1
+                    << "] = " << data_[b * M * N + M * N - 1] << std::endl;
         }
       } else if (dim == 2) {
         int M = shape_[0];

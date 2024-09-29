@@ -78,6 +78,8 @@ class DecoderLayer {
   void UnshiftAndDequantizePV(std::shared_ptr<Tensor<float>> out,
                               std::shared_ptr<Tensor<uint32_t>> in);
 
+  void Reset();
+
  private:
   int layer_idx_;
   int hidden_size_;
@@ -87,6 +89,7 @@ class DecoderLayer {
   int num_key_value_heads_;
   int head_dim_;
   int enc_key_pool_size_;
+  int num_key_value_groups_;
 
   std::vector<std::vector<int>> q_enc_key_pool_;
   std::vector<std::vector<int>> q_dec_key_;
@@ -136,8 +139,6 @@ class DecoderLayer {
   std::vector<std::vector<std::vector<int>>>
       qk_x_row_shift_sum_;  // input is 4D
   std::vector<std::vector<std::vector<int>>> qk_y_col_shift_sum_;
-  int qk_share_dim_;
-
   // std::vector<std::vector<int>> pv_x_row_shift_sum_;
   // std::vector<std::vector<int>> pv_y_col_shift_sum_;
 };

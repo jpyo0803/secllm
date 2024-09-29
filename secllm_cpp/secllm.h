@@ -17,6 +17,8 @@ class SecLLM {
          int num_key_value_heads, int enc_key_pool_size);
 
  public:
+  void Reset();
+
   // member methods
   void BookKeeperStore(std::vector<int> locs,
                        std::shared_ptr<Tensor<float>>& data);
@@ -121,6 +123,8 @@ uint32_t Ext_GenerateCPRNG();
 uint32_t Ext_GenerateMultKey();
 
 uint32_t Ext_GenerateAddKey();
+
+void Ext_Reset();
 
 void Ext_ReplicateTensor(int from, int* to, int to_len);
 

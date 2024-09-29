@@ -452,6 +452,10 @@ class SecLLMCppWrapper:
     attn_mask = attn_mask.to(torch.float32)
     cls.lib.Ext_SetAttentionMask(cast(attn_mask.data_ptr(), POINTER(c_float)), attn_mask.shape[-2], attn_mask.shape[-1])
 
+  def Reset(cls):
+    print("decoder reset")
+    cls.lib.Ext_Reset()
+
 if __name__ == '__main__':
     secllm = SecLLM(32)
 

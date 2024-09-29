@@ -54,6 +54,12 @@ SecLLM::SecLLM(int hidden_size, int intermediate_size,
   }
 }
 
+void SecLLM::Reset() {
+  for (int i = 0; i < num_hidden_layers_; ++i) {
+    decoder_layers_->at(i).Reset();
+  }
+}
+
 void SecLLM::BookKeeperStore(std::vector<int> locs,
                              std::shared_ptr<Tensor<float>>& data_ptr) {
   book_keeper_->Keep(locs, data_ptr);
@@ -394,6 +400,10 @@ uint32_t Ext_GenerateAddKey() {
   return jpyo0803::GenerateAddKey();
 }
 
+void Ext_Reset() {
+  secllm_ptr->Reset();
+}
+
 // TODO(jpyo0803): Where is its declaration?
 void Ext_BookKeeperStore(int loc, float* data, int shape_len, int* shape) {
   std::vector<int> shape_vec(shape, shape + shape_len);
@@ -563,6 +573,12 @@ void Ext_UnshiftAndDequantizeQK(int layer_idx, int from, int to) {
       std::make_shared<jpyo0803::Tensor<float>>(retrieved_data->shape());
 
   secllm_ptr->UnshiftAndDequantizeQK(layer_idx, out, retrieved_data);
+
+  // out->PrintAsTorchStyle();
+  // out->PrintCharacteristics();
+  // std::cout << out->GetMean() << std::endl;
+  // std::cout << out->PosDepSum() << std::endl;
+  // exit(-1);
 
   auto shape = out->shape();
 
