@@ -498,6 +498,41 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_Decrypt_QK(layer_idx, src, dst)
 
+  def GenerateSecretKey_PV(cls, layer_idx):
+    cls.lib.Ext_GenerateSecretKey_PV(layer_idx)
+
+  def GenerateDecryptionKey_PV(cls, layer_idx, src_x : int, src_y: int):
+    assert cls.shape_bookkeeper_uint32[src_x] is not None
+    assert cls.shape_bookkeeper_uint32[src_y] is not None
+    cls.shape_bookkeeper_uint32[src_x] = None
+    cls.shape_bookkeeper_uint32[src_y] = None
+
+    cls.lib.Ext_GenerateDecryptionKey_PV(layer_idx, src_x, src_y)
+
+  def EncryptX_PV(cls, layer_idx, src, dst):
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    cls.shape_bookkeeper_uint32[src] = None
+    assert src_shape is not None
+    cls.shape_bookkeeper_uint32[dst] = src_shape
+
+    cls.lib.Ext_EncryptX_PV(layer_idx, src, dst)
+
+  def EncryptY_PV(cls, layer_idx, src, dst):
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    cls.shape_bookkeeper_uint32[src] = None
+    assert src_shape is not None
+    cls.shape_bookkeeper_uint32[dst] = src_shape
+
+    cls.lib.Ext_EncryptY_PV(layer_idx, src, dst)
+
+  def Decrypt_PV(cls, layer_idx, src, dst):
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    cls.shape_bookkeeper_uint32[src] = None
+    assert src_shape is not None
+    cls.shape_bookkeeper_uint32[dst] = src_shape
+
+    cls.lib.Ext_Decrypt_PV(layer_idx, src, dst)
+
 if __name__ == '__main__':
     secllm = SecLLM(32)
 

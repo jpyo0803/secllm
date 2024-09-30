@@ -97,6 +97,20 @@ class DecoderLayer {
   void Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
                   std::shared_ptr<Tensor<uint32_t>> in);
 
+  void GenerateSecretKey_PV();
+
+  void GenerateDecryptionKey_PV(std::shared_ptr<Tensor<uint32_t>> x,
+                                std::shared_ptr<Tensor<uint32_t>> y);
+
+  void EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+
+  void EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+
+  void Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,  // D_ROW
+                  std::shared_ptr<Tensor<uint32_t>> in);  // D_COL
+
  private:
   int layer_idx_;
   int hidden_size_;
@@ -174,6 +188,17 @@ class DecoderLayer {
 
   std::vector<std::vector<std::vector<int>>> pv_x_row_shift_sum_;
   std::vector<std::vector<std::vector<int>>> pv_y_col_shift_sum_;
+
+  std::vector<std::vector<std::vector<std::pair<uint32_t, int>>>>
+      pv_x_mult_key_;
+  std::vector<std::vector<std::vector<uint32_t>>> pv_x_add_key_;
+  std::vector<std::vector<std::vector<std::pair<uint32_t, int>>>>
+      pv_y_mult_key_;
+  std::vector<std::vector<std::vector<uint32_t>>> pv_y_add_key_;
+
+  std::vector<std::vector<std::vector<uint32_t>>> pv_dec_row_;  // D_ROW
+  std::vector<std::vector<std::vector<uint32_t>>> pv_dec_col_;  // D_COL
+  std::vector<std::vector<uint32_t>> pv_dec_glob_;              // D_GLOB
 
   std::vector<uint32_t> x_mult_key_pool_;
   std::vector<uint32_t> y_mult_key_pool_;

@@ -287,6 +287,31 @@ void SecLLM::Decrypt_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
   decoder_layers_->at(layer_idx).Decrypt_QK(out, in);
 }
 
+void SecLLM::GenerateSecretKey_PV(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateSecretKey_PV();
+}
+
+void SecLLM::GenerateDecryptionKey_PV(int layer_idx,
+                                      std::shared_ptr<Tensor<uint32_t>> x,
+                                      std::shared_ptr<Tensor<uint32_t>> y) {
+  decoder_layers_->at(layer_idx).GenerateDecryptionKey_PV(x, y);
+}
+
+void SecLLM::EncryptX_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).EncryptX_PV(out, in);
+}
+
+void SecLLM::EncryptY_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).EncryptY_PV(out, in);
+}
+
+void SecLLM::Decrypt_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                        std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).Decrypt_PV(out, in);
+}
+
 }  // namespace jpyo0803
 
 extern "C" {
@@ -719,6 +744,55 @@ void Ext_Decrypt_QK(int layer_idx, int from, int to) {
       std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
 
   secllm_ptr->Decrypt_QK(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+}
+
+void Ext_GenerateSecretKey_PV(int layer_idx) {
+  secllm_ptr->GenerateSecretKey_PV(layer_idx);
+}
+
+void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> x =
+      secllm_ptr->BookKeeperLoad_Uint32(from_x);
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> y =
+      secllm_ptr->BookKeeperLoad_Uint32(from_y);
+
+  secllm_ptr->GenerateDecryptionKey_PV(layer_idx, x, y);
+}
+
+void Ext_EncryptX_PV(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->EncryptX_PV(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+}
+
+void Ext_EncryptY_PV(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->EncryptY_PV(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+}
+
+void Ext_Decrypt_PV(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->Decrypt_PV(layer_idx, out, retrieved_data);
 
   secllm_ptr->BookKeeperStore_Uint32({to}, out);
 }
