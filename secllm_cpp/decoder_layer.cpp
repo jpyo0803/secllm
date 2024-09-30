@@ -4,10 +4,15 @@
 
 #include "aes_stream.h"
 
+#include <chrono>
 #include <cmath>
 #include "func_utils.h"
 
+#define MODULO (1LL << 32)
 #define SHIFT_AMT 129
+
+#define DEBUG 0
+#define MULTKEY_POOL_SIZE 1024
 
 namespace jpyo0803 {
 
@@ -25,6 +30,7 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       enc_key_pool_size_(enc_key_pool_size),
       num_key_value_groups_(num_attention_heads / num_key_value_heads),
       present_token_len_(0),
+      culmulative_token_len_(0),
       bsz_(0) {
 
   std::cout << "Decoder Layer " << layer_idx_ << " is created." << std::endl;
@@ -67,14 +73,50 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
   up_weight_scales_ = std::vector<float>(intermediate_size_);
   gate_weight_scales_ = std::vector<float>(intermediate_size_);
   down_weight_scales_ = std::vector<float>(hidden_size_);
+
+  x_mult_key_pool_.resize(MULTKEY_POOL_SIZE);
+  y_mult_key_pool_.resize(MULTKEY_POOL_SIZE);
+
+  for (int i = 0; i < MULTKEY_POOL_SIZE; ++i) {
+    x_mult_key_pool_[i] = GenerateMultKey();
+    y_mult_key_pool_[i] = GenerateMultKey();
+  }
+
+  precomputed_key_inv_ = std::vector<std::vector<uint32_t>>(
+      MULTKEY_POOL_SIZE, std::vector<uint32_t>(MULTKEY_POOL_SIZE));
+
+  for (int i = 0; i < MULTKEY_POOL_SIZE; ++i) {
+    for (int j = 0; j < MULTKEY_POOL_SIZE; ++j) {
+      uint64_t ab = (uint64_t)x_mult_key_pool_[i] * y_mult_key_pool_[j];
+      precomputed_key_inv_[i][j] =
+          (uint32_t)RepeatedSqr(ab, (1LL << 31) - 1, MODULO);
+#if DEBUG == 1
+      uint64_t test = (uint64_t)precomputed_key_inv_[i][j] * ab % MODULO;
+      if (test != 1) {
+        std::cout << "Key inverse is not correct!" << std::endl;
+        exit(-1);
+      }
+#endif
+    }
+  }
 }
 
 void DecoderLayer::Reset() {
   bsz_ = 0;
   present_token_len_ = 0;
+  culmulative_token_len_ = 0;
 
   qk_x_row_shift_sum_.clear();
   qk_y_col_shift_sum_.clear();
+
+  qk_x_mult_key_.clear();
+  qk_x_add_key_.clear();
+  qk_y_mult_key_.clear();
+  qk_y_add_key_.clear();
+
+  qk_dec_row_.clear();
+  qk_dec_col_.clear();
+  qk_dec_glob_.clear();
 
   pv_x_row_shift_sum_.clear();
   pv_y_col_shift_sum_.clear();
@@ -733,7 +775,7 @@ std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
               (pv_x_row_shift_sum_[b][m][k] +
                pv_y_col_shift_sum_[b][m / num_key_value_groups_][n]) *
                   SHIFT_AMT +
-              present_token_len_ * SHIFT_AMT * SHIFT_AMT;
+              culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
           tmp_tensor.data().at(b * M * K * N + m * K * N + k * N + n) =
               (float)((int)in->data().at(b * M * K * N + m * K * N + k * N +
                                          n) -
@@ -765,7 +807,252 @@ std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
 
 void DecoderLayer::SetBatchSizeAndTokenLength(int bsz, int token_len) {
   bsz_ = bsz;
-  present_token_len_ += token_len;
+  present_token_len_ = token_len;
+  culmulative_token_len_ += token_len;
+}
+
+void DecoderLayer::GenerateSecretKey_QK() {
+  if (bsz_ == 0) {
+    std::cout << "Batch size is not set!" << std::endl;
+    exit(-1);
+  }
+
+  // qk_x_mult_key: [bsz, num_attention_heads, q_len], and DO NOT ACCUMULATE, expected dim: [1, 32, 2048]
+  // qk_y_mult_key: [bsz, num_key_value_heads, q_len], and ACCUMULATE, expected dim: [1, 8, 2048]
+  // qk_x_add_key: [bsz, num_attention_heads, head_dim], and only initialized it does not change, expected dim: [1, 32, 128]
+  // qk_y_add_key: [hsz, num_key_value_heads, head_dim], and only initialized it does not change, expected dim: [1, 8, 128]
+
+  qk_x_mult_key_ =
+      std::vector<std::vector<std::vector<std::pair<uint32_t, int>>>>(
+          bsz_, std::vector<std::vector<std::pair<uint32_t, int>>>(
+                    num_attention_heads_));
+  if (qk_y_mult_key_.empty()) {
+    qk_y_mult_key_ =
+        std::vector<std::vector<std::vector<std::pair<uint32_t, int>>>>(
+            bsz_, std::vector<std::vector<std::pair<uint32_t, int>>>(
+                      num_key_value_heads_));
+
+    qk_x_add_key_ = std::vector<std::vector<std::vector<uint32_t>>>(
+        bsz_, std::vector<std::vector<uint32_t>>(num_attention_heads_));
+    qk_y_add_key_ = std::vector<std::vector<std::vector<uint32_t>>>(
+        bsz_, std::vector<std::vector<uint32_t>>(num_key_value_heads_));
+
+    // Generate Add keys
+    for (int b = 0; b < bsz_; ++b) {
+      for (int m = 0; m < num_attention_heads_; ++m) {
+        for (int n = 0; n < head_dim_; ++n) {
+          qk_x_add_key_.at(b).at(m).push_back(GenerateAddKey());
+        }
+      }
+      for (int m = 0; m < num_key_value_heads_; ++m) {
+        for (int n = 0; n < head_dim_; ++n) {
+          qk_y_add_key_.at(b).at(m).push_back(GenerateAddKey());
+        }
+      }
+    }
+  }
+
+#if DEBUG == 1
+  auto start = std::chrono::high_resolution_clock::now();
+#endif
+  // Generate Mult keys
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int n = 0; n < present_token_len_; ++n) {
+        int index = GenerateCPRNG() % MULTKEY_POOL_SIZE;
+        qk_x_mult_key_.at(b).at(m).emplace_back(x_mult_key_pool_[index], index);
+#if (DEBUG == 1)
+        if (std::gcd(qk_x_mult_key_.at(b).at(m).at(n).first, MODULO) != 1) {
+          std::cout << "Mult key is not coprime!" << std::endl;
+          exit(-1);
+        }
+#endif
+      }
+    }
+    for (int m = 0; m < num_key_value_heads_; ++m) {
+      for (int n = 0; n < present_token_len_; ++n) {
+        int index = GenerateCPRNG() % MULTKEY_POOL_SIZE;
+        qk_y_mult_key_.at(b).at(m).emplace_back(y_mult_key_pool_[index], index);
+#if (DEBUG == 1)
+        if (std::gcd(qk_y_mult_key_.at(b).at(m).at(n).first, MODULO) != 1) {
+          std::cout << "Mult key is not coprime!" << std::endl;
+          exit(-1);
+        }
+#endif
+      }
+    }
+  }
+
+#if DEBUG == 1
+  auto end = std::chrono::high_resolution_clock::now();
+  std::cout << "Mult key generation time: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                     start)
+                   .count()
+            << " ms" << std::endl;
+#endif
+  // print keys dimensions
+  // std::cout << "qk_x_mult_key: " << qk_x_mult_key_.size() << " / " << qk_x_mult_key_[0].size() << " / " << qk_x_mult_key_[0][0].size() << std::endl;
+  // std::cout << "qk_y_mult_key: " << qk_y_mult_key_.size() << " / " << qk_y_mult_key_[0].size() << " / " << qk_y_mult_key_[0][0].size() << std::endl;
+  // std::cout << "qk_x_add_key: " << qk_x_add_key_.size() << " / " << qk_x_add_key_[0].size() << " / " << qk_x_add_key_[0][0].size() << std::endl;
+  // std::cout << "qk_y_add_key: " << qk_y_add_key_.size() << " / " << qk_y_add_key_[0].size() << " / " << qk_y_add_key_[0][0].size() << std::endl;
+  // exit(-1);
+}
+
+void DecoderLayer::GenerateDecryptionKey_QK(
+    std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
+  if (bsz_ == 0) {
+    std::cout << "Batch size is not set!" << std::endl;
+    exit(-1);
+  }
+
+  auto x_shape = x->shape();
+  int X_B = x_shape.at(0);
+  int X_M = x_shape.at(1);
+  int X_K = x_shape.at(2);
+  int X_N = x_shape.at(3);
+
+  auto y_shape = y->shape();
+  int Y_B = y_shape.at(0);
+  int Y_M = y_shape.at(1);
+  int Y_K = y_shape.at(2);
+  int Y_N = y_shape.at(3);
+
+  if (bsz_ != X_B || bsz_ != Y_B || num_attention_heads_ != X_M ||
+      num_key_value_heads_ != Y_M) {
+    std::cout << "Batch size or num_attention_heads is not matched!"
+              << std::endl;
+    exit(-1);
+  }
+
+  qk_dec_row_ = std::vector<std::vector<std::vector<uint32_t>>>(
+      bsz_, std::vector<std::vector<uint32_t>>(num_attention_heads_));
+  // D_COL reset at first only
+  if (qk_dec_col_.empty()) {
+    qk_dec_col_ = std::vector<std::vector<std::vector<uint32_t>>>(
+        bsz_, std::vector<std::vector<uint32_t>>(num_attention_heads_));
+
+    qk_dec_glob_ = std::vector<std::vector<uint32_t>>(
+        bsz_, std::vector<uint32_t>(num_attention_heads_, 0));
+    for (int b = 0; b < bsz_; ++b) {
+      for (int m = 0; m < num_attention_heads_; ++m) {
+        for (int n = 0; n < X_N; ++n) {
+          qk_dec_glob_.at(b).at(m) +=
+              qk_x_add_key_.at(b).at(m).at(n) *
+              qk_y_add_key_.at(b).at(m / num_key_value_groups_).at(n);
+        }
+      }
+    }
+  }
+
+  // X: [bsz, num_attention_heads, q_len, head_dim]
+  // Y: [bsz, num_key_value_heads, q_len, head_dim]
+
+  // d_row[b][m][k] = x_mult[b][m][k] * sum_n(y_add[b][m/4][n] * x[b][m][k][n]), expected dim: [1, 32, 2048]
+  // d_col[b][m][k] = y_mult[b][m/4][k] * sum_n(x_add[b][m][n] * y[b][m/4][k][n]), notice m/4 = 0 : num_key_value_heads, expected dim: [1, 32, 2048]
+  // d_glob[b][m] = sum_n(x_add[b][m][n] * y_add[b][m/4][n]), expected dim: [1, 32]
+
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int k = 0; k < X_K; ++k) {
+        uint32_t d_row_sum = 0;
+        uint32_t d_col_sum = 0;
+        for (int n = 0; n < X_N; ++n) {
+          d_row_sum +=
+              qk_y_add_key_.at(b).at(m / num_key_value_groups_).at(n) *
+              x->data().at(b * X_M * X_K * X_N + m * X_K * X_N + k * X_N + n);
+          d_col_sum += qk_x_add_key_.at(b).at(m).at(n) *
+                       y->data().at(b * Y_M * Y_K * Y_N +
+                                    (m / num_key_value_groups_) * Y_K * Y_N +
+                                    k * Y_N + n);
+        }
+        qk_dec_row_.at(b).at(m).push_back(
+            d_row_sum * qk_x_mult_key_.at(b).at(m).at(k).first);
+        qk_dec_col_.at(b).at(m).push_back(
+            d_col_sum *
+            qk_y_mult_key_.at(b).at(m / num_key_value_groups_).at(k).first);
+      }
+    }
+  }
+}
+
+void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                               std::shared_ptr<Tensor<uint32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+              in->data().at(b * M * K * N + m * K * N + k * N + n) *
+                  qk_x_mult_key_.at(b).at(m).at(k).first +
+              qk_x_add_key_.at(b).at(m).at(n);
+        }
+      }
+    }
+  }
+}
+
+void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                               std::shared_ptr<Tensor<uint32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
+
+  int k_dim = qk_y_mult_key_.at(0).at(0).size();
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+              in->data().at(b * M * K * N + m * K * N + k * N + n) *
+                  qk_y_mult_key_.at(b).at(m).at(k_dim - K + k).first +
+              qk_y_add_key_.at(b).at(m).at(n);
+          // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
+          // NOTE(jpyo083): Dont forget that you use the valid mult key
+        }
+      }
+    }
+  }
+}
+
+void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          uint32_t tmp = in->data().at(b * M * K * N + m * K * N + k * N + n) -
+                         qk_dec_row_.at(b).at(m).at(k) -
+                         qk_dec_col_.at(b).at(m).at(n) -
+                         qk_dec_glob_.at(b).at(m);
+          tmp *=
+              precomputed_key_inv_.at(qk_x_mult_key_.at(b).at(m).at(k).second)
+                  .at(qk_y_mult_key_.at(b)
+                          .at(m / num_key_value_groups_)
+                          .at(n)
+                          .second);
+          out->data().at(b * M * K * N + m * K * N + k * N + n) = tmp;
+          // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
+        }
+      }
+    }
+  }
 }
 
 }  // namespace jpyo0803

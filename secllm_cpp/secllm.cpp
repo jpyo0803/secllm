@@ -262,6 +262,31 @@ void SecLLM::SetBatchSizeAndTokenLength(int layer_idx, int bsz,
   decoder_layers_->at(layer_idx).SetBatchSizeAndTokenLength(bsz, token_length);
 }
 
+void SecLLM::GenerateSecretKey_QK(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateSecretKey_QK();
+}
+
+void SecLLM::GenerateDecryptionKey_QK(int layer_idx,
+                                      std::shared_ptr<Tensor<uint32_t>> x,
+                                      std::shared_ptr<Tensor<uint32_t>> y) {
+  decoder_layers_->at(layer_idx).GenerateDecryptionKey_QK(x, y);
+}
+
+void SecLLM::EncryptX_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).EncryptX_QK(out, in);
+}
+
+void SecLLM::EncryptY_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                         std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).EncryptY_QK(out, in);
+}
+
+void SecLLM::Decrypt_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                        std::shared_ptr<Tensor<uint32_t>> in) {
+  decoder_layers_->at(layer_idx).Decrypt_QK(out, in);
+}
+
 }  // namespace jpyo0803
 
 extern "C" {
@@ -647,6 +672,55 @@ void Ext_SetAttentionMask(float* mask, int M, int N) {
 
 void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length) {
   secllm_ptr->SetBatchSizeAndTokenLength(layer_idx, bsz, token_length);
+}
+
+void Ext_GenerateSecretKey_QK(int layer_idx) {
+  secllm_ptr->GenerateSecretKey_QK(layer_idx);
+}
+
+void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> x =
+      secllm_ptr->BookKeeperLoad_Uint32(from_x);
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> y =
+      secllm_ptr->BookKeeperLoad_Uint32(from_y);
+
+  secllm_ptr->GenerateDecryptionKey_QK(layer_idx, x, y);
+}
+
+void Ext_EncryptX_QK(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->EncryptX_QK(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+}
+
+void Ext_EncryptY_QK(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->EncryptY_QK(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+}
+
+void Ext_Decrypt_QK(int layer_idx, int from, int to) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
+
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
+  secllm_ptr->Decrypt_QK(layer_idx, out, retrieved_data);
+
+  secllm_ptr->BookKeeperStore_Uint32({to}, out);
 }
 
 }  // extern "C"

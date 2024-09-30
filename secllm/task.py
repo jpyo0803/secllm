@@ -560,7 +560,9 @@ class Task27(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        # pass
+        self.secllm_cpp_wrapper.GenerateSecretKey_QK(self.layer_idx)
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -572,7 +574,7 @@ class Task28(Task):
     def run(self):
         # Bypass shift for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 28, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 33, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 33, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 1)]
 
         self.secllm_cpp_wrapper.QuantizeAndShiftQ(self.layer_idx, src, dst)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -587,7 +589,7 @@ class Task29(Task):
     def run(self):
         # Bypass shift for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 29, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 34, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 0)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 34, 0), GetBookKeeperLinearIndex(self.layer_idx, 35, 2)]
 
         self.secllm_cpp_wrapper.QuantizeAndShiftK(self.layer_idx, src, dst)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -600,7 +602,8 @@ class Task30(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        pass
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -636,9 +639,9 @@ class Task33(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 33, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 36, 0)]
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 36, 0)
 
-        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
+        self.secllm_cpp_wrapper.EncryptX_QK(self.layer_idx, src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -652,9 +655,11 @@ class Task34(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 34, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 37, 0)]
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 37, 0)
 
-        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
+        self.secllm_cpp_wrapper.EncryptY_QK(self.layer_idx, src, dst)
+
+        # self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -666,7 +671,13 @@ class Task35(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def run(self):
-        self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        # pass
+        src_x = GetBookKeeperLinearIndex(self.layer_idx, 35, 1)
+        src_y = GetBookKeeperLinearIndex(self.layer_idx, 35, 2)
+
+        self.secllm_cpp_wrapper.GenerateDecryptionKey_QK(self.layer_idx, src_x, src_y)
+
+        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -802,9 +813,11 @@ class Task41(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 41, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 42, 0)]
+        dst = GetBookKeeperLinearIndex(self.layer_idx, 42, 0)
 
-        self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
+        self.secllm_cpp_wrapper.Decrypt_QK(self.layer_idx, src, dst)
+
+        # self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 

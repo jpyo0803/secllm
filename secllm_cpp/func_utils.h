@@ -61,6 +61,8 @@ uint32_t GenerateCPRNG();
 uint32_t GenerateMultKey();
 
 uint32_t GenerateAddKey();
+
+uint64_t RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod);
 }  // namespace jpyo0803
 
 #endif  // SECLLM_CPP_FUNC_UTILS_H

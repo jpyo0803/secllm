@@ -2,6 +2,7 @@
 #define SECLLM_CPP_DECODER_LAYER_H
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "tensor.h"
@@ -82,6 +83,20 @@ class DecoderLayer {
 
   void SetBatchSizeAndTokenLength(int bsz, int token_len);
 
+  void GenerateSecretKey_QK();
+
+  void GenerateDecryptionKey_QK(std::shared_ptr<Tensor<uint32_t>> x,
+                                std::shared_ptr<Tensor<uint32_t>> y);
+
+  void EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+
+  void EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+
+  void Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                  std::shared_ptr<Tensor<uint32_t>> in);
+
  private:
   int layer_idx_;
   int hidden_size_;
@@ -94,6 +109,7 @@ class DecoderLayer {
   int num_key_value_groups_;
 
   int present_token_len_;
+  int culmulative_token_len_;
   int bsz_;
 
   std::vector<std::vector<int>> q_enc_key_pool_;
@@ -144,8 +160,24 @@ class DecoderLayer {
   std::vector<std::vector<std::vector<int>>>
       qk_x_row_shift_sum_;  // input is 4D
   std::vector<std::vector<std::vector<int>>> qk_y_col_shift_sum_;
+
+  std::vector<std::vector<std::vector<std::pair<uint32_t, int>>>>
+      qk_x_mult_key_;
+  std::vector<std::vector<std::vector<uint32_t>>> qk_x_add_key_;
+  std::vector<std::vector<std::vector<std::pair<uint32_t, int>>>>
+      qk_y_mult_key_;
+  std::vector<std::vector<std::vector<uint32_t>>> qk_y_add_key_;
+
+  std::vector<std::vector<std::vector<uint32_t>>> qk_dec_row_;  // D_ROW
+  std::vector<std::vector<std::vector<uint32_t>>> qk_dec_col_;  // D_COL
+  std::vector<std::vector<uint32_t>> qk_dec_glob_;              // D_GLOB
+
   std::vector<std::vector<std::vector<int>>> pv_x_row_shift_sum_;
   std::vector<std::vector<std::vector<int>>> pv_y_col_shift_sum_;
+
+  std::vector<uint32_t> x_mult_key_pool_;
+  std::vector<uint32_t> y_mult_key_pool_;
+  std::vector<std::vector<uint32_t>> precomputed_key_inv_;
 };
 
 }  // namespace jpyo0803

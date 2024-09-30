@@ -68,6 +68,21 @@ class SecLLM {
 
   void SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length);
 
+  void GenerateSecretKey_QK(int layer_idx);
+
+  void GenerateDecryptionKey_QK(int layer_idx,
+                                std::shared_ptr<Tensor<uint32_t>> x,
+                                std::shared_ptr<Tensor<uint32_t>> y);
+
+  void EncryptX_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+
+  void EncryptY_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+
+  void Decrypt_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                  std::shared_ptr<Tensor<uint32_t>> in);
+
  private:
   int num_hidden_layers_ = -1;
 
@@ -154,6 +169,16 @@ void Ext_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
 void Ext_SetAttentionMask(float* mask, int M, int N);
 
 void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length);
+
+void Ext_GenerateSecretKey_QK(int layer_idx);
+
+void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
+
+void Ext_EncryptX_QK(int layer_idx, int from, int to);
+
+void Ext_EncryptY_QK(int layer_idx, int from, int to);
+
+void Ext_Decrypt_QK(int layer_idx, int from, int to);
 
 }  // extern "C"
 
