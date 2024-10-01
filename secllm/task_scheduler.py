@@ -32,8 +32,20 @@ class TaskScheduler:
             self.tasks_per_layer.append(tasks)
 
     def run(self, layer_idx):
-        for task in self.tasks_per_layer[layer_idx]:
-            task()
+        # for task in self.tasks_per_layer[layer_idx]:
+            # task()
+
+        # copy the tasks into data structures that can efficiently run a ready task (is_ready()) and remove it from the list of tasks
+        copied_tasks = self.tasks_per_layer[layer_idx].copy()
+
+        # run the tasks if ready and remove them from the list
+
+        while copied_tasks:
+            for task in copied_tasks:
+                if task.is_ready():
+                    print(f'Running task {task.task_id}')
+                    task()
+                    copied_tasks.remove(task)
 
     def __call__(self, layer_idx):
         self.run(layer_idx)

@@ -37,6 +37,9 @@ class Task0(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -48,9 +51,13 @@ class Task1(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        # Input is float
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 1, 0)
+
     def run(self):
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
-        src = GetBookKeeperLinearIndex(self.layer_idx, 1, 0)
+        src = GetBookKeeperLinearIndex(self.layer_idx, 1, 0) # float
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 2, 0), GetBookKeeperLinearIndex(self.layer_idx, 67, 0)]
         self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
 
@@ -60,6 +67,10 @@ class Task1(Task):
 class Task2(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        # input is float
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 2, 0)
 
     def run(self):
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -77,6 +88,10 @@ class Task3(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        # input is float
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 3, 0)
+
     def run(self):
         # Replicate from 3 to 7, 8, 9
         src = GetBookKeeperLinearIndex(self.layer_idx, 3, 0)
@@ -91,6 +106,9 @@ class Task4(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True # it does not depend on anything
+
     def run(self):
         # Move Q weight to GPU
         self.model.layers[self.layer_idx].q_proj.weight = self.model.layers[self.layer_idx].q_proj.weight.to('cuda:0')
@@ -102,6 +120,9 @@ class Task4(Task):
 class Task5(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True # it does not depend on anything
 
     def run(self):
         # Move K weight to GPU
@@ -116,6 +137,9 @@ class Task6(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True # it does not depend on anything
+
     def run(self):
         # Move V weight to GPU
         self.model.layers[self.layer_idx].v_proj.weight = self.model.layers[self.layer_idx].v_proj.weight.to('cuda:0')
@@ -127,12 +151,15 @@ class Task7(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
-    def run(self):
-        # 
+    def is_ready(self):
+        # input is float, output is int32
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 7, 0)
 
+    def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 7, 0)
 
         enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 0) # Q
+        assert enc_activation.dtype == torch.int32
         
         dst = GetBookKeeperLinearIndex(self.layer_idx, 10, 0)
         self.model.tensor_buffer[dst] = enc_activation
@@ -144,11 +171,16 @@ class Task8(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        # input is float, output is int32
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 8, 0)
+
     def run(self):
         # Encryption but for not it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 8, 0)
 
         enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 1) # K
+        assert enc_activation.dtype == torch.int32
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 11, 0)
         self.model.tensor_buffer[dst] = enc_activation
@@ -160,12 +192,17 @@ class Task9(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        # input is float, output is int32
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 9, 0)
+
     def run(self):
         # Encryption but for not it just bypasses
 
         src = GetBookKeeperLinearIndex(self.layer_idx, 9, 0)
 
         enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 2) # V
+        assert enc_activation.dtype == torch.int32
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 12, 0)
         self.model.tensor_buffer[dst] = enc_activation
@@ -176,6 +213,9 @@ class Task9(Task):
 class Task10(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 10, 0)] is not None
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
@@ -197,6 +237,9 @@ class Task11(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 11, 0)] is not None
+
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 11, 0)
@@ -215,6 +258,9 @@ class Task11(Task):
 class Task12(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 12, 0)] is not None
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
@@ -236,6 +282,12 @@ class Task12(Task):
 class Task13(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 13, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].q_proj.weight.device.type == 'cuda'
+        return ready
 
     def run(self):
         # Do Q projection
@@ -267,6 +319,12 @@ class Task14(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 14, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].k_proj.weight.device.type == 'cuda'
+        return ready
+
     def run(self):
         # Do K projection
         src = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
@@ -296,6 +354,12 @@ class Task14(Task):
 class Task15(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 15, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].v_proj.weight.device.type == 'cuda'
+        return ready
 
     def run(self):
         # Do V projection
@@ -327,6 +391,9 @@ class Task16(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 16, 0)] is not None
+
     def run(self):
         # Move query_states to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 16, 0)
@@ -347,6 +414,9 @@ class Task16(Task):
 class Task17(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 17, 0)] is not None
 
     def run(self):
         # Move key_states to CPU
@@ -371,6 +441,9 @@ class Task18(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 18, 0)] is not None
+
     def run(self):
         # Move value_states to CPU
 
@@ -394,6 +467,9 @@ class Task19(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 19, 0)] is not None
+
     def run(self):
         # Decryption but for now it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 19, 0)
@@ -413,6 +489,9 @@ class Task20(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 20, 0)] is not None
+
     def run(self):
         # Decryption but for now it just bypasses
 
@@ -430,6 +509,9 @@ class Task20(Task):
 class Task21(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 21, 0)] is not None
 
     def run(self):
         # Decryption but for now it just bypasses
@@ -450,6 +532,14 @@ class Task21(Task):
 class Task22(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    # inputs are all floats
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 22, 0)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 22, 1)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 22, 2)
+        return ready
 
     def run(self):
         query_states = self.secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 22, 0)
@@ -501,6 +591,9 @@ class Task23(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -511,6 +604,9 @@ class Task23(Task):
 class Task24(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True
 
     def run(self):
         pass
@@ -523,6 +619,9 @@ class Task25(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -533,6 +632,9 @@ class Task25(Task):
 class Task26(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True
 
     def run(self):
         pass
@@ -545,6 +647,10 @@ class Task27(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    # Assume its required are prepared before task schedulers are called
+    def is_ready(self):
+        return True
+
     def run(self):
         # pass
         self.secllm_cpp_wrapper.GenerateSecretKey_QK(self.layer_idx)
@@ -556,6 +662,10 @@ class Task27(Task):
 class Task28(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    # its input is float
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 28, 0)
 
     def run(self):
         # Bypass shift for now
@@ -572,6 +682,10 @@ class Task29(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    # its input is float
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 29, 0)
+
     def run(self):
         # Bypass shift for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 29, 0)
@@ -587,6 +701,9 @@ class Task30(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -597,6 +714,9 @@ class Task30(Task):
 class Task31(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True
 
     def run(self):
         # Broadcast
@@ -610,6 +730,9 @@ class Task32(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         # Broadcast
         pass
@@ -621,6 +744,12 @@ class Task32(Task):
 class Task33(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.QKKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 33, 0)
+        return ready
 
     def run(self):
         # ByPass for now
@@ -637,6 +766,12 @@ class Task33(Task):
 class Task34(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.QKKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 34, 0)
+        return ready
 
     def run(self):
         # ByPass for now
@@ -656,8 +791,14 @@ class Task35(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.QKKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 35, 1)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 35, 2)
+        return ready
+
     def run(self):
-        # pass
         src_x = GetBookKeeperLinearIndex(self.layer_idx, 35, 1)
         src_y = GetBookKeeperLinearIndex(self.layer_idx, 35, 2)
 
@@ -671,6 +812,9 @@ class Task35(Task):
 class Task36(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 36, 0)
 
     def run(self):
         # Move Enc_Q to GPU
@@ -690,6 +834,9 @@ class Task37(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 37, 0)
+
     def run(self):
         # Move Enc_K to GPU
         enc_k = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 37, 0)
@@ -708,6 +855,9 @@ class Task38(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -718,6 +868,12 @@ class Task38(Task):
 class Task39(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 39, 0)] is not None
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 39, 1)] is not None
+        return ready
 
     def run(self):
         # Matmul Q, K^T
@@ -762,31 +918,21 @@ class Task40(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 40, 0)] is not None
+
     def run(self):
-        # q_output_scale = self.model.layers[self.layer_idx].q_output_scale
-        # k_output_scale = self.model.layers[self.layer_idx].k_output_scale
-
-        # head_dim = self.model.layers[self.layer_idx].head_dim
-
-        # attention_mask = self.model.layers[self.layer_idx].attention_mask
-
         src = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
         assert self.model.tensor_buffer[src] is not None
 
         attn_weights, _ = self.model.tensor_buffer[src]
 
         attn_weights = attn_weights.to('cpu')
-        assert attn_weights.is_contiguous()
-
-        # if attention_mask is not None:
-        #     causal_mask = attention_mask[:, :, :, : enc_k_shape_minus_2]
-        #     attn_weights = attn_weights + causal_mask
+        # assert attn_weights.is_contiguous()
         
         self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 41, 0, attn_weights)
         
         self.model.tensor_buffer[src] = None
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
 
     def __call__(self):
@@ -796,16 +942,17 @@ class Task41(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.QKDecKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 41, 0)
+        return ready
+
     def run(self):
-        # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 41, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 42, 0)]
 
         self.secllm_cpp_wrapper.Decrypt_QK(self.layer_idx, src, dst)
-
-        # self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -813,6 +960,9 @@ class Task41(Task):
 class Task42(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 42, 0)
 
     def run(self):
         # ByPass for now
@@ -832,6 +982,10 @@ class Task43(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    # since it is dequantized, it is float
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 43, 0)
+
     def run(self):
         # Softmax
         src = GetBookKeeperLinearIndex(self.layer_idx, 43, 0)
@@ -848,6 +1002,9 @@ class Task44(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -859,6 +1016,10 @@ class Task45(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    # Assume metadata required for key generation is set before task scheduler is called
+    def is_ready(self):
+        return True
+
     def run(self):
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
         self.secllm_cpp_wrapper.GenerateSecretKey_PV(self.layer_idx)
@@ -869,6 +1030,10 @@ class Task45(Task):
 class Task46(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    # output of softmax is float
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 46, 0)
 
     def run(self):
         # Bypass for now
@@ -886,6 +1051,10 @@ class Task47(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    # rotary embedding output is float
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 47, 0)
+
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 47, 0)
@@ -902,6 +1071,9 @@ class Task48(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         pass
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -912,6 +1084,9 @@ class Task48(Task):
 class Task49(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True
 
     def run(self):
         # Broadcast
@@ -926,6 +1101,9 @@ class Task50(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         # Broadcast
         pass
@@ -938,6 +1116,12 @@ class Task50(Task):
 class Task51(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.PVKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 51, 0)
+        return ready
 
     def run(self):
         # Encrypt P, for now it just bypasses
@@ -957,15 +1141,18 @@ class Task52(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.PVKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 52, 0)
+        return ready
+
     def run(self):
         # encrypt V, for now it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 52, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 55, 0)]
 
         self.secllm_cpp_wrapper.EncryptY_PV(self.layer_idx, src, dst)
-        # self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -973,6 +1160,13 @@ class Task52(Task):
 class Task53(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.PVKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 53, 1)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 53, 2)
+        return ready
 
     def run(self):
         src_x = GetBookKeeperLinearIndex(self.layer_idx, 53, 1)
@@ -987,6 +1181,9 @@ class Task53(Task):
 class Task54(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 54, 0)
 
     def run(self):
         # Move enc_P to GPU
@@ -1011,6 +1208,9 @@ class Task55(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 55, 0)
+
     def run(self):
         # Move enc_V to GPU
         # v_output_scale = self.model.layers[self.layer_idx].v_output_scale
@@ -1023,7 +1223,6 @@ class Task55(Task):
         dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
 
         self.model.tensor_buffer[dst] = enc_v
-
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1032,6 +1231,9 @@ class Task55(Task):
 class Task56(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True
 
     def run(self):
         pass
@@ -1043,6 +1245,12 @@ class Task56(Task):
 class Task57(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 57, 0)] is not None
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 57, 1)] is not None
+        return ready
 
     def run(self):
         # Matmul PV
@@ -1085,6 +1293,9 @@ class Task58(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 58, 0)] is not None
+
     def run(self):
         # Move result of PV to CPU
         bsz = self.model.layers[self.layer_idx].bsz
@@ -1124,16 +1335,18 @@ class Task59(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.PVDecKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 59, 0)
+        return ready
+
     def run(self):
-        # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 59, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 60, 0)]
 
         self.secllm_cpp_wrapper.Decrypt_PV(self.layer_idx, src, dst)
 
-        # self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -1141,6 +1354,9 @@ class Task59(Task):
 class Task60(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 60, 0)
 
     def run(self):
         # Bypass for now
@@ -1158,6 +1374,9 @@ class Task61(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         # Move o_proj weight to GPU
         self.model.layers[self.layer_idx].o_proj.weight = self.model.layers[self.layer_idx].o_proj.weight.to('cuda:0')
@@ -1169,6 +1388,10 @@ class Task61(Task):
 class Task62(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    # Before encryption, it is float
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 62, 0)
 
     def run(self):
         # ByPass for now
@@ -1185,6 +1408,9 @@ class Task62(Task):
 class Task63(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 63, 0)] is not None
 
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 63, 0)
@@ -1205,6 +1431,12 @@ class Task63(Task):
 class Task64(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 64, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].o_proj.weight.is_cuda
+        return ready
 
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
@@ -1236,6 +1468,9 @@ class Task65(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 65, 0)] is not None
+
     def run(self):
         # Move o_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
@@ -1256,6 +1491,9 @@ class Task65(Task):
 class Task66(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 66, 0)] is not None
 
     def run(self):
         # Bypass for now
@@ -1282,6 +1520,13 @@ class Task67(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    # both inputs are float for residual add
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 67, 0)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 67, 1)
+        return ready
+
     def run(self):
         # Elementwise add
         src1 = GetBookKeeperLinearIndex(self.layer_idx, 67, 0)
@@ -1300,6 +1545,9 @@ class Task68(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 68, 0)
+
     def run(self):
         # Broadcast
         src = GetBookKeeperLinearIndex(self.layer_idx, 68, 0)
@@ -1315,6 +1563,9 @@ class Task68(Task):
 class Task69(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 69, 0)
 
     def run(self):
         # RMS 2
@@ -1334,6 +1585,9 @@ class Task70(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 70, 0)
+
     def run(self):
         # Broadcast
         src = GetBookKeeperLinearIndex(self.layer_idx, 70, 0)
@@ -1350,6 +1604,9 @@ class Task71(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         # Move gate_proj weight to GPU
         self.model.layers[self.layer_idx].gate_proj.weight = self.model.layers[self.layer_idx].gate_proj.weight.to('cuda:0')
@@ -1362,6 +1619,9 @@ class Task71(Task):
 class Task72(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return True
 
     def run(self):
         # Move up_proj weight to GPU
@@ -1376,8 +1636,10 @@ class Task73(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 73, 0)
+
     def run(self):
-        # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 73, 0)
         
         enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 5) # Gate
@@ -1393,6 +1655,9 @@ class Task73(Task):
 class Task74(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 74, 0)
 
     def run(self):
         # Bypass for now
@@ -1411,6 +1676,9 @@ class Task74(Task):
 class Task75(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 75, 0)] is not None
 
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 75, 0)
@@ -1432,6 +1700,9 @@ class Task76(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 76, 0)] is not None
+
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 76, 0)
         assert self.model.tensor_buffer[src] is not None
@@ -1451,6 +1722,12 @@ class Task76(Task):
 class Task77(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 77, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].gate_proj.weight.is_cuda
+        return ready
 
     def run(self):
         # gate_proj
@@ -1482,6 +1759,12 @@ class Task78(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 78, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].up_proj.weight.is_cuda
+        return ready
+
     def run(self):
         # up_proj
         src = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
@@ -1511,6 +1794,9 @@ class Task79(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 79, 0)] is not None
+
     def run(self):
         # Move gate_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
@@ -1531,6 +1817,9 @@ class Task79(Task):
 class Task80(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 80, 0)] is not None
 
     def run(self):
         # Move up_proj output to CPU
@@ -1553,6 +1842,9 @@ class Task81(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 81, 0)] is not None
+
     def run(self):
         # Decrypt gate_proj output
         src = GetBookKeeperLinearIndex(self.layer_idx, 81, 0)
@@ -1571,6 +1863,9 @@ class Task81(Task):
 class Task82(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 82, 0)] is not None
 
     def run(self):
         # Decrypt up_proj output
@@ -1591,6 +1886,12 @@ class Task83(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 83, 0)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 83, 1)
+        return ready
+
     def run(self):
         # SwiGLU
         src1 = GetBookKeeperLinearIndex(self.layer_idx, 83, 0)
@@ -1609,6 +1910,9 @@ class Task84(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return True
+
     def run(self):
         # Move down_proj weight to GPU
         self.model.layers[self.layer_idx].down_proj.weight = self.model.layers[self.layer_idx].down_proj.weight.to('cuda:0')
@@ -1621,6 +1925,9 @@ class Task84(Task):
 class Task85(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 85, 0)
 
     def run(self):
         # Encrypt down_proj input
@@ -1639,6 +1946,9 @@ class Task85(Task):
 class Task86(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 86, 0)] is not None
 
     def run(self):
         # Move enc_x to GPU
@@ -1659,6 +1969,12 @@ class Task86(Task):
 class Task87(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 87, 1)] is not None
+        ready &= self.model.layers[self.layer_idx].down_proj.weight.is_cuda
+        return ready
 
     def run(self):
         # down_proj
@@ -1690,6 +2006,9 @@ class Task88(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 88, 0)] is not None
+
     def run(self):
         # Move down_proj output to CPU
         src = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
@@ -1712,6 +2031,9 @@ class Task89(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
+    def is_ready(self):
+        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 89, 0)] is not None
+
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 89, 0)
@@ -1729,6 +2051,12 @@ class Task89(Task):
 class Task90(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 90, 0)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable(self.layer_idx, 90, 1)
+        return ready
 
     def run(self):
         # Elementwise add

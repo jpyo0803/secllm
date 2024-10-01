@@ -267,4 +267,20 @@ void Ext_BookKeeperIsAvailable(int loc, bool* ret) {
 void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
   Internal_BookKeeperIsAvailable_Uint32(loc, ret);
 }
+
+void Ext_QKKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKKeyIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVKeyIsAvailable(layer_idx, ret);
+}
+
+void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKDecKeyIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVDecKeyIsAvailable(layer_idx, ret);
+}
 }

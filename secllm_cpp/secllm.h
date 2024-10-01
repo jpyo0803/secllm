@@ -102,6 +102,14 @@ class SecLLM {
   void Decrypt_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                   std::shared_ptr<Tensor<uint32_t>> in);
 
+  bool QKKeyIsAvailable(int layer_idx);
+
+  bool QKDecKeyIsAvailable(int layer_idx);
+
+  bool PVKeyIsAvailable(int layer_idx);
+
+  bool PVDecKeyIsAvailable(int layer_idx);
+
  private:
   int num_hidden_layers_ = -1;
 
@@ -239,5 +247,13 @@ void Internal_BookKeeperLoad_Uint32(int loc, int* data, int shape_len,
 void Internal_BookKeeperIsAvailable(int loc, bool* ret);
 
 void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
+
+void Internal_QKKeyIsAvailable(int layer_idx, bool* ret);
+
+void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret);
+
+void Internal_PVKeyIsAvailable(int layer_idx, bool* ret);
+
+void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret);
 
 #endif  // SECLLM_SECLLM_H

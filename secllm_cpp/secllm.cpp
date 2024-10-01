@@ -320,6 +320,22 @@ void SecLLM::Decrypt_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
   decoder_layers_->at(layer_idx).Decrypt_PV(out, in);
 }
 
+bool SecLLM::QKKeyIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKKeyGenerated();
+}
+
+bool SecLLM::QKDecKeyIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKDecKeyGenerated();
+}
+
+bool SecLLM::PVKeyIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVKeyGenerated();
+}
+
+bool SecLLM::PVDecKeyIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVDecKeyGenerated();
+}
+
 }  // namespace jpyo0803
 
 void Internal_PrintTest(int a, int b) {
@@ -842,4 +858,20 @@ void Internal_BookKeeperIsAvailable(int loc, bool* ret) {
 
 void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
   *ret = secllm_ptr->BookKeeperIsAvailable_Uint32(loc);
+}
+
+void Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKKeyIsAvailable(layer_idx);
+}
+
+void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKDecKeyIsAvailable(layer_idx);
+}
+
+void Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVKeyIsAvailable(layer_idx);
+}
+
+void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVDecKeyIsAvailable(layer_idx);
 }

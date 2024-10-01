@@ -480,6 +480,30 @@ class SecLLMCppWrapper:
     cls.lib.Ext_Decrypt_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
+  def QKKeyIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKKeyIsAvailable(layer_idx, byref(ret))
+    return ret.value
+
+  @classmethod
+  def PVKeyIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVKeyIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def QKDecKeyIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKDecKeyIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def PVDecKeyIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVDecKeyIsAvailable(layer_idx, byref(ret))
+    return ret.value
+
+  @classmethod
   def Reset(cls):
     print("Reset internal states")
     cls.lib.Ext_Reset()

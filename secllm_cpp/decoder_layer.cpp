@@ -14,6 +14,8 @@
 #define DEBUG 0
 #define MULTKEY_POOL_SIZE 1024
 
+#include "macro.h"
+
 namespace jpyo0803 {
 
 DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
@@ -31,7 +33,11 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       num_key_value_groups_(num_attention_heads / num_key_value_heads),
       present_token_len_(0),
       culmulative_token_len_(0),
-      bsz_(0) {
+      bsz_(0),
+      is_qk_key_generated_(false),
+      is_pv_key_generated_(false),
+      is_qk_dec_key_generated_(false),
+      is_pv_dec_key_generated_(false) {
 
   std::cout << "Decoder Layer " << layer_idx_ << " is created." << std::endl;
 
@@ -129,6 +135,12 @@ void DecoderLayer::Reset() {
   pv_dec_row_.clear();
   pv_dec_col_.clear();
   pv_dec_glob_.clear();
+
+  is_qk_key_generated_ = false;
+  is_pv_key_generated_ = false;
+
+  is_qk_dec_key_generated_ = false;
+  is_pv_dec_key_generated_ = false;
 }
 
 void DecoderLayer::SetEncKeyAndDecKey(
@@ -821,6 +833,8 @@ void DecoderLayer::SetBatchSizeAndTokenLength(int bsz, int token_len) {
 }
 
 void DecoderLayer::GenerateSecretKey_QK() {
+  ASSERT_ALWAYS(is_qk_key_generated_ == false, "QK key is already generated!");
+
   if (bsz_ == 0) {
     std::cout << "Batch size is not set!" << std::endl;
     exit(-1);
@@ -906,10 +920,16 @@ void DecoderLayer::GenerateSecretKey_QK() {
   // std::cout << "qk_x_add_key: " << qk_x_add_key_.size() << " / " << qk_x_add_key_[0].size() << " / " << qk_x_add_key_[0][0].size() << std::endl;
   // std::cout << "qk_y_add_key: " << qk_y_add_key_.size() << " / " << qk_y_add_key_[0].size() << " / " << qk_y_add_key_[0][0].size() << std::endl;
   // exit(-1);
+
+  is_qk_key_generated_ = true;
 }
 
 void DecoderLayer::GenerateDecryptionKey_QK(
     std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
+  ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
+  ASSERT_ALWAYS(is_qk_dec_key_generated_ == false,
+                "QK decryption key is already generated!");
+
   if (bsz_ == 0) {
     std::cout << "Batch size is not set!" << std::endl;
     exit(-1);
@@ -983,10 +1003,14 @@ void DecoderLayer::GenerateDecryptionKey_QK(
       }
     }
   }
+
+  is_qk_dec_key_generated_ = true;
 }
 
 void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+  ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1010,6 +1034,8 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+  ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1036,6 +1062,9 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
+  ASSERT_ALWAYS(is_qk_dec_key_generated_,
+                "QK decryption key is not generated!");
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1062,9 +1091,15 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
+
+  // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
+  is_qk_key_generated_ = false;
+  is_qk_dec_key_generated_ = false;
 }
 
 void DecoderLayer::GenerateSecretKey_PV() {
+  ASSERT_ALWAYS(is_pv_key_generated_ == false, "PV key is already generated!");
+
   if (bsz_ == 0) {
     std::cout << "Batch size is not set!" << std::endl;
     exit(-1);
@@ -1155,10 +1190,16 @@ void DecoderLayer::GenerateSecretKey_PV() {
   // std::cout << "pv_x_add_key: " << pv_x_add_key_.size() << " / " << pv_x_add_key_[0].size() << " / " << pv_x_add_key_[0][0].size() << std::endl;
   // std::cout << "pv_y_add_key: " << pv_y_add_key_.size() << " / " << pv_y_add_key_[0].size() << " / " << pv_y_add_key_[0][0].size() << std::endl;
   // exit(-1);
+
+  is_pv_key_generated_ = true;
 }
 
 void DecoderLayer::GenerateDecryptionKey_PV(
     std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
+  ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
+  ASSERT_ALWAYS(is_pv_dec_key_generated_ == false,
+                "PV decryption key is already generated!");
+
   if (bsz_ == 0) {
     std::cout << "Batch size is not set!" << std::endl;
     exit(-1);
@@ -1254,10 +1295,14 @@ void DecoderLayer::GenerateDecryptionKey_PV(
   // std::cout << "pv_dec_col: " << pv_dec_col_.size() << " / " << pv_dec_col_[0].size() << " / " << pv_dec_col_[0][0].size() << std::endl;
   // std::cout << "pv_dec_glob: " << pv_dec_glob_.size() << " / " << pv_dec_glob_[0].size() << std::endl;
   // exit(-1);
+
+  is_pv_dec_key_generated_ = true;
 }
 
 void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+  ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1282,6 +1327,8 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+  ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1308,6 +1355,9 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
+  ASSERT_ALWAYS(is_pv_dec_key_generated_,
+                "PV decryption key is not generated!");
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1334,6 +1384,10 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
+
+  // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
+  is_pv_dec_key_generated_ = false;
+  is_pv_key_generated_ = false;
 }
 
 }  // namespace jpyo0803

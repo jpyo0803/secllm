@@ -111,6 +111,12 @@ class DecoderLayer {
   void Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,  // D_ROW
                   std::shared_ptr<Tensor<uint32_t>> in);  // D_COL
 
+  // This is not actually thread-safe but it is okay, task scheduler can run it next cycle
+  bool IsQKKeyGenerated() const { return is_qk_key_generated_; }
+  bool IsQKDecKeyGenerated() const { return is_qk_dec_key_generated_; }
+  bool IsPVKeyGenerated() const { return is_pv_key_generated_; }
+  bool IsPVDecKeyGenerated() const { return is_pv_dec_key_generated_; }
+
  private:
   int layer_idx_;
   int hidden_size_;
@@ -203,6 +209,12 @@ class DecoderLayer {
   std::vector<uint32_t> x_mult_key_pool_;
   std::vector<uint32_t> y_mult_key_pool_;
   std::vector<std::vector<uint32_t>> precomputed_key_inv_;
+
+  bool is_qk_key_generated_;      // required for decryption key generation
+  bool is_qk_dec_key_generated_;  // required for decryption
+
+  bool is_pv_key_generated_;
+  bool is_pv_dec_key_generated_;
 };
 
 }  // namespace jpyo0803

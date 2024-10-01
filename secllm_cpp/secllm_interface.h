@@ -104,6 +104,14 @@ void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to);
 void Ext_BookKeeperIsAvailable(int loc, bool* ret);
 
 void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
+
+void Ext_QKKeyIsAvailable(int layer_idx, bool* ret);
+
+void Ext_PVKeyIsAvailable(int layer_idx, bool* ret);
+
+void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret);
+
+void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret);
 }
 
 #endif
