@@ -78,6 +78,14 @@ std::shared_ptr<Tensor<uint32_t>> SecLLM::BookKeeperLoad_Uint32(int loc) {
   return book_keeper_uint32_->Retrieve(loc);
 }
 
+bool SecLLM::BookKeeperIsAvailable(int loc) {
+  return book_keeper_->IsAvailable(loc);
+}
+
+bool SecLLM::BookKeeperIsAvailable_Uint32(int loc) {
+  return book_keeper_uint32_->IsAvailable(loc);
+}
+
 void SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
                                 int type) {
   switch (type) {
@@ -795,6 +803,14 @@ void Ext_Decrypt_PV(int layer_idx, int from, int to) {
   secllm_ptr->Decrypt_PV(layer_idx, out, retrieved_data);
 
   secllm_ptr->BookKeeperStore_Uint32({to}, out);
+}
+
+void Ext_BookKeeperIsAvailable(int loc, bool* ret) {
+  *ret = secllm_ptr->BookKeeperIsAvailable(loc);
+}
+
+void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
+  *ret = secllm_ptr->BookKeeperIsAvailable_Uint32(loc);
 }
 
 }  // extern "C"

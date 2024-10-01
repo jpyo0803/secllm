@@ -264,6 +264,22 @@ class SecLLMCppWrapper:
     cls.lib.Ext_BookKeeperStore(loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
+  def BookKeeperIsAvailable(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    ret = c_bool(-1)
+    cls.lib.Ext_BookKeeperIsAvailable(loc, byref(ret))
+    # convert c_bool to python bool
+    return ret.value
+
+  @classmethod
+  def BookKeeperIsAvailable_Uint32(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    ret = c_bool(-1)
+    cls.lib.Ext_BookKeeperIsAvailable_Uint32(loc, byref(ret))
+    # convert c_bool to python bool
+    return ret.value
+
+  @classmethod
   def BookKeeperStore_Uint32(cls, layer_index, operation_index, input_index, data, new_shape = None):
     assert data.is_contiguous()
     assert data.dtype == torch.uint32

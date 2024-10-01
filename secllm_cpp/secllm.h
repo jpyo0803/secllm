@@ -28,6 +28,10 @@ class SecLLM {
   void BookKeeperStore_Uint32(std::vector<int> locs,
                               std::shared_ptr<Tensor<uint32_t>>& data);
 
+  bool BookKeeperIsAvailable(int loc);
+
+  bool BookKeeperIsAvailable_Uint32(int loc);
+
   std::shared_ptr<Tensor<uint32_t>> BookKeeperLoad_Uint32(int loc);
 
   void SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
@@ -204,6 +208,10 @@ void Ext_EncryptX_PV(int layer_idx, int from, int to);
 void Ext_EncryptY_PV(int layer_idx, int from, int to);
 
 void Ext_Decrypt_PV(int layer_idx, int from, int to);
+
+void Ext_BookKeeperIsAvailable(int loc, bool* ret);
+
+void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
 
 }  // extern "C"
 

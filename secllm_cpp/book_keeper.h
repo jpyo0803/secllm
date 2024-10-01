@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "macro.h"
+
 namespace jpyo0803 {
 
 template <typename T>
@@ -18,28 +20,27 @@ class BookKeeper {
 
   void Keep(const std::vector<int>& locs, std::shared_ptr<T>& obj) {
     for (auto loc : locs) {
-      if (loc < 0 || loc >= dict_.size()) {
-        std::string msg = "Invalid location: " + std::to_string(loc);
-        throw std::out_of_range(msg);
-      }
+      ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(), "Invalid location, Keep");
+      ASSERT_ALWAYS(dict_[loc] == nullptr, "Location already occupied");
+
       dict_[loc] = obj;
     }
     obj.reset();
-    // NOTE(jpyo0803): Notice
   }
 
   std::shared_ptr<T> Retrieve(int loc) {
-    if (loc < 0 || loc >= dict_.size()) {
-      std::string msg = "Invalid location: " + std::to_string(loc);
-      throw std::out_of_range(msg);
-    }
-    if (dict_[loc] == nullptr) {
-      std::string msg = "No object at the location: " + std::to_string(loc);
-      throw std::runtime_error(msg);
-    }
+    ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(), "Invalid location, Retrieve");
+    ASSERT_ALWAYS(dict_[loc] != nullptr, "No object at the location");
+
     std::shared_ptr<T> ret = dict_[loc];
     dict_[loc].reset();
     return ret;
+  }
+
+  bool IsAvailable(int loc) {
+    ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(),
+                  "Invalid location, IsAvailable");
+    return dict_[loc] != nullptr;
   }
 
  private:
