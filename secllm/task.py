@@ -157,12 +157,9 @@ class Task7(Task):
 
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 7, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 10, 0)]
 
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 0) # Q
-        assert enc_activation.dtype == torch.int32
-        
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 10, 0)
-        self.model.tensor_buffer[dst] = enc_activation
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 0) # Q
 
     def __call__(self):
         self.run()
@@ -178,12 +175,9 @@ class Task8(Task):
     def run(self):
         # Encryption but for not it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 8, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 11, 0)]
 
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 1) # K
-        assert enc_activation.dtype == torch.int32
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 11, 0)
-        self.model.tensor_buffer[dst] = enc_activation
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 1) # K
 
     def __call__(self):
         self.run()
@@ -200,12 +194,9 @@ class Task9(Task):
         # Encryption but for not it just bypasses
 
         src = GetBookKeeperLinearIndex(self.layer_idx, 9, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 12, 0)]
 
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 2) # V
-        assert enc_activation.dtype == torch.int32
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 12, 0)
-        self.model.tensor_buffer[dst] = enc_activation
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 2) # V
 
     def __call__(self):
         self.run()
@@ -215,15 +206,11 @@ class Task10(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 10, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 10, 0)
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 10, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-        
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 10, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 13, 1)
@@ -238,15 +225,11 @@ class Task11(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 11, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 11, 0)
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 11, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 11, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
@@ -260,15 +243,11 @@ class Task12(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 12, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 12, 0)
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 12, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 12, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 15, 1)
@@ -1396,11 +1375,9 @@ class Task62(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 62, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 63, 0)]
 
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 3) # O
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 63, 0)
-        self.model.tensor_buffer[dst] = enc_activation
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 3) # O
 
     def __call__(self):
         self.run()
@@ -1410,14 +1387,11 @@ class Task63(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 63, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 63, 0)
 
     def run(self):
-        src = GetBookKeeperLinearIndex(self.layer_idx, 63, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
+        # Move enc_activation to GPU
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 63, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
@@ -1641,11 +1615,9 @@ class Task73(Task):
 
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, 73, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 75, 0)]
         
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 5) # Gate
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 75, 0)
-        self.model.tensor_buffer[dst] = enc_activation
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 5) # Gate
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1662,13 +1634,9 @@ class Task74(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 74, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 76, 0)]
         
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 4) # Up
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 76, 0)
-        self.model.tensor_buffer[dst] = enc_activation
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 4) # Up
 
     def __call__(self):
         self.run()
@@ -1678,14 +1646,10 @@ class Task75(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 75, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 75, 0)
 
     def run(self):
-        src = GetBookKeeperLinearIndex(self.layer_idx, 75, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 75, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
@@ -1701,14 +1665,10 @@ class Task76(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 76, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 76, 0)
 
     def run(self):
-        src = GetBookKeeperLinearIndex(self.layer_idx, 76, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 76, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
@@ -1932,11 +1892,9 @@ class Task85(Task):
     def run(self):
         # Encrypt down_proj input
         src = GetBookKeeperLinearIndex(self.layer_idx, 85, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 86, 0)]
 
-        enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 6) # Down
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 86, 0)
-        self.model.tensor_buffer[dst] = enc_activation
+        self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, dst, 6) # Down
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1948,15 +1906,11 @@ class Task86(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 86, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 86, 0)
 
     def run(self):
         # Move enc_x to GPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 86, 0)
-        assert self.model.tensor_buffer[src] is not None
-        enc_activation = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
+        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 86, 0)
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)

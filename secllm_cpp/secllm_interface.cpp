@@ -121,11 +121,14 @@ void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len,
   Internal_SetLinearWeightScales(layer_idx, scales, len, type);
 }
 
-void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type) {
-  std::thread encrypt_linear_activation_thread(
-      [=]() { Internal_EncryptLinearActivation(layer_idx, out, from, type); });
+void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
+                                 int type) {
+  std::vector<int> locs(to, to + to_len);
 
-  encrypt_linear_activation_thread.join();
+  std::thread encrypt_linear_activation_thread(
+      [=]() { Internal_EncryptLinearActivation(layer_idx, from, locs, type); });
+
+  encrypt_linear_activation_thread.detach();
 }
 
 void Ext_DecryptLinearActivation(int layer_idx, int to_len, int* to,

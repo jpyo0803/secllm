@@ -314,7 +314,7 @@ class SecLLMCppWrapper:
     cls.lib.Ext_SetLinearWeightScales(layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type)
 
   @classmethod
-  def EncryptLinearActivation(cls, layer_idx, src, type):
+  def EncryptLinearActivation(cls, layer_idx, src : int, dst : list[int], type):
     '''
         NOTE(jpyo0803): Encrypt and Project Activation
     '''
@@ -322,10 +322,13 @@ class SecLLMCppWrapper:
     assert src_shape is not None
     cls.shape_bookkeeper[src] = None
 
-    out = torch.empty(src_shape, dtype=torch.int32)
+    for e in dst:
+      assert cls.shape_bookkeeper_uint32[e] is None
+      cls.shape_bookkeeper_uint32[e] = src_shape
 
-    cls.lib.Ext_EncryptLinearActivation(layer_idx, cast(out.data_ptr(), POINTER(c_int)), src, type)
-    return out
+    dst = torch.tensor(dst, dtype=torch.int32)
+
+    cls.lib.Ext_EncryptLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
 
   @classmethod
   def DecryptLinearActivation(cls, layer_idx, dst : list[int], enc_tensor, type):

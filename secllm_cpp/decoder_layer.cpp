@@ -231,7 +231,8 @@ void DecoderLayer::SetEncKeyAndDecKey_Down(int* src_enc_key_pool,
 }
 
 void DecoderLayer::EncryptLinearActivation_Q(
-    int* out, std::shared_ptr<Tensor<float>> q_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> q_tensor) {
   int B = q_tensor->shape()[0];
   int M = q_tensor->shape()[1];
   int N = q_tensor->shape()[2];
@@ -254,7 +255,7 @@ void DecoderLayer::EncryptLinearActivation_Q(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)q_act[b * M * N + m * N + n] +
             q_enc_key_pool_[sampled_q_enc_key_index_[b * M + m]][n];
       }
@@ -263,7 +264,8 @@ void DecoderLayer::EncryptLinearActivation_Q(
 }
 
 void DecoderLayer::EncryptLinearActivation_K(
-    int* out, std::shared_ptr<Tensor<float>> k_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> k_tensor) {
   int B = k_tensor->shape()[0];
   int M = k_tensor->shape()[1];
   int N = k_tensor->shape()[2];
@@ -285,7 +287,7 @@ void DecoderLayer::EncryptLinearActivation_K(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)k_act[b * M * N + m * N + n] +
             k_enc_key_pool_[sampled_k_enc_key_index_[b * M + m]][n];
       }
@@ -294,7 +296,8 @@ void DecoderLayer::EncryptLinearActivation_K(
 }
 
 void DecoderLayer::EncryptLinearActivation_V(
-    int* out, std::shared_ptr<Tensor<float>> v_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> v_tensor) {
   int B = v_tensor->shape()[0];
   int M = v_tensor->shape()[1];
   int N = v_tensor->shape()[2];
@@ -316,7 +319,7 @@ void DecoderLayer::EncryptLinearActivation_V(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)v_act[b * M * N + m * N + n] +
             v_enc_key_pool_[sampled_v_enc_key_index_[b * M + m]][n];
       }
@@ -325,7 +328,8 @@ void DecoderLayer::EncryptLinearActivation_V(
 }
 
 void DecoderLayer::EncryptLinearActivation_O(
-    int* out, std::shared_ptr<Tensor<float>> o_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> o_tensor) {
   int B = o_tensor->shape()[0];
   int M = o_tensor->shape()[1];
   int N = o_tensor->shape()[2];
@@ -346,7 +350,7 @@ void DecoderLayer::EncryptLinearActivation_O(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)o_act[b * M * N + m * N + n] +
             o_enc_key_pool_[sampled_o_enc_key_index_[b * M + m]][n];
       }
@@ -355,7 +359,8 @@ void DecoderLayer::EncryptLinearActivation_O(
 }
 
 void DecoderLayer::EncryptLinearActivation_Up(
-    int* out, std::shared_ptr<Tensor<float>> up_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> up_tensor) {
   int B = up_tensor->shape()[0];
   int M = up_tensor->shape()[1];
   int N = up_tensor->shape()[2];
@@ -377,7 +382,7 @@ void DecoderLayer::EncryptLinearActivation_Up(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)up_act[b * M * N + m * N + n] +
             up_enc_key_pool_[sampled_up_enc_key_index_[b * M + m]][n];
       }
@@ -386,7 +391,8 @@ void DecoderLayer::EncryptLinearActivation_Up(
 }
 
 void DecoderLayer::EncryptLinearActivation_Gate(
-    int* out, std::shared_ptr<Tensor<float>> gate_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> gate_tensor) {
   int B = gate_tensor->shape()[0];
   int M = gate_tensor->shape()[1];
   int N = gate_tensor->shape()[2];
@@ -408,7 +414,7 @@ void DecoderLayer::EncryptLinearActivation_Gate(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)gate_act[b * M * N + m * N + n] +
             gate_enc_key_pool_[sampled_gate_enc_key_index_[b * M + m]][n];
       }
@@ -417,7 +423,8 @@ void DecoderLayer::EncryptLinearActivation_Gate(
 }
 
 void DecoderLayer::EncryptLinearActivation_Down(
-    int* out, std::shared_ptr<Tensor<float>> down_tensor) {
+    std::shared_ptr<Tensor<uint32_t>> out,
+    std::shared_ptr<Tensor<float>> down_tensor) {
   int B = down_tensor->shape()[0];
   int M = down_tensor->shape()[1];
   int N = down_tensor->shape()[2];
@@ -439,7 +446,7 @@ void DecoderLayer::EncryptLinearActivation_Down(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
+        out->data()[b * M * N + m * N + n] =
             (int)down_act[b * M * N + m * N + n] +
             down_enc_key_pool_[sampled_down_enc_key_index_[b * M + m]][n];
       }

@@ -40,7 +40,8 @@ class SecLLM {
   void SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
                              int type);
 
-  void EncryptLinearActivation(int layer_idx, int* out,
+  void EncryptLinearActivation(int layer_idx,
+                               std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<float>> in, int type);
 
   void DecryptLinearActivation(int layer_idx,
@@ -181,8 +182,8 @@ void Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
 void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                     int type);
 
-void Internal_EncryptLinearActivation(int layer_idx, int* out, int from,
-                                      int type);
+void Internal_EncryptLinearActivation(int layer_idx, int from,
+                                      std::vector<int> locs, int type);
 
 void Internal_DecryptLinearActivation(int layer_idx, int to_len, int* to,
                                       int* enc_tensor, int shape_len,

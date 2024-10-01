@@ -154,7 +154,8 @@ void SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
   }
 }
 
-void SecLLM::EncryptLinearActivation(int layer_idx, int* out,
+void SecLLM::EncryptLinearActivation(int layer_idx,
+                                     std::shared_ptr<Tensor<uint32_t>> out,
                                      std::shared_ptr<Tensor<float>> in,
                                      int type) {
   switch (type) {
@@ -596,12 +597,17 @@ void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
   secllm_ptr->SetLinearWeightScales(layer_idx, scales, len, type);
 }
 
-void Internal_EncryptLinearActivation(int layer_idx, int* out, int from,
-                                      int type) {
+void Internal_EncryptLinearActivation(int layer_idx, int from,
+                                      std::vector<int> locs, int type) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
 
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> out =
+      std::make_shared<jpyo0803::Tensor<uint32_t>>(retrieved_data->shape());
+
   secllm_ptr->EncryptLinearActivation(layer_idx, out, retrieved_data, type);
+
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
 void Internal_DecryptLinearActivation(int layer_idx, int to_len, int* to,
