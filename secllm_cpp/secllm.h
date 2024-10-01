@@ -137,11 +137,11 @@ void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
 
 void Internal_Softmax_InPlace(float* x, int B, int M, int N, int K);
 
-void Internal_Softmax(int from, int to_len, int* to);
+void Internal_Softmax(int from, std::vector<int> locs);
 
 void Internal_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
 
-void Internal_SwiGLU(int from1, int from2, int to_len, int* to);
+void Internal_SwiGLU(int from1, int from2, std::vector<int> locs);
 
 void Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
                               int N, float eps);
@@ -151,7 +151,7 @@ void Internal_RMSNorm(int from, int to_len, int* to, const float* const weight,
 
 void Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
 
-void Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to);
+void Internal_ElementWiseAdd(int from1, int from2, std::vector<int> locs);
 
 void Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                                 const float* const cos, const float* const sin,
@@ -191,9 +191,9 @@ void Internal_DecryptLinearActivation(int layer_idx, int to_len, int* to,
 void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
                                  float k_output_scale, float v_output_scale);
 
-void Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to);
+void Internal_QuantizeAndShiftQ(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
+void Internal_QuantizeAndShiftK(int layer_idx, int from, std::vector<int> locs);
 
 void Internal_SetAttentionMask(float* mask, int M, int N);
 
@@ -204,35 +204,35 @@ void Internal_GenerateSecretKey_QK(int layer_idx);
 
 void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
 
-void Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to);
+void Internal_QuantizeAndShiftQ(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
+void Internal_QuantizeAndShiftK(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to);
+void Internal_EncryptX_QK(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to);
+void Internal_EncryptY_QK(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to);
+void Internal_Decrypt_QK(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_UnshiftAndDequantizeQK(int layer_idx, int from, int to_len,
-                                     int* to);
+void Internal_UnshiftAndDequantizeQK(int layer_idx, int from,
+                                     std::vector<int> locs);
 
 void Internal_GenerateSecretKey_PV(int layer_idx);
 
 void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y);
 
-void Internal_QuantizeAndShiftP(int layer_idx, int from, int to_len, int* to);
+void Internal_QuantizeAndShiftP(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_QuantizeAndShiftV(int layer_idx, int from, int to_len, int* to);
+void Internal_QuantizeAndShiftV(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to);
+void Internal_EncryptX_PV(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to);
+void Internal_EncryptY_PV(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to);
+void Internal_Decrypt_PV(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_UnshiftAndDequantizePV(int layer_idx, int from, int to_len,
-                                     int* to);
+void Internal_UnshiftAndDequantizePV(int layer_idx, int from,
+                                     std::vector<int> locs);
 
 void Internal_BookKeeperStore(int loc, float* data, int shape_len, int* shape);
 

@@ -358,9 +358,7 @@ void Internal_Softmax_InPlace(float* x, int B, int M, int N, int K) {
   jpyo0803::Softmax_InPlace(x, B, M, N, K);
 }
 
-void Internal_Softmax(int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_Softmax(int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
   auto shape = retrieved_data->shape();
@@ -387,9 +385,7 @@ void Internal_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M,
   jpyo0803::SwiGLU_InPlace(gate_in, up_in, B, M, N);
 }
 
-void Internal_SwiGLU(int from1, int from2, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_SwiGLU(int from1, int from2, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
       secllm_ptr->BookKeeperLoad(from1);
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
@@ -439,9 +435,7 @@ void Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
   jpyo0803::ElementWiseAdd_InPlace(x, y, B, M, N);
 }
 
-void Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_ElementWiseAdd(int from1, int from2, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
       secllm_ptr->BookKeeperLoad(from1);
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
@@ -564,20 +558,20 @@ void Internal_BookKeeperLoad_Uint32(int loc, int* out, int shape_len,
 }
 
 void Internal_ReplicateTensor(int from, int* to, int to_len) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
   // Notice, this removes a tensor in the book keeper
-
-  std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore(locs, retrieved_data);
 }
 
 void Internal_ReplicateTensor_Uint32(int from, int* to, int to_len) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
   // Notice, this removes a tensor in the book keeper
-
-  std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore_Uint32(locs, retrieved_data);
 }
 
@@ -631,7 +625,8 @@ void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
                                  v_output_scale);
 }
 
-void Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to) {
+void Internal_QuantizeAndShiftQ(int layer_idx, int from,
+                                std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
 
@@ -640,11 +635,11 @@ void Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to) {
 
   secllm_ptr->QuantizeAndShiftQ(layer_idx, out, retrieved_data);
 
-  std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
+void Internal_QuantizeAndShiftK(int layer_idx, int from,
+                                std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
 
@@ -653,14 +648,11 @@ void Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
 
   secllm_ptr->QuantizeAndShiftK(layer_idx, out, retrieved_data);
 
-  std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_UnshiftAndDequantizeQK(int layer_idx, int from, int to_len,
-                                     int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_UnshiftAndDequantizeQK(int layer_idx, int from,
+                                     std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -696,7 +688,8 @@ void Internal_UnshiftAndDequantizeQK(int layer_idx, int from, int to_len,
   secllm_ptr->BookKeeperStore(locs, out);
 }
 
-void Internal_QuantizeAndShiftP(int layer_idx, int from, int to_len, int* to) {
+void Internal_QuantizeAndShiftP(int layer_idx, int from,
+                                std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
 
@@ -705,11 +698,11 @@ void Internal_QuantizeAndShiftP(int layer_idx, int from, int to_len, int* to) {
 
   secllm_ptr->QuantizeAndShiftP(layer_idx, out, retrieved_data);
 
-  std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_QuantizeAndShiftV(int layer_idx, int from, int to_len, int* to) {
+void Internal_QuantizeAndShiftV(int layer_idx, int from,
+                                std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
 
@@ -718,14 +711,11 @@ void Internal_QuantizeAndShiftV(int layer_idx, int from, int to_len, int* to) {
 
   secllm_ptr->QuantizeAndShiftV(layer_idx, out, retrieved_data);
 
-  std::vector<int> locs(to, to + to_len);
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_UnshiftAndDequantizePV(int layer_idx, int from, int to_len,
-                                     int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_UnshiftAndDequantizePV(int layer_idx, int from,
+                                     std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -755,9 +745,7 @@ void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_QK(layer_idx, x, y);
 }
 
-void Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_EncryptX_QK(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -769,9 +757,7 @@ void Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_EncryptY_QK(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -783,9 +769,7 @@ void Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_Decrypt_QK(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -810,9 +794,7 @@ void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_PV(layer_idx, x, y);
 }
 
-void Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_EncryptX_PV(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -824,9 +806,7 @@ void Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_EncryptY_PV(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -838,9 +818,7 @@ void Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_Decrypt_PV(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
