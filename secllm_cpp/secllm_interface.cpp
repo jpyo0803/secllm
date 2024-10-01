@@ -18,36 +18,19 @@ void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
                         num_key_value_heads, enc_key_pool_size);
 }
 
-void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
-  Internal_Softmax_InPlace(x, B, M, N, K);
-}
-
 void Ext_Softmax(int from, int to_len, int* to) {
   std::thread softmax_thread([=]() { Internal_Softmax(from, to_len, to); });
 
   softmax_thread.join();
 }
 
-void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
-  Internal_SwiGLU_InPlace(gate_in, up_in, B, M, N);
-}
-
 void Ext_SwiGLU(int from1, int from2, int to_len, int* to) {
   Internal_SwiGLU(from1, from2, to_len, to);
-}
-
-void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
-                         int N, float eps) {
-  Internal_RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
 void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
                  float eps) {
   Internal_RMSNorm(from, to_len, to, weight, eps);
-}
-
-void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
-  Internal_ElementWiseAdd_InPlace(x, y, B, M, N);
 }
 
 void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to) {

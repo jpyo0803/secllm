@@ -12,22 +12,12 @@ void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
                       int num_hidden_layers, int num_key_value_heads,
                       int enc_key_pool_size);
 
-void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K);
-
 void Ext_Softmax(int from, int to_len, int* to);
-
-void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
 
 void Ext_SwiGLU(int from1, int from2, int to_len, int* to);
 
-void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
-                         int N, float eps);
-
 void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
                  float eps);
-
-void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
-
 void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to);
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
