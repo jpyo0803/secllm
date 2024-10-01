@@ -344,7 +344,9 @@ void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
   jpyo0803::Softmax_InPlace(x, B, M, N, K);
 }
 
-void Ext_Softmax(int from, int to) {
+void Ext_Softmax(int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
   auto shape = retrieved_data->shape();
@@ -363,14 +365,16 @@ void Ext_Softmax(int from, int to) {
   jpyo0803::Softmax(out->data().data(), retrieved_data->data().data(), B, M, N,
                     K);
 
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
   jpyo0803::SwiGLU_InPlace(gate_in, up_in, B, M, N);
 }
 
-void Ext_SwiGLU(int from1, int from2, int to) {
+void Ext_SwiGLU(int from1, int from2, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
       secllm_ptr->BookKeeperLoad(from1);
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
@@ -387,7 +391,7 @@ void Ext_SwiGLU(int from1, int from2, int to) {
   jpyo0803::SwiGLU(out->data().data(), retrieved_data1->data().data(),
                    retrieved_data2->data().data(), B, M, N);
 
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
@@ -395,7 +399,10 @@ void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
   jpyo0803::RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
-void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
+void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
+                 float eps) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad(from);
   auto shape = retrieved_data->shape();
@@ -410,14 +417,16 @@ void Ext_RMSNorm(int from, int to, const float* const weight, float eps) {
   jpyo0803::RMSNorm(out->data().data(), retrieved_data->data().data(), weight,
                     B, M, N, eps);
 
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
   jpyo0803::ElementWiseAdd_InPlace(x, y, B, M, N);
 }
 
-void Ext_ElementWiseAdd(int from1, int from2, int to) {
+void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
       secllm_ptr->BookKeeperLoad(from1);
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
@@ -434,7 +443,7 @@ void Ext_ElementWiseAdd(int from1, int from2, int to) {
   jpyo0803::ElementWiseAdd(out->data().data(), retrieved_data1->data().data(),
                            retrieved_data2->data().data(), B, M, N);
 
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
@@ -583,8 +592,11 @@ void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type) {
   secllm_ptr->EncryptLinearActivation(layer_idx, out, retrieved_data, type);
 }
 
-void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
-                                 int shape_len, int* shape, int type) {
+void Ext_DecryptLinearActivation(int layer_idx, int to_len, int* to,
+                                 int* enc_tensor, int shape_len, int* shape,
+                                 int type) {
+  std::vector<int> locs{to, to + to_len};
+
   std::vector<int> shape_vec(shape, shape + shape_len);
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
@@ -592,7 +604,7 @@ void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
 
   secllm_ptr->DecryptLinearActivation(layer_idx, out, enc_tensor, type);
 
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
@@ -627,7 +639,9 @@ void Ext_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Ext_UnshiftAndDequantizeQK(int layer_idx, int from, int to) {
+void Ext_UnshiftAndDequantizeQK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -660,7 +674,7 @@ void Ext_UnshiftAndDequantizeQK(int layer_idx, int from, int to) {
     }
   }
 
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_QuantizeAndShiftP(int layer_idx, int from, int to_len, int* to) {
@@ -689,14 +703,14 @@ void Ext_QuantizeAndShiftV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Ext_UnshiftAndDequantizePV(int layer_idx, int from, int to) {
+void Ext_UnshiftAndDequantizePV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
   auto out = secllm_ptr->UnshiftAndDequantizePV(layer_idx, retrieved_data);
-  // out->PrintShape();
-  // exit(-1);
-  secllm_ptr->BookKeeperStore({to}, out);
+  secllm_ptr->BookKeeperStore(locs, out);
 }
 
 void Ext_SetAttentionMask(float* mask, int M, int N) {
@@ -720,7 +734,9 @@ void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_QK(layer_idx, x, y);
 }
 
-void Ext_EncryptX_QK(int layer_idx, int from, int to) {
+void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -729,10 +745,12 @@ void Ext_EncryptX_QK(int layer_idx, int from, int to) {
 
   secllm_ptr->EncryptX_QK(layer_idx, out, retrieved_data);
 
-  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Ext_EncryptY_QK(int layer_idx, int from, int to) {
+void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -741,10 +759,12 @@ void Ext_EncryptY_QK(int layer_idx, int from, int to) {
 
   secllm_ptr->EncryptY_QK(layer_idx, out, retrieved_data);
 
-  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Ext_Decrypt_QK(int layer_idx, int from, int to) {
+void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -753,7 +773,7 @@ void Ext_Decrypt_QK(int layer_idx, int from, int to) {
 
   secllm_ptr->Decrypt_QK(layer_idx, out, retrieved_data);
 
-  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
 void Ext_GenerateSecretKey_PV(int layer_idx) {
@@ -769,7 +789,9 @@ void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_PV(layer_idx, x, y);
 }
 
-void Ext_EncryptX_PV(int layer_idx, int from, int to) {
+void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -778,10 +800,12 @@ void Ext_EncryptX_PV(int layer_idx, int from, int to) {
 
   secllm_ptr->EncryptX_PV(layer_idx, out, retrieved_data);
 
-  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Ext_EncryptY_PV(int layer_idx, int from, int to) {
+void Ext_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -790,10 +814,12 @@ void Ext_EncryptY_PV(int layer_idx, int from, int to) {
 
   secllm_ptr->EncryptY_PV(layer_idx, out, retrieved_data);
 
-  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Ext_Decrypt_PV(int layer_idx, int from, int to) {
+void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -802,7 +828,7 @@ void Ext_Decrypt_PV(int layer_idx, int from, int to) {
 
   secllm_ptr->Decrypt_PV(layer_idx, out, retrieved_data);
 
-  secllm_ptr->BookKeeperStore_Uint32({to}, out);
+  secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
 void Ext_BookKeeperIsAvailable(int loc, bool* ret) {

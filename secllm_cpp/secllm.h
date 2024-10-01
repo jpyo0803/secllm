@@ -131,20 +131,21 @@ void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
 
 void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K);
 
-void Ext_Softmax(int from, int to);
+void Ext_Softmax(int from, int to_len, int* to);
 
 void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
 
-void Ext_SwiGLU(int from1, int from2, int to);
+void Ext_SwiGLU(int from1, int from2, int to_len, int* to);
 
 void Ext_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
                          int N, float eps);
 
-void Ext_RMSNorm(int from, int to, const float* const weight, float eps);
+void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
+                 float eps);
 
 void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
 
-void Ext_ElementWiseAdd(int from1, int from2, int to);
+void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to);
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                            const float* const cos, const float* const sin,
@@ -175,8 +176,9 @@ void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len, int type);
 
 void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type);
 
-void Ext_DecryptLinearActivation(int layer_idx, int to, int* enc_tensor,
-                                 int shape_len, int* shape, int type);
+void Ext_DecryptLinearActivation(int layer_idx, int to_len, int* to,
+                                 int* enc_tensor, int shape_len, int* shape,
+                                 int type);
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
                             float k_output_scale, float v_output_scale);
@@ -193,21 +195,21 @@ void Ext_GenerateSecretKey_QK(int layer_idx);
 
 void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
 
-void Ext_EncryptX_QK(int layer_idx, int from, int to);
+void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to);
 
-void Ext_EncryptY_QK(int layer_idx, int from, int to);
+void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to);
 
-void Ext_Decrypt_QK(int layer_idx, int from, int to);
+void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to);
 
 void Ext_GenerateSecretKey_PV(int layer_idx);
 
 void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y);
 
-void Ext_EncryptX_PV(int layer_idx, int from, int to);
+void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to);
 
-void Ext_EncryptY_PV(int layer_idx, int from, int to);
+void Ext_EncryptY_PV(int layer_idx, int from, int to_len, int* to);
 
-void Ext_Decrypt_PV(int layer_idx, int from, int to);
+void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to);
 
 void Ext_BookKeeperIsAvailable(int loc, bool* ret);
 

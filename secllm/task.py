@@ -64,7 +64,7 @@ class Task2(Task):
     def run(self):
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
         src = GetBookKeeperLinearIndex(self.layer_idx, 2, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 3, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 3, 0)]
 
         input_layernorm = self.model.layers[self.layer_idx].input_layernorm
 
@@ -198,8 +198,7 @@ class Task10(Task):
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 13, 1)
-        self.model.tensor_buffer[dst] = (enc_activation)
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        self.model.tensor_buffer[dst] = enc_activation
 
 
     def __call__(self):
@@ -219,9 +218,7 @@ class Task11(Task):
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
-        self.model.tensor_buffer[dst] = (enc_activation)
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        self.model.tensor_buffer[dst] = enc_activation
 
     def __call__(self):
         self.run()
@@ -240,7 +237,7 @@ class Task12(Task):
         enc_activation = enc_activation.to('cuda:0')
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 15, 1)
-        self.model.tensor_buffer[dst] = (enc_activation)
+        self.model.tensor_buffer[dst] = enc_activation
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -415,7 +412,7 @@ class Task19(Task):
         y = self.model.tensor_buffer[src] # need to be decrypted, int32
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 22, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 0)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 0)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -435,7 +432,7 @@ class Task20(Task):
         y = self.model.tensor_buffer[src] # need to be decrypted, int32
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 22, 1)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 1)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 1)
 
     def __call__(self):
@@ -453,7 +450,7 @@ class Task21(Task):
         y = self.model.tensor_buffer[src] # need to be decrypted, int32
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 22, 2)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 2)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 2)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -639,7 +636,7 @@ class Task33(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 33, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 36, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 36, 0)]
 
         self.secllm_cpp_wrapper.EncryptX_QK(self.layer_idx, src, dst)
 
@@ -655,7 +652,7 @@ class Task34(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 34, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 37, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 37, 0)]
 
         self.secllm_cpp_wrapper.EncryptY_QK(self.layer_idx, src, dst)
 
@@ -813,7 +810,7 @@ class Task41(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 41, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 42, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 42, 0)]
 
         self.secllm_cpp_wrapper.Decrypt_QK(self.layer_idx, src, dst)
 
@@ -831,7 +828,7 @@ class Task42(Task):
     def run(self):
         # ByPass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 42, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 43, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 43, 0)]
 
         self.secllm_cpp_wrapper.UnshiftAndDequantizeQK(self.layer_idx, src, dst)
 
@@ -849,7 +846,7 @@ class Task43(Task):
     def run(self):
         # Softmax
         src = GetBookKeeperLinearIndex(self.layer_idx, 43, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 46, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 46, 0)]
 
         self.secllm_cpp_wrapper.Softmax(src, dst)
 
@@ -956,7 +953,7 @@ class Task51(Task):
     def run(self):
         # Encrypt P, for now it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 51, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 54, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 54, 0)]
 
         self.secllm_cpp_wrapper.EncryptX_PV(self.layer_idx, src, dst)
 
@@ -974,7 +971,7 @@ class Task52(Task):
     def run(self):
         # encrypt V, for now it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 52, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 55, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 55, 0)]
 
         self.secllm_cpp_wrapper.EncryptY_PV(self.layer_idx, src, dst)
         # self.secllm_cpp_wrapper.ReplicateTensor_Uint32(src, dst)
@@ -1141,7 +1138,7 @@ class Task59(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 59, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 60, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 60, 0)]
 
         self.secllm_cpp_wrapper.Decrypt_PV(self.layer_idx, src, dst)
 
@@ -1159,7 +1156,7 @@ class Task60(Task):
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 60, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 62, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 62, 0)]
 
         self.secllm_cpp_wrapper.UnshiftAndDequantizePV(self.layer_idx, src, dst)
 
@@ -1278,7 +1275,7 @@ class Task66(Task):
         y = self.model.tensor_buffer[src]
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 67, 1)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 67, 1)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 3) # O
 
         # Fix it
@@ -1301,7 +1298,7 @@ class Task67(Task):
         src1 = GetBookKeeperLinearIndex(self.layer_idx, 67, 0)
         src2 = GetBookKeeperLinearIndex(self.layer_idx, 67, 1)
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 68, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 68, 0)]
 
         self.secllm_cpp_wrapper.ElementwiseAdd(src1, src2, dst)
 
@@ -1333,7 +1330,7 @@ class Task69(Task):
     def run(self):
         # RMS 2
         src = GetBookKeeperLinearIndex(self.layer_idx, 69, 0)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 70, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 70, 0)]
 
         post_attention_layernorm = self.model.layers[self.layer_idx].post_attention_layernorm
 
@@ -1574,7 +1571,7 @@ class Task81(Task):
         y = self.model.tensor_buffer[src]
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 83, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 83, 0)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 5) # Gate
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -1593,7 +1590,7 @@ class Task82(Task):
         y = self.model.tensor_buffer[src]
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 83, 1)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 83, 1)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 4) # Up
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
@@ -1610,7 +1607,7 @@ class Task83(Task):
         src1 = GetBookKeeperLinearIndex(self.layer_idx, 83, 0)
         src2 = GetBookKeeperLinearIndex(self.layer_idx, 83, 1)
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 85, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 85, 0)]
 
         self.secllm_cpp_wrapper.SwiGLU(src1, src2, dst)
 
@@ -1733,7 +1730,7 @@ class Task89(Task):
         y = self.model.tensor_buffer[src]
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 90, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 90, 0)]
         self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 6)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1749,7 +1746,7 @@ class Task90(Task):
         src1 = GetBookKeeperLinearIndex(self.layer_idx, 90, 0)
         src2 = GetBookKeeperLinearIndex(self.layer_idx, 90, 1)
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 91, 0)
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, 91, 0)]
         self.secllm_cpp_wrapper.ElementwiseAdd(src1, src2, dst)
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
