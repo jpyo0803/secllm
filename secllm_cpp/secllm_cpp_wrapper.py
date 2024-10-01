@@ -64,6 +64,7 @@ class SecLLMCppWrapper:
     x = x.to(dtype)
     return x
   
+  @classmethod
   def Softmax(cls, src : int, dst: int):
     '''
         NOTE(jpyo0803): Softmax
@@ -75,6 +76,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_Softmax(src, dst)
 
+  @classmethod
   def SwiGLU_InPlace(cls, gate_in, up_in):
     '''
         NOTE(jpyo0803): in-place SwiGLU_InPlace
@@ -94,6 +96,7 @@ class SecLLMCppWrapper:
     gate_in = gate_in.to(dtype)
     return gate_in
 
+  @classmethod
   def SwiGLU(cls, gate_in : int, up_in : int, dst : int):
     '''
         NOTE(jpyo0803): SwiGLU
@@ -111,6 +114,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_SwiGLU(gate_in, up_in, dst)
 
+  @classmethod
   def RMSNorm_InPlace(cls, x, weight, eps):
     '''
         NOTE(jpyo0803): in-place RMSNorm
@@ -130,6 +134,7 @@ class SecLLMCppWrapper:
     x = x.to(dtype)
     return x
   
+  @classmethod
   def RMSNorm(cls, src : int, dst: int, weight, eps):
     '''
         NOTE(jpyo0803): RMSNorm
@@ -144,6 +149,7 @@ class SecLLMCppWrapper:
     weight = weight.to(torch.float32) # should happen only once if necessary
     cls.lib.Ext_RMSNorm(src, dst, cast(weight.data_ptr(), POINTER(c_float)), c_float(eps))
 
+  @classmethod
   def ElementwiseAdd_InPlace(cls, x, y):
     '''
         NOTE(jpyo0803): in-place elementwise add
@@ -162,6 +168,7 @@ class SecLLMCppWrapper:
     x = x.to(dtype)
     return x
   
+  @classmethod
   def ElementwiseAdd(cls, src1 : int, src2 : int, dst : int):
     '''
         NOTE(jpyo0803): elementwise add
@@ -178,6 +185,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_ElementWiseAdd(src1, src2, dst)
 
+  @classmethod
   def ElementwiseSubtract(cls, src1 : int, src2 : int, dst : int):
     '''
         NOTE(jpyo0803): elementwise subtract
@@ -194,6 +202,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_ElementWiseSubtract(src1, src2, dst)
 
+  @classmethod
   def ApplyRotaryPosEmb(cls, q, k, cos, sin):
     '''
         NOTE(jpyo0803): in-place apply rotary position embedding
@@ -220,6 +229,7 @@ class SecLLMCppWrapper:
     k_embed = k.to(dtype)
     return q_embed, k_embed
 
+  @classmethod
   def LlamaRotaryEmbedding(cls, inv_freq, position_ids, input_dtype):
     '''
         NOTE(jpyo0803): Llama rotary embedding
@@ -240,8 +250,7 @@ class SecLLMCppWrapper:
     sin = sin.to(input_dtype)
     return cos, sin
 
-
-
+  @classmethod
   def BookKeeperStore(cls, layer_index, operation_index, input_index, data):
     assert data.is_contiguous()
     assert data.dtype == torch.float32
@@ -254,6 +263,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_BookKeeperStore(loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
+  @classmethod
   def BookKeeperStore_Uint32(cls, layer_index, operation_index, input_index, data, new_shape = None):
     assert data.is_contiguous()
     assert data.dtype == torch.uint32
@@ -266,6 +276,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_BookKeeperStore_Uint32(loc, cast(data.data_ptr(), POINTER(c_uint32)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
+  @classmethod
   def BookKeeperLoad(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     
@@ -279,6 +290,7 @@ class SecLLMCppWrapper:
 
     return out
 
+  @classmethod
   def BookKeeperLoad_Uint32(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     
@@ -292,10 +304,12 @@ class SecLLMCppWrapper:
 
     return out
 
+  @classmethod
   def BookKeeperReshape_Uint32(cls, index, new_shape):
     assert cls.shape_bookkeeper_uint32[index] is not None
     cls.shape_bookkeeper_uint32[index] = new_shape
 
+  @classmethod
   def ReplicateTensor(cls, src : int, dst : list):
     # be careful src is in int64
     src_shape = cls.shape_bookkeeper[src]
@@ -306,6 +320,7 @@ class SecLLMCppWrapper:
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_ReplicateTensor(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
+  @classmethod
   def ReplicateTensor_Uint32(cls, src : int, dst : list):
     # be careful src is in int64
     src_shape = cls.shape_bookkeeper_uint32[src]
@@ -316,12 +331,14 @@ class SecLLMCppWrapper:
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_ReplicateTensor_Uint32(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
+  @classmethod
   def GetCprngTensor(cls, shape):
     out = torch.empty(shape, dtype=torch.int32)
     shape_list = torch.tensor(shape, dtype=torch.int32)
     cls.lib.Ext_GetCprngTensor(cast(out.data_ptr(), POINTER(c_int)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
     return out
   
+  @classmethod
   def SetEncKeyAndDecKey(cls, layer_idx, enc_key_pool, dec_key, type):
     '''
         NOTE(jpyo0803): Set enc_key_pool and precomputed_dec_key
@@ -330,6 +347,7 @@ class SecLLMCppWrapper:
   
     cls.lib.Ext_SetEncKeyAndDecKey(layer_idx, cast(enc_key_pool.data_ptr(), POINTER(c_int)), cast(dec_key.data_ptr(), POINTER(c_int)), type)
 
+  @classmethod
   def SetLinearWeightScales(cls, layer_idx, weight_scales, type):
     '''
         NOTE(jpyo0803): Set weight scales
@@ -339,6 +357,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_SetLinearWeightScales(layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type)
 
+  @classmethod
   def EncryptLinearActivation(cls, layer_idx, src, type):
     '''
         NOTE(jpyo0803): Encrypt and Project Activation
@@ -352,6 +371,7 @@ class SecLLMCppWrapper:
     cls.lib.Ext_EncryptLinearActivation(layer_idx, cast(out.data_ptr(), POINTER(c_int)), src, type)
     return out
 
+  @classmethod
   def DecryptLinearActivation(cls, layer_idx, dst, enc_tensor, type):
     '''
         NOTE(jpyo0803): Decrypt Activation
@@ -362,6 +382,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_DecryptLinearActivation(layer_idx, dst, cast(enc_tensor.data_ptr(), POINTER(c_int)), len(enc_tensor_shape_list), cast(enc_tensor_shape_list.data_ptr(), POINTER(c_int)), type)
 
+  @classmethod
   def SetQKVOutputScales(cls, layer_idx, q_output_scale, k_output_scale, v_output_scale):
     '''
         NOTE(jpyo0803): Set QKV output scales
@@ -369,6 +390,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_SetQKVOutputScales(layer_idx, c_float(q_output_scale), c_float(k_output_scale), c_float(v_output_scale))
 
+  @classmethod
   def QuantizeAndShiftQ(cls, layer_idx: int, src : int, dst : list):
     '''
         NOTE(jpyo0803): Quantize and Shift Q
@@ -383,6 +405,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_QuantizeAndShiftQ(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
+  @classmethod
   def QuantizeAndShiftK(cls, layer_idx: int, src : int, dst : list):
     '''
         NOTE(jpyo0803): Quantize and Shift K
@@ -397,6 +420,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_QuantizeAndShiftK(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
+  @classmethod
   def QuantizeAndShiftP(cls, layer_idx: int, src : int, dst : list):
     '''
         NOTE(jpyo0803): Quantize and Shift P
@@ -411,6 +435,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_QuantizeAndShiftP(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
+  @classmethod
   def QuantizeAndShiftV(cls, layer_idx: int, src : int, dst : list):
     '''
         NOTE(jpyo0803): Quantize and Shift V
@@ -425,6 +450,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_QuantizeAndShiftV(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
+  @classmethod
   def UnshiftAndDequantizeQK(cls, layer_idx: int, src : int, dst : int):
     '''
         NOTE(jpyo0803): Unshift and Dequantize QK
@@ -436,6 +462,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_UnshiftAndDequantizeQK(layer_idx, src, dst)
 
+  @classmethod
   def UnshiftAndDequantizePV(cls, layer_idx: int, src : int, dst : int):
     '''
         NOTE(jpyo0803): Unshift and Dequantize PV
@@ -447,7 +474,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_UnshiftAndDequantizePV(layer_idx, src, dst)
 
-
+  @classmethod
   def SetAttentionMask(cls, attn_mask):
     '''
         NOTE(jpyo0803): Set Attention Mask
@@ -456,16 +483,20 @@ class SecLLMCppWrapper:
     attn_mask = attn_mask.to(torch.float32)
     cls.lib.Ext_SetAttentionMask(cast(attn_mask.data_ptr(), POINTER(c_float)), attn_mask.shape[-2], attn_mask.shape[-1])
 
+  @classmethod
   def Reset(cls):
     print("decoder reset")
     cls.lib.Ext_Reset()
 
+  @classmethod
   def SetBatchSizeAndTokenLength(cls, layer_idx, bsz, token_length):
     cls.lib.Ext_SetBatchSizeAndTokenLength(layer_idx, bsz, token_length)
 
+  @classmethod
   def GenerateSecretKey_QK(cls, layer_idx):
     cls.lib.Ext_GenerateSecretKey_QK(layer_idx)
 
+  @classmethod
   def GenerateDecryptionKey_QK(cls, layer_idx, src_x : int, src_y: int):
     assert cls.shape_bookkeeper_uint32[src_x] is not None
     assert cls.shape_bookkeeper_uint32[src_y] is not None
@@ -474,6 +505,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_GenerateDecryptionKey_QK(layer_idx, src_x, src_y)
 
+  @classmethod
   def EncryptX_QK(cls, layer_idx, src, dst):
     src_shape = cls.shape_bookkeeper_uint32[src]
     cls.shape_bookkeeper_uint32[src] = None
@@ -482,6 +514,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_EncryptX_QK(layer_idx, src, dst)
 
+  @classmethod
   def EncryptY_QK(cls, layer_idx, src, dst):
     src_shape = cls.shape_bookkeeper_uint32[src]
     cls.shape_bookkeeper_uint32[src] = None
@@ -490,6 +523,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_EncryptY_QK(layer_idx, src, dst)
 
+  @classmethod
   def Decrypt_QK(cls, layer_idx, src, dst):
     src_shape = cls.shape_bookkeeper_uint32[src]
     cls.shape_bookkeeper_uint32[src] = None
@@ -498,9 +532,11 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_Decrypt_QK(layer_idx, src, dst)
 
+  @classmethod
   def GenerateSecretKey_PV(cls, layer_idx):
     cls.lib.Ext_GenerateSecretKey_PV(layer_idx)
 
+  @classmethod
   def GenerateDecryptionKey_PV(cls, layer_idx, src_x : int, src_y: int):
     assert cls.shape_bookkeeper_uint32[src_x] is not None
     assert cls.shape_bookkeeper_uint32[src_y] is not None
@@ -509,6 +545,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_GenerateDecryptionKey_PV(layer_idx, src_x, src_y)
 
+  @classmethod
   def EncryptX_PV(cls, layer_idx, src, dst):
     src_shape = cls.shape_bookkeeper_uint32[src]
     cls.shape_bookkeeper_uint32[src] = None
@@ -517,6 +554,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_EncryptX_PV(layer_idx, src, dst)
 
+  @classmethod
   def EncryptY_PV(cls, layer_idx, src, dst):
     src_shape = cls.shape_bookkeeper_uint32[src]
     cls.shape_bookkeeper_uint32[src] = None
@@ -525,6 +563,7 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_EncryptY_PV(layer_idx, src, dst)
 
+  @classmethod
   def Decrypt_PV(cls, layer_idx, src, dst):
     src_shape = cls.shape_bookkeeper_uint32[src]
     cls.shape_bookkeeper_uint32[src] = None
