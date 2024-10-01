@@ -25,29 +25,40 @@ void Ext_Softmax(int from, int to_len, int* to) {
 }
 
 void Ext_SwiGLU(int from1, int from2, int to_len, int* to) {
-  Internal_SwiGLU(from1, from2, to_len, to);
+  std::thread swiglu_thread(
+      [=]() { Internal_SwiGLU(from1, from2, to_len, to); });
+
+  swiglu_thread.join();
 }
 
 void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
                  float eps) {
-  Internal_RMSNorm(from, to_len, to, weight, eps);
+  std::thread rmsnorm_thread(
+      [=]() { Internal_RMSNorm(from, to_len, to, weight, eps); });
+
+  rmsnorm_thread.join();
 }
 
 void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
-  Internal_ElementWiseAdd(from1, from2, to_len, to);
+  std::thread elementwiseadd_thread(
+      [=]() { Internal_ElementWiseAdd(from1, from2, to_len, to); });
+
+  elementwiseadd_thread.join();
 }
 
-void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
-                           const float* const cos, const float* const sin,
-                           int B, int Q_M, int K_M, int N, int K) {
-  Internal_ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
-}
-
+// Not threaded yet
 void Ext_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
                               const float* const position_ids,
                               int position_ids_M, float* cos, float* sin) {
   Internal_LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids,
                                 position_ids_M, cos, sin);
+}
+
+// Not threaded yet
+void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
+                           const float* const cos, const float* const sin,
+                           int B, int Q_M, int K_M, int N, int K) {
+  Internal_ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
 }
 
 uint32_t Ext_GenerateCPRNG() {
@@ -106,14 +117,21 @@ void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len,
 }
 
 void Ext_EncryptLinearActivation(int layer_idx, int* out, int from, int type) {
-  Internal_EncryptLinearActivation(layer_idx, out, from, type);
+  std::thread encrypt_linear_activation_thread(
+      [=]() { Internal_EncryptLinearActivation(layer_idx, out, from, type); });
+
+  encrypt_linear_activation_thread.join();
 }
 
 void Ext_DecryptLinearActivation(int layer_idx, int to_len, int* to,
                                  int* enc_tensor, int shape_len, int* shape,
                                  int type) {
-  Internal_DecryptLinearActivation(layer_idx, to_len, to, enc_tensor, shape_len,
-                                   shape, type);
+  std::thread decrypt_linear_activation_thread([=]() {
+    Internal_DecryptLinearActivation(layer_idx, to_len, to, enc_tensor,
+                                     shape_len, shape, type);
+  });
+
+  decrypt_linear_activation_thread.join();
 }
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
@@ -123,27 +141,45 @@ void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
 }
 
 void Ext_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeAndShiftQ(layer_idx, from, to_len, to);
+  std::thread quantize_and_shift_q_thread(
+      [=]() { Internal_QuantizeAndShiftQ(layer_idx, from, to_len, to); });
+
+  quantize_and_shift_q_thread.join();
 }
 
 void Ext_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeAndShiftK(layer_idx, from, to_len, to);
+  std::thread quantize_and_shift_k_thread(
+      [=]() { Internal_QuantizeAndShiftK(layer_idx, from, to_len, to); });
+
+  quantize_and_shift_k_thread.join();
 }
 
 void Ext_UnshiftAndDequantizeQK(int layer_idx, int from, int to_len, int* to) {
-  Internal_UnshiftAndDequantizeQK(layer_idx, from, to_len, to);
+  std::thread unshift_and_dequantize_qk_thread(
+      [=]() { Internal_UnshiftAndDequantizeQK(layer_idx, from, to_len, to); });
+
+  unshift_and_dequantize_qk_thread.join();
 }
 
 void Ext_QuantizeAndShiftP(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeAndShiftP(layer_idx, from, to_len, to);
+  std::thread quantize_and_shift_p_thread(
+      [=]() { Internal_QuantizeAndShiftP(layer_idx, from, to_len, to); });
+
+  quantize_and_shift_p_thread.join();
 }
 
 void Ext_QuantizeAndShiftV(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeAndShiftV(layer_idx, from, to_len, to);
+  std::thread quantize_and_shift_v_thread(
+      [=]() { Internal_QuantizeAndShiftV(layer_idx, from, to_len, to); });
+
+  quantize_and_shift_v_thread.join();
 }
 
 void Ext_UnshiftAndDequantizePV(int layer_idx, int from, int to_len, int* to) {
-  Internal_UnshiftAndDequantizePV(layer_idx, from, to_len, to);
+  std::thread unshift_and_dequantize_pv_thread(
+      [=]() { Internal_UnshiftAndDequantizePV(layer_idx, from, to_len, to); });
+
+  unshift_and_dequantize_pv_thread.join();
 }
 
 void Ext_SetAttentionMask(float* mask, int M, int N) {
@@ -155,43 +191,73 @@ void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length) {
 }
 
 void Ext_GenerateSecretKey_QK(int layer_idx) {
-  Internal_GenerateSecretKey_QK(layer_idx);
+  std::thread generate_secret_key_qk_thread(
+      [=]() { Internal_GenerateSecretKey_QK(layer_idx); });
+
+  generate_secret_key_qk_thread.join();
 }
 
 void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
-  Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y);
+  std::thread generate_decryption_key_qk_thread(
+      [=]() { Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y); });
+
+  generate_decryption_key_qk_thread.join();
 }
 
 void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptX_QK(layer_idx, from, to_len, to);
+  std::thread encryptx_qk_thread(
+      [=]() { Internal_EncryptX_QK(layer_idx, from, to_len, to); });
+
+  encryptx_qk_thread.join();
 }
 
 void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptY_QK(layer_idx, from, to_len, to);
+  std::thread encrypty_qk_thread(
+      [=]() { Internal_EncryptY_QK(layer_idx, from, to_len, to); });
+
+  encrypty_qk_thread.join();
 }
 
 void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_Decrypt_QK(layer_idx, from, to_len, to);
+  std::thread decrypt_qk_thread(
+      [=]() { Internal_Decrypt_QK(layer_idx, from, to_len, to); });
+
+  decrypt_qk_thread.join();
 }
 
 void Ext_GenerateSecretKey_PV(int layer_idx) {
-  Internal_GenerateSecretKey_PV(layer_idx);
+  std::thread generate_secret_key_pv_thread(
+      [=]() { Internal_GenerateSecretKey_PV(layer_idx); });
+
+  generate_secret_key_pv_thread.join();
 }
 
 void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
-  Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y);
+  std::thread generate_decryption_key_pv_thread(
+      [=]() { Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y); });
+
+  generate_decryption_key_pv_thread.join();
 }
 
 void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptX_PV(layer_idx, from, to_len, to);
+  std::thread encryptx_pv_thread(
+      [=]() { Internal_EncryptX_PV(layer_idx, from, to_len, to); });
+
+  encryptx_pv_thread.join();
 }
 
 void Ext_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptY_PV(layer_idx, from, to_len, to);
+  std::thread encrypty_pv_thread(
+      [=]() { Internal_EncryptY_PV(layer_idx, from, to_len, to); });
+
+  encrypty_pv_thread.join();
 }
 
 void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_Decrypt_PV(layer_idx, from, to_len, to);
+  std::thread decrypt_pv_thread(
+      [=]() { Internal_Decrypt_PV(layer_idx, from, to_len, to); });
+
+  decrypt_pv_thread.join();
 }
 
 void Ext_BookKeeperIsAvailable(int loc, bool* ret) {
