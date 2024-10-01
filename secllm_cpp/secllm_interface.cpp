@@ -1,6 +1,8 @@
 #include "secllm_interface.h"
 #include "secllm.h"
 
+#include <thread>
+
 extern "C" {
 
 void Ext_PrintTest(int a, int b) {
@@ -21,7 +23,9 @@ void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
 }
 
 void Ext_Softmax(int from, int to_len, int* to) {
-  Internal_Softmax(from, to_len, to);
+  std::thread softmax_thread([=]() { Internal_Softmax(from, to_len, to); });
+
+  softmax_thread.join();
 }
 
 void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
