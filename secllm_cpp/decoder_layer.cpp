@@ -454,8 +454,8 @@ void DecoderLayer::EncryptLinearActivation_Down(
   }
 }
 
-void DecoderLayer::DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
-                                             int* in) {
+void DecoderLayer::DecryptLinearActivation_Q(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -464,7 +464,7 @@ void DecoderLayer::DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             q_dec_key_[sampled_q_enc_key_index_[b * M + m]][n];
       }
     }
@@ -473,11 +473,12 @@ void DecoderLayer::DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
 
   // Dequantize
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, q_weight_scales_, q_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), q_weight_scales_, q_act_scales_,
+      B * M, N);
 }
 
-void DecoderLayer::DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out,
-                                             int* in) {
+void DecoderLayer::DecryptLinearActivation_K(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -485,7 +486,7 @@ void DecoderLayer::DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             k_dec_key_[sampled_k_enc_key_index_[b * M + m]][n];
       }
     }
@@ -494,11 +495,12 @@ void DecoderLayer::DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out,
   sampled_k_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, k_weight_scales_, k_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), k_weight_scales_, k_act_scales_,
+      B * M, N);
 }
 
-void DecoderLayer::DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out,
-                                             int* in) {
+void DecoderLayer::DecryptLinearActivation_V(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -506,7 +508,7 @@ void DecoderLayer::DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             v_dec_key_[sampled_v_enc_key_index_[b * M + m]][n];
       }
     }
@@ -515,11 +517,12 @@ void DecoderLayer::DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out,
   sampled_v_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, v_weight_scales_, v_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), v_weight_scales_, v_act_scales_,
+      B * M, N);
 }
 
-void DecoderLayer::DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out,
-                                             int* in) {
+void DecoderLayer::DecryptLinearActivation_O(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -527,7 +530,7 @@ void DecoderLayer::DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             o_dec_key_[sampled_o_enc_key_index_[b * M + m]][n];
       }
     }
@@ -536,11 +539,12 @@ void DecoderLayer::DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out,
   sampled_o_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, o_weight_scales_, o_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), o_weight_scales_, o_act_scales_,
+      B * M, N);
 }
 
 void DecoderLayer::DecryptLinearActivation_Up(
-    std::shared_ptr<Tensor<float>> out, int* in) {
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -548,7 +552,7 @@ void DecoderLayer::DecryptLinearActivation_Up(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             up_dec_key_[sampled_up_enc_key_index_[b * M + m]][n];
       }
     }
@@ -557,11 +561,12 @@ void DecoderLayer::DecryptLinearActivation_Up(
   sampled_up_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, up_weight_scales_, up_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), up_weight_scales_, up_act_scales_,
+      B * M, N);
 }
 
 void DecoderLayer::DecryptLinearActivation_Gate(
-    std::shared_ptr<Tensor<float>> out, int* in) {
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -569,7 +574,7 @@ void DecoderLayer::DecryptLinearActivation_Gate(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             gate_dec_key_[sampled_gate_enc_key_index_[b * M + m]][n];
       }
     }
@@ -578,11 +583,12 @@ void DecoderLayer::DecryptLinearActivation_Gate(
   sampled_gate_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, gate_weight_scales_, gate_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), gate_weight_scales_,
+      gate_act_scales_, B * M, N);
 }
 
 void DecoderLayer::DecryptLinearActivation_Down(
-    std::shared_ptr<Tensor<float>> out, int* in) {
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
   int B = out->shape()[0];
   int M = out->shape()[1];
   int N = out->shape()[2];
@@ -590,7 +596,7 @@ void DecoderLayer::DecryptLinearActivation_Down(
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        in[b * M * N + m * N + n] -=
+        in->data()[b * M * N + m * N + n] -=
             down_dec_key_[sampled_down_enc_key_index_[b * M + m]][n];
       }
     }
@@ -599,7 +605,8 @@ void DecoderLayer::DecryptLinearActivation_Down(
   sampled_down_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in, down_weight_scales_, down_act_scales_, B * M, N);
+      out->data().data(), in->data().data(), down_weight_scales_,
+      down_act_scales_, B * M, N);
 }
 
 void DecoderLayer::SetQKVOutputScales(float q_output_scale,

@@ -187,7 +187,8 @@ void SecLLM::EncryptLinearActivation(int layer_idx,
 
 void SecLLM::DecryptLinearActivation(int layer_idx,
                                      std::shared_ptr<Tensor<float>> out,
-                                     int* in, int type) {
+                                     std::shared_ptr<Tensor<uint32_t>> in,
+                                     int type) {
   switch (type) {
     case 0:
       decoder_layers_->at(layer_idx).DecryptLinearActivation_Q(out, in);
@@ -610,15 +611,13 @@ void Internal_EncryptLinearActivation(int layer_idx, int from,
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_DecryptLinearActivation(int layer_idx, int to_len, int* to,
-                                      int* enc_tensor, int shape_len,
-                                      int* shape, int type) {
-  std::vector<int> locs{to, to + to_len};
-
-  std::vector<int> shape_vec(shape, shape + shape_len);
+void Internal_DecryptLinearActivation(int layer_idx, int from,
+                                      std::vector<int> locs, int type) {
+  std::shared_ptr<jpyo0803::Tensor<uint32_t>> enc_tensor =
+      secllm_ptr->BookKeeperLoad_Uint32(from);
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
-      std::make_shared<jpyo0803::Tensor<float>>(shape_vec);
+      std::make_shared<jpyo0803::Tensor<float>>(enc_tensor->shape());
 
   secllm_ptr->DecryptLinearActivation(layer_idx, out, enc_tensor, type);
 

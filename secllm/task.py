@@ -382,8 +382,7 @@ class Task16(Task):
 
         self.model.tensor_buffer[src] = None
         
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 19, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 19, 0, y.to(torch.uint32))
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -407,9 +406,7 @@ class Task17(Task):
         y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 20, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 20, 0, y.to(torch.uint32))
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -433,9 +430,7 @@ class Task18(Task):
         y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 21, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 21, 0, y.to(torch.uint32))
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -447,19 +442,14 @@ class Task19(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 19, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 19, 0)
 
     def run(self):
         # Decryption but for now it just bypasses
         src = GetBookKeeperLinearIndex(self.layer_idx, 19, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src] # need to be decrypted, int32
-        self.model.tensor_buffer[src] = None
-
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 0)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 0)
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 0)
 
     def __call__(self):
         self.run()
@@ -469,18 +459,14 @@ class Task20(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 20, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 20, 0)
 
     def run(self):
         # Decryption but for now it just bypasses
-
         src = GetBookKeeperLinearIndex(self.layer_idx, 20, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src] # need to be decrypted, int32
-        self.model.tensor_buffer[src] = None
-
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 1)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 1)
+
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 1)
 
     def __call__(self):
         self.run()
@@ -490,20 +476,14 @@ class Task21(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 21, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 21, 0)
 
     def run(self):
         # Decryption but for now it just bypasses
-
         src = GetBookKeeperLinearIndex(self.layer_idx, 21, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src] # need to be decrypted, int32
-        self.model.tensor_buffer[src] = None
-
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 22, 2)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 2)
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 2)
 
     def __call__(self):
         self.run()
@@ -1453,9 +1433,7 @@ class Task65(Task):
         y = y.to('cpu')
 
         self.model.tensor_buffer[src] = None
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 66, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 66, 0, y.to(torch.uint32))
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1467,23 +1445,14 @@ class Task66(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 66, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 66, 0)
 
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 66, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, 67, 1)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 3) # O
-
-        # Fix it
-        src = GetBookKeeperLinearIndex(self.layer_idx, 67, 1)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 67, 1), GetBookKeeperLinearIndex(self.layer_idx, 91, 1)]
-
-        self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
+        
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 3) # O
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1766,8 +1735,7 @@ class Task79(Task):
 
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 81, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 81, 0, y.to(torch.uint32))
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1790,8 +1758,7 @@ class Task80(Task):
 
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 82, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 82, 0, y.to(torch.uint32))
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1803,17 +1770,13 @@ class Task81(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 81, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 81, 0)
 
     def run(self):
         # Decrypt gate_proj output
         src = GetBookKeeperLinearIndex(self.layer_idx, 81, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 83, 0)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 5) # Gate
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 5) # Gate
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1825,17 +1788,13 @@ class Task82(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 82, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 82, 0)
 
     def run(self):
         # Decrypt up_proj output
         src = GetBookKeeperLinearIndex(self.layer_idx, 82, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 83, 1)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 4) # Up
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 4) # Up
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1973,10 +1932,8 @@ class Task88(Task):
 
         self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 89, 0)
-        self.model.tensor_buffer[dst] = y
+        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 89, 0, y.to(torch.uint32))
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -1986,17 +1943,13 @@ class Task89(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model)
 
     def is_ready(self):
-        return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 89, 0)] is not None
+        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 89, 0)
 
     def run(self):
         # Bypass for now
         src = GetBookKeeperLinearIndex(self.layer_idx, 89, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        self.model.tensor_buffer[src] = None
-
         dst = [GetBookKeeperLinearIndex(self.layer_idx, 90, 0)]
-        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, dst, y, 6)
+        self.secllm_cpp_wrapper.DecryptLinearActivation(self.layer_idx, src, dst, 6)
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):

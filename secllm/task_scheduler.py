@@ -46,6 +46,9 @@ class TaskScheduler:
                     print(f'Running task {task.task_id}')
                     task()
                     copied_tasks.remove(task)
+                else:
+                    pass
+                    # print(f'Task {task.task_id} not ready')
 
     def __call__(self, layer_idx):
         self.run(layer_idx)

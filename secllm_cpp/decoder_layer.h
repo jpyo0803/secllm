@@ -52,15 +52,20 @@ class DecoderLayer {
   void EncryptLinearActivation_Down(std::shared_ptr<Tensor<uint32_t>> out,
                                     std::shared_ptr<Tensor<float>> down_tensor);
 
-  void DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out, int* in);
-  void DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out, int* in);
-  void DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out, int* in);
-  void DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out, int* in);
-  void DecryptLinearActivation_Up(std::shared_ptr<Tensor<float>> out, int* in);
+  void DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
+                                 std::shared_ptr<Tensor<uint32_t>> in);
+  void DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out,
+                                 std::shared_ptr<Tensor<uint32_t>> in);
+  void DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out,
+                                 std::shared_ptr<Tensor<uint32_t>> in);
+  void DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out,
+                                 std::shared_ptr<Tensor<uint32_t>> in);
+  void DecryptLinearActivation_Up(std::shared_ptr<Tensor<float>> out,
+                                  std::shared_ptr<Tensor<uint32_t>> in);
   void DecryptLinearActivation_Gate(std::shared_ptr<Tensor<float>> out,
-                                    int* in);
+                                    std::shared_ptr<Tensor<uint32_t>> in);
   void DecryptLinearActivation_Down(std::shared_ptr<Tensor<float>> out,
-                                    int* in);
+                                    std::shared_ptr<Tensor<uint32_t>> in);
 
   void SetQKVOutputScales(float q_output_scale, float k_output_scale,
                           float v_output_scale);

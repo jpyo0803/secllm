@@ -13,7 +13,8 @@ DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t, size_t B,
 
 void DequantizeActivationWPerChannelAPerChannel(
     float* out,
-    int* q_act,                          // Quantized activations (B x dim)
+    uint32_t*
+        q_act,  // Quantized activations (B x dim), data represented in unsigned, but actually signed
     const std::vector<float>& w_scales,  // Weight scales (dim)
     const std::vector<float>& a_scales,  // Activation scales (B)
     size_t B,                            // Batch size

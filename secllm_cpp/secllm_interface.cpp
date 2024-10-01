@@ -131,15 +131,14 @@ void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
   encrypt_linear_activation_thread.detach();
 }
 
-void Ext_DecryptLinearActivation(int layer_idx, int to_len, int* to,
-                                 int* enc_tensor, int shape_len, int* shape,
+void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type) {
-  std::thread decrypt_linear_activation_thread([=]() {
-    Internal_DecryptLinearActivation(layer_idx, to_len, to, enc_tensor,
-                                     shape_len, shape, type);
-  });
+  std::vector<int> locs(to, to + to_len);
 
-  decrypt_linear_activation_thread.join();
+  std::thread decrypt_linear_activation_thread(
+      [=]() { Internal_DecryptLinearActivation(layer_idx, from, locs, type); });
+
+  decrypt_linear_activation_thread.detach();
 }
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,

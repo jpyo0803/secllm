@@ -59,8 +59,7 @@ void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len, int type);
 void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type);
 
-void Ext_DecryptLinearActivation(int layer_idx, int to_len, int* to,
-                                 int* enc_tensor, int shape_len, int* shape,
+void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type);
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,

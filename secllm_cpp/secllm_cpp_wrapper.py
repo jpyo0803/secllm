@@ -331,18 +331,22 @@ class SecLLMCppWrapper:
     cls.lib.Ext_EncryptLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
 
   @classmethod
-  def DecryptLinearActivation(cls, layer_idx, dst : list[int], enc_tensor, type):
+  def DecryptLinearActivation(cls, layer_idx, src : int, dst : list[int], type):
     '''
         NOTE(jpyo0803): Decrypt Activation
     '''
     assert type <= 6
+
+    src_shape = cls.shape_bookkeeper_uint32[src]
+    assert src_shape is not None
+    cls.shape_bookkeeper_uint32[src] = None
+
     for e in dst:
       assert cls.shape_bookkeeper[e] is None
-      cls.shape_bookkeeper[e] = enc_tensor.shape
-    enc_tensor_shape_list = torch.tensor(enc_tensor.shape, dtype=torch.int32)
+      cls.shape_bookkeeper[e] = src_shape
 
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_DecryptLinearActivation(layer_idx, len(dst), cast(dst.data_ptr(), POINTER(c_int)), cast(enc_tensor.data_ptr(), POINTER(c_int)), len(enc_tensor_shape_list), cast(enc_tensor_shape_list.data_ptr(), POINTER(c_int)), type)
+    cls.lib.Ext_DecryptLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
 
   @classmethod
   def SetQKVOutputScales(cls, layer_idx, q_output_scale, k_output_scale, v_output_scale):

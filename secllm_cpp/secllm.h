@@ -45,8 +45,8 @@ class SecLLM {
                                std::shared_ptr<Tensor<float>> in, int type);
 
   void DecryptLinearActivation(int layer_idx,
-                               std::shared_ptr<Tensor<float>> out, int* in,
-                               int type);
+                               std::shared_ptr<Tensor<float>> out,
+                               std::shared_ptr<Tensor<uint32_t>> in, int type);
 
   void SetQKVOutputScales(int layer_idx, float q_output_scale,
                           float k_output_scale, float v_output_scale);
@@ -185,9 +185,8 @@ void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
 void Internal_EncryptLinearActivation(int layer_idx, int from,
                                       std::vector<int> locs, int type);
 
-void Internal_DecryptLinearActivation(int layer_idx, int to_len, int* to,
-                                      int* enc_tensor, int shape_len,
-                                      int* shape, int type);
+void Internal_DecryptLinearActivation(int layer_idx, int from,
+                                      std::vector<int> locs, int type);
 
 void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
                                  float k_output_scale, float v_output_scale);

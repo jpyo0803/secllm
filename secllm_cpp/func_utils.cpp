@@ -82,7 +82,7 @@ jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t,
 
 void jpyo0803::DequantizeActivationWPerChannelAPerChannel(
     float* out,
-    int* q_act,                          // Quantized activations (B x dim)
+    uint32_t* in,                        // Quantized activations (B x dim)
     const std::vector<float>& w_scales,  // Weight scales (dim)
     const std::vector<float>& a_scales,  // Activation scales (B)
     size_t B,                            // Batch size
@@ -94,7 +94,10 @@ void jpyo0803::DequantizeActivationWPerChannelAPerChannel(
       size_t index = b * dim + d;  // Calculate the 1D index for (b, d)
 
       // Convert q_act to float, and apply the per-channel and per-token scaling
-      float q_val = static_cast<float>(q_act[index]);
+
+      // Becareful data is represented in uint32_t but it is actually int32
+      int tmp = static_cast<int>(in[index]);
+      float q_val = static_cast<float>(tmp);
       out[index] = q_val * w_scales[d] * a_scales[b];
     }
   }
