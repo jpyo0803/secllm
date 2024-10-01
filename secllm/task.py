@@ -120,8 +120,6 @@ class Task6(Task):
         # Move V weight to GPU
         self.model.layers[self.layer_idx].v_proj.weight = self.model.layers[self.layer_idx].v_proj.weight.to('cuda:0')
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
-
     def __call__(self):
         self.run()
 
@@ -138,10 +136,6 @@ class Task7(Task):
         
         dst = GetBookKeeperLinearIndex(self.layer_idx, 10, 0)
         self.model.tensor_buffer[dst] = enc_activation
-        # dst = [GetBookKeeperLinearIndex(self.layer_idx, 10, 0)]
-        # self.secllm_cpp_wrapper.ReplicateTensor(src, dst)
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -152,15 +146,12 @@ class Task8(Task):
 
     def run(self):
         # Encryption but for not it just bypasses
-        
         src = GetBookKeeperLinearIndex(self.layer_idx, 8, 0)
 
         enc_activation = self.secllm_cpp_wrapper.EncryptLinearActivation(self.layer_idx, src, 1) # K
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 11, 0)
         self.model.tensor_buffer[dst] = enc_activation
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -178,8 +169,6 @@ class Task9(Task):
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, 12, 0)
         self.model.tensor_buffer[dst] = enc_activation
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
