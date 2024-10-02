@@ -1232,7 +1232,7 @@ void DecoderLayer::GenerateDecryptionKey_PV(
   int Y_N = y_shape.at(3);
 
   if (bsz_ != X_B || bsz_ != Y_B || num_attention_heads_ != X_M ||
-      num_key_value_heads_ != Y_M || X_N != Y_K) {
+      num_key_value_heads_ != Y_M) {
     std::cout << "Batch size or num_attention_heads is not matched!"
               << std::endl;
     exit(-1);
