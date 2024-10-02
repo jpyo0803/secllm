@@ -12,7 +12,7 @@ from transformers.models.llama.modeling_llama import (
 
 import cupy
 
-import math
+import threading
 
 def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   # NOTE(jpyo0803): debugging purpose
@@ -111,7 +111,9 @@ class Task4(Task):
 
     def run(self):
         # Move Q weight to GPU
-        self.model.layers[self.layer_idx].q_proj.weight = self.model.layers[self.layer_idx].q_proj.weight.to('cuda:0')
+        def async_task():
+            self.model.layers[self.layer_idx].q_proj.weight = self.model.layers[self.layer_idx].q_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -126,7 +128,9 @@ class Task5(Task):
 
     def run(self):
         # Move K weight to GPU
-        self.model.layers[self.layer_idx].k_proj.weight = self.model.layers[self.layer_idx].k_proj.weight.to('cuda:0')
+        def async_task():
+            self.model.layers[self.layer_idx].k_proj.weight = self.model.layers[self.layer_idx].k_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -142,7 +146,9 @@ class Task6(Task):
 
     def run(self):
         # Move V weight to GPU
-        self.model.layers[self.layer_idx].v_proj.weight = self.model.layers[self.layer_idx].v_proj.weight.to('cuda:0')
+        def async_task():
+            self.model.layers[self.layer_idx].v_proj.weight = self.model.layers[self.layer_idx].v_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -210,11 +216,13 @@ class Task10(Task):
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 10, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 10, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 13, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 13, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
 
 
     def __call__(self):
@@ -229,11 +237,13 @@ class Task11(Task):
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 11, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 11, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -247,11 +257,13 @@ class Task12(Task):
 
     def run(self):
         # Retrieve input from BookKeeper and move to GPU
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 12, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 12, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 15, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 15, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -265,29 +277,32 @@ class Task13(Task):
     def is_ready(self):
         ready = True
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 13, 1)] is not None
-        ready &= self.model.layers[self.layer_idx].q_proj.weight.device.type == 'cuda'
+        ready &= self.model.layers[self.layer_idx].q_proj.weight.is_cuda
         return ready
 
     def run(self):
         # Do Q projection
-        src = GetBookKeeperLinearIndex(self.layer_idx, 13, 1)
-        assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1]) # This vertically concatenates batches
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 13, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].q_proj.weight.transpose(-2, -1).to(torch.int32))
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1]) # This vertically concatenates batches
 
-        y = y.view(*x_shape[:-1], -1)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].q_proj.weight.transpose(-2, -1).to(torch.int32))
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        self.model.tensor_buffer[src] = None
+            y = y.view(*x_shape[:-1], -1)
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 16, 0)
-        self.model.tensor_buffer[dst] = y
+            self.model.tensor_buffer[src] = None
+
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 16, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -301,31 +316,31 @@ class Task14(Task):
     def is_ready(self):
         ready = True
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 14, 1)] is not None
-        ready &= self.model.layers[self.layer_idx].k_proj.weight.device.type == 'cuda'
+        ready &= self.model.layers[self.layer_idx].k_proj.weight.is_cuda
         return ready
 
     def run(self):
         # Do K projection
-        src = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 14, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1]) # This vertically concatenates batches
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1]) # This vertically concatenates batches
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].k_proj.weight.transpose(-2, -1).to(torch.int32))
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].k_proj.weight.transpose(-2, -1).to(torch.int32))
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        y = y.view(*x_shape[:-1], -1)
+            y = y.view(*x_shape[:-1], -1)
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 17, 0)
-        self.model.tensor_buffer[dst] = y
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 17, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -337,31 +352,31 @@ class Task15(Task):
     def is_ready(self):
         ready = True
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 15, 1)] is not None
-        ready &= self.model.layers[self.layer_idx].v_proj.weight.device.type == 'cuda'
+        ready &= self.model.layers[self.layer_idx].v_proj.weight.is_cuda
         return ready
 
     def run(self):
         # Do V projection
-        src = GetBookKeeperLinearIndex(self.layer_idx, 15, 1)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 15, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1]) # This vertically concatenates batches
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1]) # This vertically concatenates batches
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].v_proj.weight.transpose(-2, -1).to(torch.int32))
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].v_proj.weight.transpose(-2, -1).to(torch.int32))
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        y = y.view(*x_shape[:-1], -1)
+            y = y.view(*x_shape[:-1], -1)
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 18, 0)
-        self.model.tensor_buffer[dst] = y
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 18, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -375,14 +390,16 @@ class Task16(Task):
 
     def run(self):
         # Move query_states to CPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 16, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 16, 0)
+            assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
 
-        self.model.tensor_buffer[src] = None
-        
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 19, 0, y.to(torch.uint32))
+            self.model.tensor_buffer[src] = None
+            
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 19, 0, y.to(torch.uint32))
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -398,15 +415,16 @@ class Task17(Task):
 
     def run(self):
         # Move key_states to CPU
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 17, 0)
+            assert self.model.tensor_buffer[src] is not None
 
-        src = GetBookKeeperLinearIndex(self.layer_idx, 17, 0)
-        assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
 
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
-
-        self.model.tensor_buffer[src] = None
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 20, 0, y.to(torch.uint32))
+            self.model.tensor_buffer[src] = None
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 20, 0, y.to(torch.uint32))
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -422,17 +440,17 @@ class Task18(Task):
 
     def run(self):
         # Move value_states to CPU
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 18, 0)
+            assert self.model.tensor_buffer[src] is not None
 
-        src = GetBookKeeperLinearIndex(self.layer_idx, 18, 0)
-        assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
 
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
+            self.model.tensor_buffer[src] = None
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 21, 0, y.to(torch.uint32))
+        threading.Thread(target=async_task).start()
 
-        self.model.tensor_buffer[src] = None
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 21, 0, y.to(torch.uint32))
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -512,8 +530,6 @@ class Task22(Task):
         head_dim = self.model.layers[self.layer_idx].head_dim
         inv_freq = self.model.layers[self.layer_idx].rotary_emb.inv_freq
         position_ids = self.model.layers[self.layer_idx].position_ids
-        # cache_position = self.model.layers[self.layer_idx].cache_position
-        # past_key_value = self.model.layers[self.layer_idx].past_key_value
 
         query_states = query_states.view(bsz, q_len, num_heads, head_dim).transpose(1, 2).contiguous()
         key_states = key_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
@@ -521,27 +537,11 @@ class Task22(Task):
 
         cos, sin = self.secllm_cpp_wrapper.LlamaRotaryEmbedding(inv_freq, position_ids, torch.float32)
         query_states, key_states = self.secllm_cpp_wrapper.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
-        # cos, sin = self.model.layers[self.layer_idx].rotary_emb(value_states, position_ids)
-        # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-
-        # if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            # cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-            # key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
-            # key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx)
-            # print("type : ", type(past_key_value))
-            # key_states = past_key_value.update_key(key_states, self.layer_idx)
-            # value_states = past_key_value.update_value(value_states, self.layer_idx)
-
-        # query_states = query_states.contiguous()
-        # key_states = key_states.contiguous()
-        # value_states = value_states.contiguous()
 
         self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 28, 0, query_states.to(torch.float32))
         self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 29, 0, key_states.to(torch.float32))
         self.secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 47, 0, value_states.to(torch.float32))
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -777,14 +777,15 @@ class Task36(Task):
 
     def run(self):
         # Move Enc_Q to GPU
-        enc_q = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 36, 0)
-        
-        enc_q = enc_q.to('cuda:0')
+        def async_task():
+            enc_q = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 36, 0)
+            
+            enc_q = enc_q.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 0)
-        self.model.tensor_buffer[dst] = enc_q
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 0)
+            self.model.tensor_buffer[dst] = enc_q
+        threading.Thread(target=async_task).start()
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -798,14 +799,14 @@ class Task37(Task):
 
     def run(self):
         # Move Enc_K to GPU
-        enc_k = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 37, 0)
+        def async_task():
+            enc_k = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 37, 0)
 
-        enc_k = enc_k.to('cuda:0')
+            enc_k = enc_k.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 1)
-        self.model.tensor_buffer[dst] = enc_k
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 39, 1)
+            self.model.tensor_buffer[dst] = enc_k
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -836,39 +837,40 @@ class Task39(Task):
 
     def run(self):
         # Matmul Q, K^T
-        num_key_value_groups = self.model.layers[self.layer_idx].num_key_value_groups
-        
-        src_q = GetBookKeeperLinearIndex(self.layer_idx, 39, 0)
-        assert self.model.tensor_buffer[src_q] is not None
+        def async_task():
+            num_key_value_groups = self.model.layers[self.layer_idx].num_key_value_groups
+            
+            src_q = GetBookKeeperLinearIndex(self.layer_idx, 39, 0)
+            assert self.model.tensor_buffer[src_q] is not None
 
-        src_k = GetBookKeeperLinearIndex(self.layer_idx, 39, 1)
-        assert self.model.tensor_buffer[src_k] is not None
+            src_k = GetBookKeeperLinearIndex(self.layer_idx, 39, 1)
+            assert self.model.tensor_buffer[src_k] is not None
 
-        enc_q = self.model.tensor_buffer[src_q]
-        enc_k = self.model.tensor_buffer[src_k]
+            enc_q = self.model.tensor_buffer[src_q]
+            enc_k = self.model.tensor_buffer[src_k]
 
-        assert enc_q.dtype == torch.uint32
-        assert enc_k.dtype == torch.uint32
-        assert enc_q.shape[-1] == enc_k.shape[-1]
+            assert enc_q.dtype == torch.uint32
+            assert enc_k.dtype == torch.uint32
+            assert enc_q.shape[-1] == enc_k.shape[-1]
 
-        past_key_value = self.model.layers[self.layer_idx].past_key_value
-        if past_key_value is not None:
-            enc_k = past_key_value.update_key(enc_k, self.layer_idx)
+            past_key_value = self.model.layers[self.layer_idx].past_key_value
+            if past_key_value is not None:
+                enc_k = past_key_value.update_key(enc_k, self.layer_idx)
 
-        enc_k = repeat_kv(enc_k, num_key_value_groups)
+            enc_k = repeat_kv(enc_k, num_key_value_groups)
 
-        enc_q_cupy = cupy.from_dlpack(enc_q.to(torch.uint32))
-        enc_k_T_cupy = cupy.from_dlpack(enc_k.transpose(-2, -1).to(torch.uint32))
+            enc_q_cupy = cupy.from_dlpack(enc_q.to(torch.uint32))
+            enc_k_T_cupy = cupy.from_dlpack(enc_k.transpose(-2, -1).to(torch.uint32))
 
-        attn_weights_cupy = cupy.matmul(enc_q_cupy, enc_k_T_cupy)
-        attn_weights = torch.from_dlpack(attn_weights_cupy).to(torch.uint32)
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
-        self.model.tensor_buffer[dst] = (attn_weights, enc_k.shape[-2]) # Before transposed
+            attn_weights_cupy = cupy.matmul(enc_q_cupy, enc_k_T_cupy)
+            attn_weights = torch.from_dlpack(attn_weights_cupy).to(torch.uint32)
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
+            self.model.tensor_buffer[dst] = (attn_weights, enc_k.shape[-2]) # Before transposed
 
-        self.model.tensor_buffer[src_q] = None
-        self.model.tensor_buffer[src_k] = None
+            self.model.tensor_buffer[src_q] = None
+            self.model.tensor_buffer[src_k] = None
+        threading.Thread(target=async_task).start()
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -881,17 +883,19 @@ class Task40(Task):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, 40, 0)] is not None
 
     def run(self):
-        src = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 40, 0)
+            assert self.model.tensor_buffer[src] is not None
 
-        attn_weights, _ = self.model.tensor_buffer[src]
+            attn_weights, _ = self.model.tensor_buffer[src]
 
-        attn_weights = attn_weights.to('cpu')
-        # assert attn_weights.is_contiguous()
-        
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 41, 0, attn_weights)
-        
-        self.model.tensor_buffer[src] = None
+            attn_weights = attn_weights.to('cpu')
+            # assert attn_weights.is_contiguous()
+            
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 41, 0, attn_weights)
+            
+            self.model.tensor_buffer[src] = None
+        threading.Thread(target=async_task).start()
 
 
     def __call__(self):
@@ -1146,19 +1150,12 @@ class Task54(Task):
 
     def run(self):
         # Move enc_P to GPU
-        enc_q_attn_weights = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 54, 0)
-        # attn_weights.mul_(127).round_()
-
-        # int8_attn_weights = attn_weights.to(torch.int8)
-
-        # int8_attn_weights = int8_attn_weights.to('cuda:0')
-        enc_q_attn_weights = enc_q_attn_weights.to('cuda:0')
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 0)
-
-        self.model.tensor_buffer[dst] = enc_q_attn_weights
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        def async_task():
+            enc_q_attn_weights = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 54, 0)
+            enc_q_attn_weights = enc_q_attn_weights.to('cuda:0')
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 0)
+            self.model.tensor_buffer[dst] = enc_q_attn_weights
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -1172,17 +1169,12 @@ class Task55(Task):
 
     def run(self):
         # Move enc_V to GPU
-        # v_output_scale = self.model.layers[self.layer_idx].v_output_scale
-
-        enc_v = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 55, 0)
-        # int8_value_states = (value_states / v_output_scale).round().clamp(-128, 127).to(torch.int8)
-        # int8_value_states = int8_value_states.to('cuda:0')
-        enc_v = enc_v.to('cuda:0')
-
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
-
-        self.model.tensor_buffer[dst] = enc_v
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        def async_task():
+            enc_v = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 55, 0)
+            enc_v = enc_v.to('cuda:0')
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
+            self.model.tensor_buffer[dst] = enc_v
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -1213,37 +1205,38 @@ class Task57(Task):
 
     def run(self):
         # Matmul PV
-        num_key_value_groups = self.model.layers[self.layer_idx].num_key_value_groups
+        def async_task():
+            num_key_value_groups = self.model.layers[self.layer_idx].num_key_value_groups
 
-        src_p = GetBookKeeperLinearIndex(self.layer_idx, 57, 0)
-        assert self.model.tensor_buffer[src_p] is not None
+            src_p = GetBookKeeperLinearIndex(self.layer_idx, 57, 0)
+            assert self.model.tensor_buffer[src_p] is not None
 
-        src_v = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
-        assert self.model.tensor_buffer[src_v] is not None
+            src_v = GetBookKeeperLinearIndex(self.layer_idx, 57, 1)
+            assert self.model.tensor_buffer[src_v] is not None
 
-        attn_weights = self.model.tensor_buffer[src_p]
-        value_states = self.model.tensor_buffer[src_v]
+            attn_weights = self.model.tensor_buffer[src_p]
+            value_states = self.model.tensor_buffer[src_v]
 
-        past_key_value = self.model.layers[self.layer_idx].past_key_value
-        if past_key_value is not None:
-            value_states = past_key_value.update_value(value_states, self.layer_idx)
+            past_key_value = self.model.layers[self.layer_idx].past_key_value
+            if past_key_value is not None:
+                value_states = past_key_value.update_value(value_states, self.layer_idx)
 
-        value_states = repeat_kv(value_states, num_key_value_groups)
+            value_states = repeat_kv(value_states, num_key_value_groups)
 
-        attn_weights_cupy = cupy.from_dlpack(attn_weights.to(torch.uint32))
-        value_states_cupy = cupy.from_dlpack(value_states.to(torch.uint32))
+            attn_weights_cupy = cupy.from_dlpack(attn_weights.to(torch.uint32))
+            value_states_cupy = cupy.from_dlpack(value_states.to(torch.uint32))
 
-        attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
+            attn_output_cupy = cupy.matmul(attn_weights_cupy, value_states_cupy)
 
-        attn_output = torch.from_dlpack(attn_output_cupy).to(torch.uint32)
+            attn_output = torch.from_dlpack(attn_output_cupy).to(torch.uint32)
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 58, 0)
-        self.model.tensor_buffer[dst] = attn_output
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 58, 0)
+            self.model.tensor_buffer[dst] = attn_output
 
-        self.model.tensor_buffer[src_p] = None
-        self.model.tensor_buffer[src_v] = None
+            self.model.tensor_buffer[src_p] = None
+            self.model.tensor_buffer[src_v] = None
+        threading.Thread(target=async_task).start()
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -1257,33 +1250,28 @@ class Task58(Task):
 
     def run(self):
         # Move result of PV to CPU
-        bsz = self.model.layers[self.layer_idx].bsz
-        num_heads = self.model.layers[self.layer_idx].num_heads
-        q_len = self.model.layers[self.layer_idx].q_len
-        head_dim = self.model.layers[self.layer_idx].head_dim
+        def async_task():
+            bsz = self.model.layers[self.layer_idx].bsz
+            num_heads = self.model.layers[self.layer_idx].num_heads
+            q_len = self.model.layers[self.layer_idx].q_len
+            head_dim = self.model.layers[self.layer_idx].head_dim
 
-        src_attn_output = GetBookKeeperLinearIndex(self.layer_idx, 58, 0)
-        assert self.model.tensor_buffer[src_attn_output] is not None
+            src_attn_output = GetBookKeeperLinearIndex(self.layer_idx, 58, 0)
+            assert self.model.tensor_buffer[src_attn_output] is not None
 
-        attn_output = self.model.tensor_buffer[src_attn_output]
+            attn_output = self.model.tensor_buffer[src_attn_output]
 
-        attn_output = attn_output.to('cpu')
-        # attn_output = attn_output.to(torch.float32)
+            attn_output = attn_output.to('cpu')
 
-        # attn_output *= v_output_scale / 127
-
-        if attn_output.size() != (bsz, num_heads, q_len, head_dim):
-            raise ValueError(
-                f"`attn_output` should be of size {(bsz, num_heads, q_len, head_dim)}, but is"
-                f" {attn_output.size()}"
-            )
-        
-        # attn_output = attn_output.transpose(1, 2).contiguous()
-        # attn_output = attn_output.reshape(bsz, q_len, -1)
-
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 59, 0, attn_output, (bsz, q_len, num_heads * head_dim))
-
-        self.model.tensor_buffer[src_attn_output] = None
+            if attn_output.size() != (bsz, num_heads, q_len, head_dim):
+                raise ValueError(
+                    f"`attn_output` should be of size {(bsz, num_heads, q_len, head_dim)}, but is"
+                    f" {attn_output.size()}"
+                )
+            
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 59, 0, attn_output, (bsz, q_len, num_heads * head_dim))
+            self.model.tensor_buffer[src_attn_output] = None
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1338,7 +1326,9 @@ class Task61(Task):
 
     def run(self):
         # Move o_proj weight to GPU
-        self.model.layers[self.layer_idx].o_proj.weight = self.model.layers[self.layer_idx].o_proj.weight.to('cuda:0')
+        def async_task():
+            self.model.layers[self.layer_idx].o_proj.weight = self.model.layers[self.layer_idx].o_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1371,11 +1361,13 @@ class Task63(Task):
 
     def run(self):
         # Move enc_activation to GPU
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 63, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 63, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1393,27 +1385,28 @@ class Task64(Task):
         return ready
 
     def run(self):
-        src = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 64, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1])
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1])
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].o_proj.weight.transpose(-2, -1).to(torch.int32))
-        
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].o_proj.weight.transpose(-2, -1).to(torch.int32))
+            
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        y = y.view(*x_shape[:-1], -1)
+            y = y.view(*x_shape[:-1], -1)
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
-        self.model.tensor_buffer[dst] = y
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -1427,13 +1420,15 @@ class Task65(Task):
 
     def run(self):
         # Move o_proj output to CPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 65, 0)
+            assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
 
-        self.model.tensor_buffer[src] = None
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 66, 0, y.to(torch.uint32))
+            self.model.tensor_buffer[src] = None
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 66, 0, y.to(torch.uint32))
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1552,7 +1547,9 @@ class Task71(Task):
 
     def run(self):
         # Move gate_proj weight to GPU
-        self.model.layers[self.layer_idx].gate_proj.weight = self.model.layers[self.layer_idx].gate_proj.weight.to('cuda:0')
+        def async_task():
+            self.model.layers[self.layer_idx].gate_proj.weight = self.model.layers[self.layer_idx].gate_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1568,7 +1565,9 @@ class Task72(Task):
 
     def run(self):
         # Move up_proj weight to GPU
-        self.model.layers[self.layer_idx].up_proj.weight = self.model.layers[self.layer_idx].up_proj.weight.to('cuda:0')
+        def async_task():
+            self.model.layers[self.layer_idx].up_proj.weight = self.model.layers[self.layer_idx].up_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1618,11 +1617,13 @@ class Task75(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 75, 0)
 
     def run(self):
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 75, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 75, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1637,11 +1638,13 @@ class Task76(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, 76, 0)
 
     def run(self):
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 76, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 76, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1660,26 +1663,26 @@ class Task77(Task):
 
     def run(self):
         # gate_proj
-        src = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 77, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1])
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1])
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].gate_proj.weight.transpose(-2, -1).to(torch.int32))
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].gate_proj.weight.transpose(-2, -1).to(torch.int32))
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        y = y.view(*x_shape[:-1], -1)
+            y = y.view(*x_shape[:-1], -1)
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
-        self.model.tensor_buffer[dst] = y
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -1696,25 +1699,26 @@ class Task78(Task):
 
     def run(self):
         # up_proj
-        src = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 78, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1])
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1])
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].up_proj.weight.transpose(-2, -1).to(torch.int32))
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].up_proj.weight.transpose(-2, -1).to(torch.int32))
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        y = y.view(*x_shape[:-1], -1)
+            y = y.view(*x_shape[:-1], -1)
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 80, 0)
-        self.model.tensor_buffer[dst] = y
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 80, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -1728,14 +1732,16 @@ class Task79(Task):
 
     def run(self):
         # Move gate_proj output to CPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 79, 0)
+            assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 81, 0, y.to(torch.uint32))
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 81, 0, y.to(torch.uint32))
+        threading.Thread(target=async_task).start()
 
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
@@ -1751,15 +1757,16 @@ class Task80(Task):
 
     def run(self):
         # Move up_proj output to CPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 80, 0)
-        assert self.model.tensor_buffer[src] is not None
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 80, 0)
+            assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 82, 0, y.to(torch.uint32))
-
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 82, 0, y.to(torch.uint32))
+        threading.Thread(target=async_task).start()
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1834,9 +1841,9 @@ class Task84(Task):
 
     def run(self):
         # Move down_proj weight to GPU
-        self.model.layers[self.layer_idx].down_proj.weight = self.model.layers[self.layer_idx].down_proj.weight.to('cuda:0')
-
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        def async_task():
+            self.model.layers[self.layer_idx].down_proj.weight = self.model.layers[self.layer_idx].down_proj.weight.to('cuda:0')
+        threading.Thread(target=async_task).start()
 
     def __call__(self):
         self.run()
@@ -1869,11 +1876,13 @@ class Task86(Task):
 
     def run(self):
         # Move enc_x to GPU
-        enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 86, 0)
-        enc_activation = enc_activation.to('cuda:0')
+        def async_task():
+            enc_activation = self.secllm_cpp_wrapper.BookKeeperLoad_Uint32(self.layer_idx, 86, 0)
+            enc_activation = enc_activation.to('cuda:0')
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)
-        self.model.tensor_buffer[dst] = enc_activation
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)
+            self.model.tensor_buffer[dst] = enc_activation
+        threading.Thread(target=async_task).start()
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
@@ -1891,26 +1900,27 @@ class Task87(Task):
 
     def run(self):
         # down_proj
-        src = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)
-        assert self.model.tensor_buffer[src] is not None
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 87, 1)
+            assert self.model.tensor_buffer[src] is not None
 
-        x = self.model.tensor_buffer[src]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1])
+            x = self.model.tensor_buffer[src]
+            x_shape = x.shape
+            x = x.view(-1, x_shape[-1])
 
-        x_cupy = cupy.from_dlpack(x.to(torch.int32))
-        weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].down_proj.weight.transpose(-2, -1).to(torch.int32))
-        y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
-        y = torch.from_dlpack(y_cupy)
+            x_cupy = cupy.from_dlpack(x.to(torch.int32))
+            weight_T_cupy = cupy.from_dlpack(self.model.layers[self.layer_idx].down_proj.weight.transpose(-2, -1).to(torch.int32))
+            y_cupy = cupy.matmul(x_cupy, weight_T_cupy)
+            y = torch.from_dlpack(y_cupy)
 
-        y = y.view(*x_shape[:-1], -1)
+            y = y.view(*x_shape[:-1], -1)
 
-        self.model.tensor_buffer[src] = None
+            self.model.tensor_buffer[src] = None
 
-        dst = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
-        self.model.tensor_buffer[dst] = y
+            dst = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
+            self.model.tensor_buffer[dst] = y
+        threading.Thread(target=async_task).start()
 
-        # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
 
     def __call__(self):
         self.run()
@@ -1924,15 +1934,15 @@ class Task88(Task):
 
     def run(self):
         # Move down_proj output to CPU
-        src = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
-        assert self.model.tensor_buffer[src] is not None
-
-        y = self.model.tensor_buffer[src]
-        y = y.to('cpu')
-
-        self.model.tensor_buffer[src] = None
-
-        self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 89, 0, y.to(torch.uint32))
+        def async_task():
+            src = GetBookKeeperLinearIndex(self.layer_idx, 88, 0)
+            assert self.model.tensor_buffer[src] is not None
+            y = self.model.tensor_buffer[src]
+            y = y.to('cpu')
+            self.model.tensor_buffer[src] = None
+            self.secllm_cpp_wrapper.BookKeeperStore_Uint32(self.layer_idx, 89, 0, y.to(torch.uint32))
+        
+        threading.Thread(target=async_task).start()
 
 
     def __call__(self):
