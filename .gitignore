@@ -9,3 +9,5 @@ datasets/*.zst
 **/secllm_unittest
 
 .vscode/
+
+hf_token
