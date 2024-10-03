@@ -404,3 +404,23 @@ uint64_t jpyo0803::RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod) {
   }
   return result;
 }
+
+void jpyo0803::Matmul(int32_t* out, int8_t* x, int8_t* y, int B, int M, int N,
+                      int K) {
+  // Notice the dim K is the shared dim
+  // a: [B, M, K]
+  // b: [B, N, K]
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        int32_t sum = 0;
+        for (int k = 0; k < K; ++k) {
+          sum += static_cast<int32_t>(x[b * M * K + m * K + k]) *
+                 static_cast<int32_t>(y[b * N * K + n * K + k]);
+        }
+        out[b * M * N + m * N + n] = sum;
+      }
+    }
+  }
+}

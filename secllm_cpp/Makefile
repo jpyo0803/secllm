@@ -8,10 +8,18 @@ OBJS = $(SRCS:.cpp=.o)
 TARGET_LIB = libsecllm.so
 GTEST = /usr/local/lib/libgtest.a
 
+# New variables for libtest.so
+LIBTEST_SRC = func_utils.cpp aes_stream.cpp test_interface.cpp
+LIBTEST_OBJ = $(LIBTEST_SRC:.cpp=.o)
+LIBTEST_TARGET = libtest.so
+
 .PHONY: all
-all: $(TARGET_LIB)
+all: $(TARGET_LIB) $(LIBTEST_TARGET)
 
 $(TARGET_LIB): $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^
+
+$(LIBTEST_TARGET): $(LIBTEST_OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^
 
 $(SRCS:.cpp=.d):%.d:%.cpp
@@ -21,7 +29,7 @@ include $(SRCS:.cpp=.d)
 
 .PHONY: clean
 clean:
-	rm -f $(OBJS) $(TARGET_LIB) $(SRCS:.cpp=.d)
+	rm -f $(OBJS) $(TARGET_LIB) $(SRCS:.cpp=.d) $(LIBTEST_OBJ) $(LIBTEST_TARGET)
 
 .PHONY: test
 test:
