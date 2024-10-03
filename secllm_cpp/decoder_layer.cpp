@@ -116,9 +116,9 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
     }
   }
 
-  for (int i = 0; i < head_dim_; ++i) {
-    qk_permuted_index_.push_back(i);
-  }
+  // for (int i = 0; i < head_dim_; ++i) {
+  //   qk_permuted_index_.push_back(i);
+  // }
 
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(q_enc_key_pool_.size() == enc_key_pool_size_,
@@ -1057,7 +1057,7 @@ void DecoderLayer::GenerateSecretKey_QK() {
     }
   }
 
-  std::shuffle(qk_permuted_index_.begin(), qk_permuted_index_.end(), engine);
+  // std::shuffle(qk_permuted_index_.begin(), qk_permuted_index_.end(), engine);
 
   is_qk_key_generated_ = true;
 #if DEBUG_PRINT == 1
@@ -1182,8 +1182,7 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
           // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
-          out->data().at(b * M * K * N + m * K * N + k * N +
-                         qk_permuted_index_.at(n)) =
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   qk_x_mult_key_.at(b).at(m).at(k).first +
               qk_x_add_key_.at(b).at(m).at(n);
@@ -1220,8 +1219,7 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N +
-                         qk_permuted_index_.at(n)) =
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   qk_y_mult_key_.at(b).at(m).at(k_dim - K + k).first +
               qk_y_add_key_.at(b).at(m).at(n);
@@ -1365,15 +1363,15 @@ void DecoderLayer::GenerateSecretKey_PV() {
     }
   }
 
-  if (pv_permuted_index_.empty()) {
-    for (int i = 0; i < present_token_len_; ++i) {
-      pv_permuted_index_.push_back(i);
-    }
-  } else {
-    pv_permuted_index_.push_back(culmulative_token_len_ - 1);
-  }
+  // if (pv_permuted_index_.empty()) {
+  //   for (int i = 0; i < present_token_len_; ++i) {
+  //     pv_permuted_index_.push_back(i);
+  //   }
+  // } else {
+  //   pv_permuted_index_.push_back(culmulative_token_len_ - 1);
+  // }
 
-  std::shuffle(pv_permuted_index_.begin(), pv_permuted_index_.end(), engine);
+  // std::shuffle(pv_permuted_index_.begin(), pv_permuted_index_.end(), engine);
 
   is_pv_key_generated_ = true;
 
@@ -1508,8 +1506,7 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N +
-                         pv_permuted_index_.at(n)) =
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   pv_x_mult_key_.at(b).at(m).at(k).first +
               pv_x_add_key_.at(b).at(m).at(n);
@@ -1548,8 +1545,7 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N +
-                         pv_permuted_index_.at(k) * N + n) =
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   pv_y_mult_key_.at(b).at(m).at(n).first +
               pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
