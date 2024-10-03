@@ -7,6 +7,7 @@
 #include "book_keeper.h"
 #include "decoder_layer.h"
 #include "tensor.h"
+#include "types.h"
 
 namespace jpyo0803 {
 
@@ -20,54 +21,81 @@ class SecLLM {
   void Reset();
 
   // member methods
-  void BookKeeperStore(std::vector<int> locs,
-                       std::shared_ptr<Tensor<float>>& data);
+  std::shared_ptr<Tensor<float>> BookKeeperLoad_Float(int loc);
+  void BookKeeperStore_Float(std::vector<int> locs,
+                             std::shared_ptr<Tensor<float>>& data);
 
-  std::shared_ptr<Tensor<float>> BookKeeperLoad(int loc);
-
+  std::shared_ptr<Tensor<uint32_t>> BookKeeperLoad_Uint32(int loc);
   void BookKeeperStore_Uint32(std::vector<int> locs,
                               std::shared_ptr<Tensor<uint32_t>>& data);
 
-  bool BookKeeperIsAvailable(int loc);
+  std::shared_ptr<Tensor<int32_t>> BookKeeperLoad_Int32(int loc);
+  void BookKeeperStore_Int32(std::vector<int> locs,
+                             std::shared_ptr<Tensor<int32_t>>& data);
 
+  std::shared_ptr<Tensor<int8_t>> BookKeeperLoad_Int8(int loc);
+  void BookKeeperStore_Int8(std::vector<int> locs,
+                            std::shared_ptr<Tensor<int8_t>>& data);
+
+  bool BookKeeperIsAvailable_Float(int loc);
+  bool BookKeeperIsAvailable_Int32(int loc);
   bool BookKeeperIsAvailable_Uint32(int loc);
-
-  std::shared_ptr<Tensor<uint32_t>> BookKeeperLoad_Uint32(int loc);
+  bool BookKeeperIsAvailable_Int8(int loc);
 
   void SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
-                          int type);
+                          ProjectionType type);
 
   void SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
-                             int type);
+                             ProjectionType type);
+
+  void QuantizeLinearActivation(int layer_idx,
+                                std::shared_ptr<Tensor<int8_t>> out,
+                                std::shared_ptr<Tensor<float>> in, ProjectionType type);
 
   void EncryptLinearActivation(int layer_idx,
-                               std::shared_ptr<Tensor<uint32_t>> out,
-                               std::shared_ptr<Tensor<float>> in, int type);
-
+                               std::shared_ptr<Tensor<int32_t>> out,
+                               std::shared_ptr<Tensor<int8_t>> in, ProjectionType type);
+  
   void DecryptLinearActivation(int layer_idx,
-                               std::shared_ptr<Tensor<float>> out,
-                               std::shared_ptr<Tensor<uint32_t>> in, int type);
+                               std::shared_ptr<Tensor<int32_t>> out,
+                               std::shared_ptr<Tensor<int32_t>> in, ProjectionType type);
+  
+  void DequantizeLinearActivation(int layer_idx,
+                                  std::shared_ptr<Tensor<float>> out,
+                                  std::shared_ptr<Tensor<int32_t>> in, ProjectionType type);
 
   void SetQKVOutputScales(int layer_idx, float q_output_scale,
                           float k_output_scale, float v_output_scale);
 
-  void QuantizeAndShiftQ(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeQ_QK(int layer_idx, std::shared_ptr<Tensor<int8_t>> out, 
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftQ_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out, 
+                 std::shared_ptr<Tensor<int8_t>> in);
 
-  void QuantizeAndShiftK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeK_QK(int layer_idx, std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftK_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                  std::shared_ptr<Tensor<int8_t>> in);
 
-  void UnshiftAndDequantizeQK(int layer_idx, std::shared_ptr<Tensor<float>> out,
-                              std::shared_ptr<Tensor<uint32_t>> in);
+  void Unshift_QK(int layer_idx, std::shared_ptr<Tensor<int32_t>> out, 
+                   std::shared_ptr<Tensor<uint32_t>> in);
+  void Dequantize_QK(int layer_idx, std::shared_ptr<Tensor<float>> out, 
+                    std::shared_ptr<Tensor<int32_t>> in);
 
-  void QuantizeAndShiftP(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
 
-  void QuantizeAndShiftV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeP_PV(int layer_idx, std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftP_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                  std::shared_ptr<Tensor<int8_t>> in);
+  void QuantizeV_PV(int layer_idx, std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftV_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
+                  std::shared_ptr<Tensor<int8_t>> in);
 
-  std::shared_ptr<Tensor<float>> UnshiftAndDequantizePV(
-      int layer_idx, std::shared_ptr<Tensor<uint32_t>> in);
+  void Unshift_PV(int layer_idx, std::shared_ptr<Tensor<int32_t>> out,
+                   std::shared_ptr<Tensor<uint32_t>> in);
+  void Dequantize_PV(int layer_idx, std::shared_ptr<Tensor<float>> out,
+                      std::shared_ptr<Tensor<int32_t>> in);
 
   void SetAttentionMask(float* mask, int M, int N);
 
@@ -114,11 +142,13 @@ class SecLLM {
  private:
   int num_hidden_layers_ = -1;
 
-  std::unique_ptr<BookKeeper<Tensor<float>>> book_keeper_;
+  std::unique_ptr<BookKeeper<Tensor<float>>> book_keeper_float_;
 
   // NOTE(jpyo0803): Although QK^T and PV operation will be done in uint32,
   // here I use int32 since torch does not support uint32.
+  std::unique_ptr<BookKeeper<Tensor<int32_t>>> book_keeper_int32_;
   std::unique_ptr<BookKeeper<Tensor<uint32_t>>> book_keeper_uint32_;
+  std::unique_ptr<BookKeeper<Tensor<int8_t>>> book_keeper_int8_;
 
   std::unique_ptr<std::vector<DecoderLayer>> decoder_layers_;
 
@@ -170,23 +200,30 @@ uint32_t Internal_GenerateAddKey();
 
 void Internal_Reset();
 
-void Internal_ReplicateTensor(int from, int* to, int to_len);
-
+void Internal_ReplicateTensor_Float(int from, int* to, int to_len);
+void Internal_ReplicateTensor_Int32(int from, int* to, int to_len);
 void Internal_ReplicateTensor_Uint32(int from, int* to, int to_len);
+void Internal_ReplicateTensor_Int8(int from, int* to, int to_len);
 
 void Internal_GetCprngTensor(int* out, int shape_len, int* shape);
 
 void Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
-                                 int type);
+                                 jpyo0803::ProjectionType type);
 
 void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
-                                    int type);
+                                    jpyo0803::ProjectionType type);
+
+void Internal_QuantizeLinearActivation(int layer_idx, int from,
+                                      std::vector<int> locs, jpyo0803::ProjectionType type);
 
 void Internal_EncryptLinearActivation(int layer_idx, int from,
-                                      std::vector<int> locs, int type);
+                                      std::vector<int> locs, jpyo0803::ProjectionType type);
 
 void Internal_DecryptLinearActivation(int layer_idx, int from,
-                                      std::vector<int> locs, int type);
+                                      std::vector<int> locs, jpyo0803::ProjectionType type);
+
+void Internal_DequantizeLinearActivation(int layer_idx, int from,
+                                        std::vector<int> locs, jpyo0803::ProjectionType type);
 
 void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
                                  float k_output_scale, float v_output_scale);
@@ -201,59 +238,53 @@ void Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz,
                                          int token_length);
 
 void Internal_GenerateSecretKey_QK(int layer_idx);
-
 void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
 
-void Internal_QuantizeAndShiftQ(int layer_idx, int from, std::vector<int> locs);
-
-void Internal_QuantizeAndShiftK(int layer_idx, int from, std::vector<int> locs);
-
+void Internal_QuantizeQ_QK(int layer_idx, int from, std::vector<int> locs);
+void Internal_ShiftQ_QK(int layer_idx, int from, std::vector<int> locs);
+void Internal_QuantizeK_QK(int layer_idx, int from, std::vector<int> locs);
+void Internal_ShiftK_QK(int layer_idx, int from, std::vector<int> locs);
 void Internal_EncryptX_QK(int layer_idx, int from, std::vector<int> locs);
-
 void Internal_EncryptY_QK(int layer_idx, int from, std::vector<int> locs);
-
 void Internal_Decrypt_QK(int layer_idx, int from, std::vector<int> locs);
-
-void Internal_UnshiftAndDequantizeQK(int layer_idx, int from,
-                                     std::vector<int> locs);
+void Internal_Unshift_QK(int layer_idx, int from, std::vector<int> locs);
+void Internal_Dequantize_QK(int layer_idx, int from, std::vector<int> locs);
 
 void Internal_GenerateSecretKey_PV(int layer_idx);
-
 void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y);
 
-void Internal_QuantizeAndShiftP(int layer_idx, int from, std::vector<int> locs);
-
-void Internal_QuantizeAndShiftV(int layer_idx, int from, std::vector<int> locs);
-
+void Internal_QuantizeP_PV(int layer_idx, int from, std::vector<int> locs);
+void Internal_ShiftP_PV(int layer_idx, int from, std::vector<int> locs);
+void Internal_QuantizeV_PV(int layer_idx, int from, std::vector<int> locs);
+void Internal_ShiftV_PV(int layer_idx, int from, std::vector<int> locs);
 void Internal_EncryptX_PV(int layer_idx, int from, std::vector<int> locs);
-
 void Internal_EncryptY_PV(int layer_idx, int from, std::vector<int> locs);
-
 void Internal_Decrypt_PV(int layer_idx, int from, std::vector<int> locs);
+void Internal_Unshift_PV(int layer_idx, int from, std::vector<int> locs);
+void Internal_Dequantize_PV(int layer_idx, int from, std::vector<int> locs);
 
-void Internal_UnshiftAndDequantizePV(int layer_idx, int from,
-                                     std::vector<int> locs);
-
-void Internal_BookKeeperStore(int loc, float* data, int shape_len, int* shape);
-
-void Internal_BookKeeperLoad(int loc, float* data, int shape_len, int* shape);
-
-void Internal_BookKeeperStore_Uint32(int loc, int* data, int shape_len,
-                                     int* shape);
-
-void Internal_BookKeeperLoad_Uint32(int loc, int* data, int shape_len,
+void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len, int* shape);
+void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
                                     int* shape);
+void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
+                                     int* shape);
+void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len, int* shape);
 
-void Internal_BookKeeperIsAvailable(int loc, bool* ret);
+void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len, int* shape);
+void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
+                                    int* shape);
+void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
+                                    int* shape);
+void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len, int* shape);
 
+void Internal_BookKeeperIsAvailable_Float(int loc, bool* ret);
+void Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret);
 void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
+void Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret);
 
 void Internal_QKKeyIsAvailable(int layer_idx, bool* ret);
-
 void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret);
-
 void Internal_PVKeyIsAvailable(int layer_idx, bool* ret);
-
 void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret);
 
 #endif  // SECLLM_SECLLM_H

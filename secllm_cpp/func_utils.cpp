@@ -27,38 +27,36 @@ std::vector<float> max_abs_per_token(const std::vector<float>& t, size_t B,
 }
 }  // namespace
 
-std::vector<int8_t> jpyo0803::QuantizeActivationPerTensor(
-    const std::vector<float>& t, int64_t len, float scale) {
-  std::vector<int8_t> q_act(len);  // Quantized result in flattened form
+void jpyo0803::QuantizeActivationPerTensor(std::vector<int8_t>& out,
+                                           const std::vector<float>& in,
+                                           int64_t len, float scale) {
 
   // Quantize the matrix
   for (int64_t i = 0; i < len; ++i) {
     // Convert t to int8_t, and apply the scaling
-    float q_val = t[i] / scale;
+    float q_val = in.at(i) / scale;
     q_val = std::round(q_val);                   // Round
     q_val = std::clamp(q_val, -128.0f, 127.0f);  // Clamp between -128 and 127
-    q_act[i] = static_cast<int8_t>(q_val);       // Store quantized value
+    out.at(i) = static_cast<int8_t>(q_val);      // Store quantized value
   }
-
-  return q_act;
 }
 
-void jpyo0803::DequantizeActivationPerTensor(std::vector<float>& t, int64_t len,
-                                             float scale) {
+void jpyo0803::DequantizeActivationPerTensor(std::vector<float>& out,
+                                             const std::vector<int32_t>& in,
+                                             int64_t len, float scale) {
   // Iterate through the batch and the dimension
   for (int64_t i = 0; i < len; ++i) {
     // Convert t to float, and apply the scaling
-    t[i] = static_cast<float>(t[i]) * scale;
+    out[i] = static_cast<float>(in[i]) * scale;
   }
 }
 
 std::pair<std::vector<int8_t>, std::vector<float>>
-jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t,
-                                                  size_t B, size_t M,
-                                                  size_t N) {
+jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& in,
+                                                  int B, int M, int N) {
   std::vector<int8_t> q_act(B * M * N);  // Quantized result in flattened form
   std::vector<float> max_vals =
-      max_abs_per_token(t, B, M, N);  // Max values per row
+      max_abs_per_token(in, B, M, N);  // Max values per row
 
   // Quantize the matrix
   for (size_t b = 0; b < B; ++b) {
@@ -66,9 +64,9 @@ jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t,
       float max_val = max_vals[b * M + m];  // Get max value for the row
       for (size_t n = 0; n < N; ++n) {
         size_t index =
-            b * M * N + m * N + n;       // Calculate 1D index for (b, m, n)
-        float val = t[index] / max_val;  // Normalize
-        val = std::round(val);           // Round
+            b * M * N + m * N + n;        // Calculate 1D index for (b, m, n)
+        float val = in[index] / max_val;  // Normalize
+        val = std::round(val);            // Round
         val = std::clamp(val, -128.0f, 127.0f);   // Clamp between -128 and 127
         q_act[index] = static_cast<int8_t>(val);  // Store quantized value
       }
@@ -81,14 +79,13 @@ jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t,
 // Function to dequantize the activations
 
 void jpyo0803::DequantizeActivationWPerChannelAPerChannel(
-    float* out,
-    uint32_t* in,                        // Quantized activations (B x dim)
+    std::vector<float>& out,
+    const std::vector<int32_t>& in,      // Quantized activations (B x dim)
     const std::vector<float>& w_scales,  // Weight scales (dim)
     const std::vector<float>& a_scales,  // Activation scales (B)
     size_t B,                            // Batch size
     size_t dim                           // Dimension
 ) {
-  // Iterate through the batch and the dimension
   for (size_t b = 0; b < B; ++b) {
     for (size_t d = 0; d < dim; ++d) {
       size_t index = b * dim + d;  // Calculate the 1D index for (b, d)

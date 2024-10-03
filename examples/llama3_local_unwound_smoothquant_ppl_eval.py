@@ -17,6 +17,10 @@ from transformers import AutoTokenizer
 
 import ppl_evaluator
 
+with open('hf_token', 'r') as file:
+    token = file.read().strip()
+
+
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
 saved_model_id = 'jpyo0803/secllm'
 # local_model_id = './pretrained_weights/Meta-Llama-3-8B-unwound-smoothquant.pt'
@@ -25,7 +29,7 @@ saved_model_id = 'jpyo0803/secllm'
     When smoothed weights are used for pure model ppl: 5.911849498748779
 '''
 
-model = UnwoundSqLlamaForCausalLM.from_pretrained(saved_model_id, torch_dtype=torch.float16, device_map='cpu', attn_implementation='eager')
+model = UnwoundSqLlamaForCausalLM.from_pretrained(saved_model_id, torch_dtype=torch.float16, device_map='cpu', attn_implementation='eager', token=token)
 model.my_post_init()
 
 from datasets import load_dataset

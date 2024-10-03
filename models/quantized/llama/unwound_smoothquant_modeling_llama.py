@@ -478,38 +478,38 @@ class SqLlamaDecoderLayer(nn.Module):
         
         precomputed_q_proj_dec_key = cupy.matmul(cupy.from_dlpack(q_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.q_proj.weight.t().to('cuda:0')))
         precomputed_q_proj_dec_key = torch.from_dlpack(precomputed_q_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, q_proj_enc_key_pool, precomputed_q_proj_dec_key, 0)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.q_proj.weight_scales.to(torch.float32), 0)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, q_proj_enc_key_pool, precomputed_q_proj_dec_key, secllm_cpp_wrapper.ProjectionType.Q)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.q_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.Q)
 
         precomputed_k_proj_dec_key = cupy.matmul(cupy.from_dlpack(k_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.k_proj.weight.t().to('cuda:0')))
         precomputed_k_proj_dec_key = torch.from_dlpack(precomputed_k_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, k_proj_enc_key_pool, precomputed_k_proj_dec_key, 1)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.k_proj.weight_scales.to(torch.float32), 1)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, k_proj_enc_key_pool, precomputed_k_proj_dec_key, secllm_cpp_wrapper.ProjectionType.K)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.k_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.K)
 
         precomputed_v_proj_dec_key = cupy.matmul(cupy.from_dlpack(v_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.v_proj.weight.t().to('cuda:0')))
         precomputed_v_proj_dec_key = torch.from_dlpack(precomputed_v_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, v_proj_enc_key_pool, precomputed_v_proj_dec_key, 2)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.v_proj.weight_scales.to(torch.float32), 2)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, v_proj_enc_key_pool, precomputed_v_proj_dec_key, secllm_cpp_wrapper.ProjectionType.V)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.v_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.V)
 
         precomputed_o_proj_dec_key = cupy.matmul(cupy.from_dlpack(o_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.o_proj.weight.t().to('cuda:0')))
         precomputed_o_proj_dec_key = torch.from_dlpack(precomputed_o_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, o_proj_enc_key_pool, precomputed_o_proj_dec_key, 3)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.o_proj.weight_scales.to(torch.float32), 3)  
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, o_proj_enc_key_pool, precomputed_o_proj_dec_key, secllm_cpp_wrapper.ProjectionType.O)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.o_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.O)  
 
         precomputed_up_proj_dec_key = cupy.matmul(cupy.from_dlpack(up_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.up_proj.weight.t().to('cuda:0')))
         precomputed_up_proj_dec_key = torch.from_dlpack(precomputed_up_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, up_proj_enc_key_pool, precomputed_up_proj_dec_key, 4)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.up_proj.weight_scales.to(torch.float32), 4)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, up_proj_enc_key_pool, precomputed_up_proj_dec_key, secllm_cpp_wrapper.ProjectionType.UP)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.up_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.UP)
 
         precomputed_gate_proj_dec_key = cupy.matmul(cupy.from_dlpack(gate_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.gate_proj.weight.t().to('cuda:0')))
         precomputed_gate_proj_dec_key = torch.from_dlpack(precomputed_gate_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, gate_proj_enc_key_pool, precomputed_gate_proj_dec_key, 5)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.gate_proj.weight_scales.to(torch.float32), 5)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, gate_proj_enc_key_pool, precomputed_gate_proj_dec_key, secllm_cpp_wrapper.ProjectionType.GATE)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.gate_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.GATE)
 
         precomputed_down_proj_dec_key = cupy.matmul(cupy.from_dlpack(down_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.down_proj.weight.t().to('cuda:0')))
         precomputed_down_proj_dec_key = torch.from_dlpack(precomputed_down_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, down_proj_enc_key_pool, precomputed_down_proj_dec_key, 6)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.down_proj.weight_scales.to(torch.float32), 6)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, down_proj_enc_key_pool, precomputed_down_proj_dec_key, secllm_cpp_wrapper.ProjectionType.DOWN)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.down_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.DOWN)
 
         secllm_cpp_wrapper.SetQKVOutputScales(self.layer_idx, self.q_output_scale, self.k_output_scale, self.v_output_scale)
 

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "tensor.h"
+#include "types.h"
 
 namespace jpyo0803 {
 
@@ -13,7 +14,8 @@ class DecoderLayer {
  public:
   DecoderLayer(int layer_idx, int hidden_size, int intermediate_size,
                int max_position_embeddings, int num_attention_heads,
-               int num_key_value_heads, int enc_key_pool_size);
+               int num_key_value_heads, int enc_key_pool_size,
+               bool enable_linear_encryption, bool enable_atten_encryption);
 
  public:
   void SetEncKeyAndDecKey(int* src_enc_key_pool,
@@ -21,64 +23,66 @@ class DecoderLayer {
                           int* src_dec_key,
                           std::vector<std::vector<int>>& dst_dec_key);
 
-  void SetEncKeyAndDecKey_Q(int* src_enc_key_pool, int* src_dec_key);
-  void SetEncKeyAndDecKey_K(int* src_enc_key_pool, int* src_dec_key);
-  void SetEncKeyAndDecKey_V(int* src_enc_key_pool, int* src_dec_key);
-  void SetEncKeyAndDecKey_O(int* src_enc_key_pool, int* src_dec_key);
-  void SetEncKeyAndDecKey_Up(int* src_enc_key_pool, int* src_dec_key);
-  void SetEncKeyAndDecKey_Gate(int* src_enc_key_pool, int* src_dec_key);
-  void SetEncKeyAndDecKey_Down(int* src_enc_key_pool, int* src_dec_key);
+  void SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
+                          ProjectionType type);
 
-  void SetLinearWeightScales_Q(float* weight_scales, int len);
-  void SetLinearWeightScales_K(float* weight_scales, int len);
-  void SetLinearWeightScales_V(float* weight_scales, int len);
-  void SetLinearWeightScales_O(float* weight_scales, int len);
-  void SetLinearWeightScales_Up(float* weight_scales, int len);
-  void SetLinearWeightScales_Gate(float* weight_scales, int len);
-  void SetLinearWeightScales_Down(float* weight_scales, int len);
+  void SetLinearWeightScales(float* weight_scales, int len,
+                             ProjectionType type);
 
-  void EncryptLinearActivation_Q(std::shared_ptr<Tensor<uint32_t>> out,
-                                 std::shared_ptr<Tensor<float>> q_tensor);
-  void EncryptLinearActivation_K(std::shared_ptr<Tensor<uint32_t>> out,
-                                 std::shared_ptr<Tensor<float>> k_tensor);
-  void EncryptLinearActivation_V(std::shared_ptr<Tensor<uint32_t>> out,
-                                 std::shared_ptr<Tensor<float>> v_tensor);
-  void EncryptLinearActivation_O(std::shared_ptr<Tensor<uint32_t>> out,
-                                 std::shared_ptr<Tensor<float>> o_tensor);
-  void EncryptLinearActivation_Up(std::shared_ptr<Tensor<uint32_t>> out,
-                                  std::shared_ptr<Tensor<float>> up_tensor);
-  void EncryptLinearActivation_Gate(std::shared_ptr<Tensor<uint32_t>> out,
-                                    std::shared_ptr<Tensor<float>> gate_tensor);
-  void EncryptLinearActivation_Down(std::shared_ptr<Tensor<uint32_t>> out,
-                                    std::shared_ptr<Tensor<float>> down_tensor);
+  void QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
+                                std::shared_ptr<Tensor<float>> in,
+                                ProjectionType type);
 
-  void DecryptLinearActivation_Q(std::shared_ptr<Tensor<float>> out,
-                                 std::shared_ptr<Tensor<uint32_t>> in);
-  void DecryptLinearActivation_K(std::shared_ptr<Tensor<float>> out,
-                                 std::shared_ptr<Tensor<uint32_t>> in);
-  void DecryptLinearActivation_V(std::shared_ptr<Tensor<float>> out,
-                                 std::shared_ptr<Tensor<uint32_t>> in);
-  void DecryptLinearActivation_O(std::shared_ptr<Tensor<float>> out,
-                                 std::shared_ptr<Tensor<uint32_t>> in);
-  void DecryptLinearActivation_Up(std::shared_ptr<Tensor<float>> out,
-                                  std::shared_ptr<Tensor<uint32_t>> in);
-  void DecryptLinearActivation_Gate(std::shared_ptr<Tensor<float>> out,
-                                    std::shared_ptr<Tensor<uint32_t>> in);
-  void DecryptLinearActivation_Down(std::shared_ptr<Tensor<float>> out,
-                                    std::shared_ptr<Tensor<uint32_t>> in);
+  void EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
+                               std::shared_ptr<Tensor<int8_t>> in,
+                               ProjectionType type);
+
+  void DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
+                               std::shared_ptr<Tensor<int32_t>> in,
+                               ProjectionType type);
+
+  void DequantizeLinearActivation(std::shared_ptr<Tensor<float>> out,
+                                  std::shared_ptr<Tensor<int32_t>> in,
+                                  ProjectionType type);
 
   void SetQKVOutputScales(float q_output_scale, float k_output_scale,
                           float v_output_scale);
 
-  void QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
-  void QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                 std::shared_ptr<Tensor<int8_t>> in);
+
+  void QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                 std::shared_ptr<Tensor<int8_t>> in);
+
+  void Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
+                  std::shared_ptr<Tensor<uint32_t>> in);
+
+  void Dequantize_QK(std::shared_ptr<Tensor<float>> out,
+                     std::shared_ptr<Tensor<int32_t>> in);
+
   void UnshiftAndDequantizeQK(std::shared_ptr<Tensor<float>> out,
                               std::shared_ptr<Tensor<uint32_t>> in);
 
-  void QuantizeAndShiftP(std::shared_ptr<Tensor<uint32_t>> out,
-                         std::shared_ptr<Tensor<float>> in);
+  void QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
+                 std::shared_ptr<Tensor<int8_t>> in);
+
+  void QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
+                    std::shared_ptr<Tensor<float>> in);
+  void ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
+                 std::shared_ptr<Tensor<int8_t>> in);
+
+  void Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
+                  std::shared_ptr<Tensor<uint32_t>> in);
+
+  void Dequantize_PV(std::shared_ptr<Tensor<float>> out,
+                     std::shared_ptr<Tensor<int32_t>> in);
+
   void QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
                          std::shared_ptr<Tensor<float>> in);
   std::shared_ptr<Tensor<float>> UnshiftAndDequantizePV(
@@ -130,7 +134,7 @@ class DecoderLayer {
   int num_attention_heads_;
   int num_key_value_heads_;
   int head_dim_;
-  int enc_key_pool_size_;
+  const int enc_key_pool_size_;
   int num_key_value_groups_;
 
   int present_token_len_;
@@ -220,6 +224,15 @@ class DecoderLayer {
 
   bool is_pv_key_generated_;
   bool is_pv_dec_key_generated_;
+
+  bool enable_linear_encryption_;
+  bool enable_atten_encryption_;
+
+  /*
+    enable_linear_encryption & enable_atten_encryption -> Target
+    enable_linear_encryption & !enable_atten_encryption -> Motivation, do BMM in CPU side
+    !enable_linear_encryption & !enable_atten_encryption -> Baseline
+  */
 };
 
 }  // namespace jpyo0803

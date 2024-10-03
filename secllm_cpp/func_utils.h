@@ -8,23 +8,23 @@
 
 namespace jpyo0803 {
 std::pair<std::vector<int8_t>, std::vector<float>>
-DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& t, size_t B,
-                                        size_t M, size_t N);
+DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& in, int B, int M, int N);
 
 void DequantizeActivationWPerChannelAPerChannel(
-    float* out,
-    uint32_t*
-        q_act,  // Quantized activations (B x dim), data represented in unsigned, but actually signed
+    std::vector<float>& out,
+    const std::vector<int32_t>& in,            // Quantized activations (B x dim)
     const std::vector<float>& w_scales,  // Weight scales (dim)
     const std::vector<float>& a_scales,  // Activation scales (B)
     size_t B,                            // Batch size
     size_t dim                           // Dimension
 );
 
-std::vector<int8_t> QuantizeActivationPerTensor(const std::vector<float>& t,
-                                                int64_t len, float scale);
+void QuantizeActivationPerTensor(std::vector<int8_t>& out,
+                                 const std::vector<float>& in, int64_t len,
+                                 float scale);
 
-void DequantizeActivationPerTensor(std::vector<float>& t, int64_t len,
+void DequantizeActivationPerTensor(std::vector<float>& out,
+                                   const std::vector<int32_t>& in, int64_t len,
                                    float scale);
 
 void Softmax_InPlace(float* x, int B, int M, int N, int K);

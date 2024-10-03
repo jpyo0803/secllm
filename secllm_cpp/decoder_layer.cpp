@@ -21,7 +21,8 @@ namespace jpyo0803 {
 DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
                            int intermediate_size, int max_position_embeddings,
                            int num_attention_heads, int num_key_value_heads,
-                           int enc_key_pool_size)
+                           int enc_key_pool_size, bool enable_linear_encryption,
+                           bool enable_atten_encryption)
     : layer_idx_(layer_idx),
       hidden_size_(hidden_size),
       intermediate_size_(intermediate_size),
@@ -37,7 +38,9 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       is_qk_key_generated_(false),
       is_pv_key_generated_(false),
       is_qk_dec_key_generated_(false),
-      is_pv_dec_key_generated_(false) {
+      is_pv_dec_key_generated_(false),
+      enable_linear_encryption_(enable_linear_encryption),
+      enable_atten_encryption_(enable_atten_encryption) {
 
   std::cout << "Decoder Layer " << layer_idx_ << " is created." << std::endl;
 
@@ -143,6 +146,36 @@ void DecoderLayer::Reset() {
   is_pv_dec_key_generated_ = false;
 }
 
+void DecoderLayer::SetLinearWeightScales(float* weight_scales, int len,
+                                         ProjectionType type) {
+  switch (type) {
+    case ProjectionType::kQ:
+      q_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    case ProjectionType::kK:
+      k_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    case ProjectionType::kV:
+      v_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    case ProjectionType::kO:
+      o_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    case ProjectionType::kGate:
+      gate_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    case ProjectionType::kUp:
+      up_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    case ProjectionType::kDown:
+      down_weight_scales_.assign(weight_scales, weight_scales + len);
+      break;
+    default:
+      std::cout << "Invalid Projection Type!" << std::endl;
+      exit(-1);
+  }
+}
+
 void DecoderLayer::SetEncKeyAndDecKey(
     int* src_enc_key_pool, std::vector<std::vector<int>>& dst_enc_key_pool,
     int* src_dec_key, std::vector<std::vector<int>>& dst_dec_key) {
@@ -160,453 +193,263 @@ void DecoderLayer::SetEncKeyAndDecKey(
   }
 }
 
-void DecoderLayer::SetLinearWeightScales_Q(float* weight_scales, int len) {
-  q_weight_scales_.assign(weight_scales, weight_scales + len);
+void DecoderLayer::SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
+                                      ProjectionType type) {
+  switch (type) {
+    case ProjectionType::kQ:
+      SetEncKeyAndDecKey(src_enc_key_pool, q_enc_key_pool_, src_dec_key,
+                         q_dec_key_);
+      break;
+    case ProjectionType::kK:
+      SetEncKeyAndDecKey(src_enc_key_pool, k_enc_key_pool_, src_dec_key,
+                         k_dec_key_);
+      break;
+    case ProjectionType::kV:
+      SetEncKeyAndDecKey(src_enc_key_pool, v_enc_key_pool_, src_dec_key,
+                         v_dec_key_);
+      break;
+    case ProjectionType::kO:
+      SetEncKeyAndDecKey(src_enc_key_pool, o_enc_key_pool_, src_dec_key,
+                         o_dec_key_);
+      break;
+    case ProjectionType::kUp:
+      SetEncKeyAndDecKey(src_enc_key_pool, up_enc_key_pool_, src_dec_key,
+                         up_dec_key_);
+      break;
+    case ProjectionType::kGate:
+      SetEncKeyAndDecKey(src_enc_key_pool, gate_enc_key_pool_, src_dec_key,
+                         gate_dec_key_);
+      break;
+    case ProjectionType::kDown:
+      SetEncKeyAndDecKey(src_enc_key_pool, down_enc_key_pool_, src_dec_key,
+                         down_dec_key_);
+      break;
+    default:
+      std::cout << "Invalid Projection Type!" << std::endl;
+      exit(-1);
+  }
 }
 
-void DecoderLayer::SetLinearWeightScales_K(float* weight_scales, int len) {
-  k_weight_scales_.assign(weight_scales, weight_scales + len);
+void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
+                                            std::shared_ptr<Tensor<float>> in,
+                                            ProjectionType type) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int N = shape.at(2);
+
+  auto [quantized_act, max_vals] =
+      DynamicQuantizeActivationPerTokenAbsmax(in->data(), B, M, N);
+
+  out->data() = std::move(quantized_act);
+
+  switch (type) {
+    case ProjectionType::kQ:
+      q_act_scales_ = std::move(max_vals);
+      break;
+    case ProjectionType::kK:
+      k_act_scales_ = std::move(max_vals);
+      break;
+    case ProjectionType::kV:
+      v_act_scales_ = std::move(max_vals);
+      break;
+    case ProjectionType::kO:
+      o_act_scales_ = std::move(max_vals);
+      break;
+    case ProjectionType::kGate:
+      gate_act_scales_ = std::move(max_vals);
+      break;
+    case ProjectionType::kUp:
+      up_act_scales_ = std::move(max_vals);
+      break;
+    case ProjectionType::kDown:
+      down_act_scales_ = std::move(max_vals);
+      break;
+    default:
+      std::cout << "Invalid Projection Type!" << std::endl;
+      exit(-1);
+  }
 }
 
-void DecoderLayer::SetLinearWeightScales_V(float* weight_scales, int len) {
-  v_weight_scales_.assign(weight_scales, weight_scales + len);
-}
+void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
+                                           std::shared_ptr<Tensor<int8_t>> in,
+                                           ProjectionType type) {
+  // For encrypted linear layers, matmul is done in int32
 
-void DecoderLayer::SetLinearWeightScales_O(float* weight_scales, int len) {
-  o_weight_scales_.assign(weight_scales, weight_scales + len);
-}
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int N = shape.at(2);
 
-void DecoderLayer::SetLinearWeightScales_Up(float* weight_scales, int len) {
-  up_weight_scales_.assign(weight_scales, weight_scales + len);
-}
+  std::vector<std::vector<int>>* enc_key_pool = nullptr;
+  std::vector<int>* sampled_enc_key_index = nullptr;
 
-void DecoderLayer::SetLinearWeightScales_Gate(float* weight_scales, int len) {
-  gate_weight_scales_.assign(weight_scales, weight_scales + len);
-}
-
-void DecoderLayer::SetLinearWeightScales_Down(float* weight_scales, int len) {
-  down_weight_scales_.assign(weight_scales, weight_scales + len);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_Q(int* src_enc_key_pool,
-                                        int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, q_enc_key_pool_, src_dec_key,
-                     q_dec_key_);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_K(int* src_enc_key_pool,
-                                        int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, k_enc_key_pool_, src_dec_key,
-                     k_dec_key_);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_V(int* src_enc_key_pool,
-                                        int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, v_enc_key_pool_, src_dec_key,
-                     v_dec_key_);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_O(int* src_enc_key_pool,
-                                        int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, o_enc_key_pool_, src_dec_key,
-                     o_dec_key_);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_Up(int* src_enc_key_pool,
-                                         int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, up_enc_key_pool_, src_dec_key,
-                     up_dec_key_);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_Gate(int* src_enc_key_pool,
-                                           int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, gate_enc_key_pool_, src_dec_key,
-                     gate_dec_key_);
-}
-
-void DecoderLayer::SetEncKeyAndDecKey_Down(int* src_enc_key_pool,
-                                           int* src_dec_key) {
-  SetEncKeyAndDecKey(src_enc_key_pool, down_enc_key_pool_, src_dec_key,
-                     down_dec_key_);
-}
-
-void DecoderLayer::EncryptLinearActivation_Q(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> q_tensor) {
-  int B = q_tensor->shape()[0];
-  int M = q_tensor->shape()[1];
-  int N = q_tensor->shape()[2];
-
-  // Apply Quantization
-  auto [q_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(q_tensor->data(), B, M, N);
-  q_act_scales_ = std::move(max_vals);
-
-  if (!sampled_q_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
+  switch (type) {
+    case ProjectionType::kQ:
+      enc_key_pool = &q_enc_key_pool_;
+      sampled_enc_key_index = &sampled_q_enc_key_index_;
+      break;
+    case ProjectionType::kK:
+      enc_key_pool = &k_enc_key_pool_;
+      sampled_enc_key_index = &sampled_k_enc_key_index_;
+      break;
+    case ProjectionType::kV:
+      enc_key_pool = &v_enc_key_pool_;
+      sampled_enc_key_index = &sampled_v_enc_key_index_;
+      break;
+    case ProjectionType::kO:
+      enc_key_pool = &o_enc_key_pool_;
+      sampled_enc_key_index = &sampled_o_enc_key_index_;
+      break;
+    case ProjectionType::kGate:
+      enc_key_pool = &gate_enc_key_pool_;
+      sampled_enc_key_index = &sampled_gate_enc_key_index_;
+      break;
+    case ProjectionType::kUp:
+      enc_key_pool = &up_enc_key_pool_;
+      sampled_enc_key_index = &sampled_up_enc_key_index_;
+      break;
+    case ProjectionType::kDown:
+      enc_key_pool = &down_enc_key_pool_;
+      sampled_enc_key_index = &sampled_down_enc_key_index_;
+      break;
+    default:
+      std::cout << "Invalid Projection Type!" << std::endl;
+      exit(-1);
   }
 
-  // Sample encryption keys from the pool
+  ASSERT_ALWAYS(sampled_enc_key_index->empty(),
+                "sampled_enc_key_index is not empty!");
+
   for (int i = 0; i < B * M; ++i) {
-    sampled_q_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
+    sampled_enc_key_index->push_back(GenerateCPRNG() % enc_key_pool_size_);
+  }
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+        int enc_key_index = sampled_enc_key_index->at(b * M + m);
+
+        out->data()[b * M * N + m * N + n] =
+            static_cast<int>(in->data()[b * M * N + m * N + n]) +
+            enc_key_pool->at(enc_key_index).at(n);
+      }
+    }
+  }
+}
+
+void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
+                                           std::shared_ptr<Tensor<int32_t>> in,
+                                           ProjectionType type) {
+  // Note that output is int32
+
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int N = shape.at(2);
+
+  std::vector<std::vector<int>>* dec_key = nullptr;
+  std::vector<int>* sampled_enc_key_index = nullptr;
+
+  ASSERT_ALWAYS(dec_key->size() == B && dec_key->at(0).size() == M * N,
+                "dec_key size is not correct!");
+  ASSERT_ALWAYS(sampled_enc_key_index->size() == B * M,
+                "sampled_enc_key_index size is not correct!");
+
+  switch (type) {
+    case ProjectionType::kQ:
+      dec_key = &q_dec_key_;
+      sampled_enc_key_index = &sampled_q_enc_key_index_;
+      break;
+    case ProjectionType::kK:
+      dec_key = &k_dec_key_;
+      sampled_enc_key_index = &sampled_k_enc_key_index_;
+      break;
+    case ProjectionType::kV:
+      dec_key = &v_dec_key_;
+      sampled_enc_key_index = &sampled_v_enc_key_index_;
+      break;
+    case ProjectionType::kO:
+      dec_key = &o_dec_key_;
+      sampled_enc_key_index = &sampled_o_enc_key_index_;
+      break;
+    case ProjectionType::kGate:
+      dec_key = &gate_dec_key_;
+      sampled_enc_key_index = &sampled_gate_enc_key_index_;
+      break;
+    case ProjectionType::kUp:
+      dec_key = &up_dec_key_;
+      sampled_enc_key_index = &sampled_up_enc_key_index_;
+      break;
+    case ProjectionType::kDown:
+      dec_key = &down_dec_key_;
+      sampled_enc_key_index = &sampled_down_enc_key_index_;
+      break;
+    default:
+      std::cout << "Invalid Projection Type!" << std::endl;
+      exit(-1);
   }
 
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
         out->data()[b * M * N + m * N + n] =
-            (int)q_act[b * M * N + m * N + n] +
-            q_enc_key_pool_[sampled_q_enc_key_index_[b * M + m]][n];
+            in->data()[b * M * N + m * N + n] -
+            dec_key->at(sampled_enc_key_index->at(b * M + m)).at(n);
       }
     }
   }
+
+  sampled_enc_key_index->clear();
 }
 
-void DecoderLayer::EncryptLinearActivation_K(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> k_tensor) {
-  int B = k_tensor->shape()[0];
-  int M = k_tensor->shape()[1];
-  int N = k_tensor->shape()[2];
+void DecoderLayer::DequantizeLinearActivation(
+    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<int32_t>> in,
+    ProjectionType type) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int N = shape.at(2);
 
-  auto [k_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(k_tensor->data(), B, M, N);
-  k_act_scales_ = std::move(max_vals);
+  std::vector<float>* weight_scales = nullptr;
+  std::vector<float>* act_scales = nullptr;
 
-  if (!sampled_k_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
+  switch (type) {
+    case ProjectionType::kQ:
+      weight_scales = &q_weight_scales_;
+      act_scales = &q_act_scales_;
+      break;
+    case ProjectionType::kK:
+      weight_scales = &k_weight_scales_;
+      act_scales = &k_act_scales_;
+      break;
+    case ProjectionType::kV:
+      weight_scales = &v_weight_scales_;
+      act_scales = &v_act_scales_;
+      break;
+    case ProjectionType::kO:
+      weight_scales = &o_weight_scales_;
+      act_scales = &o_act_scales_;
+      break;
+    case ProjectionType::kGate:
+      weight_scales = &gate_weight_scales_;
+      act_scales = &gate_act_scales_;
+      break;
+    case ProjectionType::kUp:
+      weight_scales = &up_weight_scales_;
+      act_scales = &up_act_scales_;
+      break;
+    case ProjectionType::kDown:
+      weight_scales = &down_weight_scales_;
+      act_scales = &down_act_scales_;
+      break;
+    default:
+      std::cout << "Invalid Projection Type!" << std::endl;
+      exit(-1);
   }
-
-  // Sample encryption keys from the pool
-  for (int i = 0; i < B * M; ++i) {
-    sampled_k_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
-  }
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            (int)k_act[b * M * N + m * N + n] +
-            k_enc_key_pool_[sampled_k_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-}
-
-void DecoderLayer::EncryptLinearActivation_V(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> v_tensor) {
-  int B = v_tensor->shape()[0];
-  int M = v_tensor->shape()[1];
-  int N = v_tensor->shape()[2];
-
-  auto [v_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(v_tensor->data(), B, M, N);
-  v_act_scales_ = std::move(max_vals);
-
-  if (!sampled_v_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
-  }
-
-  // Sample encryption keys from the pool
-  for (int i = 0; i < B * M; ++i) {
-    sampled_v_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
-  }
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            (int)v_act[b * M * N + m * N + n] +
-            v_enc_key_pool_[sampled_v_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-}
-
-void DecoderLayer::EncryptLinearActivation_O(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> o_tensor) {
-  int B = o_tensor->shape()[0];
-  int M = o_tensor->shape()[1];
-  int N = o_tensor->shape()[2];
-
-  auto [o_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(o_tensor->data(), B, M, N);
-  o_act_scales_ = std::move(max_vals);
-
-  if (!sampled_o_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
-  }
-  // Sample encryption keys from the pool
-  for (int i = 0; i < B * M; ++i) {
-    sampled_o_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
-  }
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            (int)o_act[b * M * N + m * N + n] +
-            o_enc_key_pool_[sampled_o_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-}
-
-void DecoderLayer::EncryptLinearActivation_Up(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> up_tensor) {
-  int B = up_tensor->shape()[0];
-  int M = up_tensor->shape()[1];
-  int N = up_tensor->shape()[2];
-
-  auto [up_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(up_tensor->data(), B, M, N);
-  up_act_scales_ = std::move(max_vals);
-
-  if (!sampled_up_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
-  }
-
-  // Sample encryption keys from the pool
-  for (int i = 0; i < B * M; ++i) {
-    sampled_up_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
-  }
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            (int)up_act[b * M * N + m * N + n] +
-            up_enc_key_pool_[sampled_up_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-}
-
-void DecoderLayer::EncryptLinearActivation_Gate(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> gate_tensor) {
-  int B = gate_tensor->shape()[0];
-  int M = gate_tensor->shape()[1];
-  int N = gate_tensor->shape()[2];
-
-  auto [gate_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(gate_tensor->data(), B, M, N);
-  gate_act_scales_ = std::move(max_vals);
-
-  if (!sampled_gate_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
-  }
-
-  // Sample encryption keys from the pool
-  for (int i = 0; i < B * M; ++i) {
-    sampled_gate_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
-  }
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            (int)gate_act[b * M * N + m * N + n] +
-            gate_enc_key_pool_[sampled_gate_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-}
-
-void DecoderLayer::EncryptLinearActivation_Down(
-    std::shared_ptr<Tensor<uint32_t>> out,
-    std::shared_ptr<Tensor<float>> down_tensor) {
-  int B = down_tensor->shape()[0];
-  int M = down_tensor->shape()[1];
-  int N = down_tensor->shape()[2];
-
-  auto [down_act, max_vals] =
-      DynamicQuantizeActivationPerTokenAbsmax(down_tensor->data(), B, M, N);
-  down_act_scales_ = std::move(max_vals);
-
-  if (!sampled_down_enc_key_index_.empty()) {
-    std::cout << "Encryption is called twice in a row!" << std::endl;
-    exit(-1);
-  }
-
-  // Sample encryption keys from the pool
-  for (int i = 0; i < B * M; ++i) {
-    sampled_down_enc_key_index_.push_back(GenerateCPRNG() % enc_key_pool_size_);
-  }
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            (int)down_act[b * M * N + m * N + n] +
-            down_enc_key_pool_[sampled_down_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-}
-
-void DecoderLayer::DecryptLinearActivation_Q(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  // Decrypt Result
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            q_dec_key_[sampled_q_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-  sampled_q_enc_key_index_.clear();
-
-  // Dequantize
-  DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), q_weight_scales_, q_act_scales_,
-      B * M, N);
-}
-
-void DecoderLayer::DecryptLinearActivation_K(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            k_dec_key_[sampled_k_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-
-  sampled_k_enc_key_index_.clear();
 
   DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), k_weight_scales_, k_act_scales_,
-      B * M, N);
-}
-
-void DecoderLayer::DecryptLinearActivation_V(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            v_dec_key_[sampled_v_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-
-  sampled_v_enc_key_index_.clear();
-
-  DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), v_weight_scales_, v_act_scales_,
-      B * M, N);
-}
-
-void DecoderLayer::DecryptLinearActivation_O(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            o_dec_key_[sampled_o_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-
-  sampled_o_enc_key_index_.clear();
-
-  DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), o_weight_scales_, o_act_scales_,
-      B * M, N);
-}
-
-void DecoderLayer::DecryptLinearActivation_Up(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            up_dec_key_[sampled_up_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-
-  sampled_up_enc_key_index_.clear();
-
-  DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), up_weight_scales_, up_act_scales_,
-      B * M, N);
-}
-
-void DecoderLayer::DecryptLinearActivation_Gate(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            gate_dec_key_[sampled_gate_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-
-  sampled_gate_enc_key_index_.clear();
-
-  DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), gate_weight_scales_,
-      gate_act_scales_, B * M, N);
-}
-
-void DecoderLayer::DecryptLinearActivation_Down(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape()[0];
-  int M = out->shape()[1];
-  int N = out->shape()[2];
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        in->data()[b * M * N + m * N + n] -=
-            down_dec_key_[sampled_down_enc_key_index_[b * M + m]][n];
-      }
-    }
-  }
-
-  sampled_down_enc_key_index_.clear();
-
-  DequantizeActivationWPerChannelAPerChannel(
-      out->data().data(), in->data().data(), down_weight_scales_,
-      down_act_scales_, B * M, N);
+      out->data(), in->data(), *weight_scales, *act_scales, B * M, N);
 }
 
 void DecoderLayer::SetQKVOutputScales(float q_output_scale,
@@ -617,8 +460,8 @@ void DecoderLayer::SetQKVOutputScales(float q_output_scale,
   v_output_scale_ = v_output_scale;
 }
 
-void DecoderLayer::QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
-                                     std::shared_ptr<Tensor<float>> in) {
+void DecoderLayer::QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
+                                std::shared_ptr<Tensor<float>> in) {
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -626,7 +469,16 @@ void DecoderLayer::QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
   int N = shape.at(3);
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
-  auto q_act = QuantizeActivationPerTensor(in->data(), len, q_output_scale_);
+  QuantizeActivationPerTensor(out->data(), in->data(), len, q_output_scale_);
+}
+
+void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                             std::shared_ptr<Tensor<int8_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   qk_x_row_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
       B, std::vector<std::vector<int>>(M));  // input is 4D
@@ -635,20 +487,22 @@ void DecoderLayer::QuantizeAndShiftQ(std::shared_ptr<Tensor<uint32_t>> out,
       for (int k = 0; k < K; ++k) {
         int sum = 0;
         for (int n = 0; n < N; ++n) {
-          sum += (int)q_act.at(b * M * K * N + m * K * N + k * N + n);
+          sum += (int)in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
         qk_x_row_shift_sum_[b][m].push_back(sum);
       }
     }
   }
 
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)q_act[i] + SHIFT_AMT);
+    out->data().at(i) =
+        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
 }
 
-void DecoderLayer::QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
-                                     std::shared_ptr<Tensor<float>> in) {
+void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
+                                std::shared_ptr<Tensor<float>> in) {
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -656,8 +510,16 @@ void DecoderLayer::QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
   int N = shape.at(3);
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
+  QuantizeActivationPerTensor(out->data(), in->data(), len, k_output_scale_);
+}
 
-  auto k_act = QuantizeActivationPerTensor(in->data(), len, k_output_scale_);
+void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
+                             std::shared_ptr<Tensor<int8_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   if (qk_y_col_shift_sum_.empty()) {
     qk_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
@@ -669,66 +531,82 @@ void DecoderLayer::QuantizeAndShiftK(std::shared_ptr<Tensor<uint32_t>> out,
       for (int k = 0; k < K; ++k) {
         int sum = 0;
         for (int n = 0; n < N; ++n) {
-          sum += (int)k_act[b * M * K * N + m * K * N + k * N + n];
+          sum += static_cast<int32_t>(
+              in->data().at(b * M * K * N + m * K * N + k * N + n));
         }
-        qk_y_col_shift_sum_[b][m].push_back(sum);
+        qk_y_col_shift_sum_.at(b).at(m).push_back(sum);
       }
     }
   }
 
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)k_act[i] + SHIFT_AMT);
+    out->data().at(i) =
+        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
 }
 
-void DecoderLayer::UnshiftAndDequantizeQK(
-    std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<uint32_t>> in) {
-  int B = out->shape().at(0);
-  int M = out->shape().at(1);
-  int K = out->shape().at(2);
-  int N = out->shape().at(3);
+void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
-  // std::cout << num_key_value_groups_ << std::endl;
-  // Unshift
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
-      // std::cout << "m vs. other : " << m << " / " << m / num_key_value_groups_ << std::endl;
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
           int unshift_factor =
-              (qk_x_row_shift_sum_[b][m][k] +
-               qk_y_col_shift_sum_[b][m / num_key_value_groups_][n]) *
+              (qk_x_row_shift_sum_.at(b).at(m).at(k) +
+               qk_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n)) *
                   SHIFT_AMT +
               head_dim_ * SHIFT_AMT * SHIFT_AMT;
           out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              (float)((int)in->data().at(b * M * K * N + m * K * N + k * N +
-                                         n) -
-                      unshift_factor);
+              static_cast<int>(
+                  in->data().at(b * M * K * N + m * K * N + k * N + n)) -
+              unshift_factor;
         }
       }
     }
   }
-  int len = static_cast<int64_t>(B) * M * K * N;
-
-  // for (int i = 0; i < len; ++i) {
-  //   out->data().at(i) = (float)((int)in->data().at(i));
-  // }
-
-  float scale =
-      q_output_scale_ * k_output_scale_ / sqrtf(head_dim_);  // Correct
-  DequantizeActivationPerTensor(out->data(), len, scale);
 }
 
-void DecoderLayer::QuantizeAndShiftP(std::shared_ptr<Tensor<uint32_t>> out,
-                                     std::shared_ptr<Tensor<float>> in) {
-  int B = in->shape().at(0);
-  int M = in->shape().at(1);
-  int K = in->shape().at(2);
-  int N = in->shape().at(3);
+void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
+                                 std::shared_ptr<Tensor<int32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
 
-  auto p_act = QuantizeActivationPerTensor(in->data(), len, 1.0 / 127);
+  float scale =
+      q_output_scale_ * k_output_scale_ / sqrtf(head_dim_);  // Correct
+  DequantizeActivationPerTensor(out->data(), in->data(), len, scale);
+}
+
+void DecoderLayer::QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
+                                std::shared_ptr<Tensor<float>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
+
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
+  QuantizeActivationPerTensor(out->data(), in->data(), len, 1.0 / 127);
+}
+
+void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
+                             std::shared_ptr<Tensor<int8_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   pv_x_row_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
       B, std::vector<std::vector<int>>(M));  // input is 4D
@@ -738,29 +616,40 @@ void DecoderLayer::QuantizeAndShiftP(std::shared_ptr<Tensor<uint32_t>> out,
       for (int k = 0; k < K; ++k) {
         int sum = 0;
         for (int n = 0; n < N; ++n) {
-          sum += (int)p_act[b * M * K * N + m * K * N + k * N + n];
+          sum += static_cast<int32_t>(
+              in->data().at(b * M * K * N + m * K * N + k * N + n));
         }
-        pv_x_row_shift_sum_[b][m].push_back(sum);
+        pv_x_row_shift_sum_.at(b).at(m).push_back(sum);
       }
     }
   }
 
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)p_act[i] + SHIFT_AMT);
-    // out->data().at(i) = (uint32_t)((int)p_act[i]);
+    out->data().at(i) =
+        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
 }
 
-void DecoderLayer::QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
-                                     std::shared_ptr<Tensor<float>> in) {
-  int B = in->shape().at(0);
-  int M = in->shape().at(1);
-  int K = in->shape().at(2);
-  int N = in->shape().at(3);
+void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
+                                std::shared_ptr<Tensor<float>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
+  QuantizeActivationPerTensor(out->data(), in->data(), len, v_output_scale_);
+}
 
-  auto v_act = QuantizeActivationPerTensor(in->data(), len, v_output_scale_);
+void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
+                             std::shared_ptr<Tensor<int8_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
 
   if (pv_y_col_shift_sum_.empty()) {
     pv_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
@@ -772,21 +661,49 @@ void DecoderLayer::QuantizeAndShiftV(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          pv_y_col_shift_sum_[b][m][n] +=
-              (int)v_act[b * M * K * N + m * K * N + k * N + n];
+          pv_y_col_shift_sum_.at(b).at(m).at(n) += static_cast<int32_t>(
+              in->data().at(b * M * K * N + m * K * N + k * N + n));
         }
       }
     }
   }
 
+  int64_t len = static_cast<int64_t>(B) * M * K * N;
   for (int i = 0; i < len; ++i) {
-    out->data().at(i) = (uint32_t)((int)v_act[i] + SHIFT_AMT);
-    // out->data().at(i) = (uint32_t)((int)v_act[i]);
+    out->data().at(i) =
+        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
 }
 
-std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
-    std::shared_ptr<Tensor<uint32_t>> in) {
+void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
+                              std::shared_ptr<Tensor<uint32_t>> in) {
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int K = shape.at(2);
+  int N = shape.at(3);
+
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        for (int n = 0; n < N; ++n) {
+          int unshift_factor =
+              (pv_x_row_shift_sum_.at(b).at(m).at(k) +
+               pv_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n)) *
+                  SHIFT_AMT +
+              culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+              static_cast<int>(
+                  in->data().at(b * M * K * N + m * K * N + k * N + n)) -
+              unshift_factor;
+        }
+      }
+    }
+  }
+}
+
+void DecoderLayer::Dequantize_PV(std::shared_ptr<Tensor<float>> out,
+                                 std::shared_ptr<Tensor<int32_t>> in) {
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -795,49 +712,12 @@ std::shared_ptr<Tensor<float>> DecoderLayer::UnshiftAndDequantizePV(
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
 
-  Tensor<float> tmp_tensor({B, M, K, N});
-  // std::cout << "tmp tensor shape: ";
-  // tmp_tensor.PrintShape();
-
-  // Unshift
-
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      // std::cout << "m vs. other : " << m << " / " << m / num_key_value_groups_ << std::endl;
-      for (int k = 0; k < K; ++k) {
-        for (int n = 0; n < N; ++n) {
-          int unshift_factor =
-              (pv_x_row_shift_sum_[b][m][k] +
-               pv_y_col_shift_sum_[b][m / num_key_value_groups_][n]) *
-                  SHIFT_AMT +
-              culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
-          tmp_tensor.data().at(b * M * K * N + m * K * N + k * N + n) =
-              (float)((int)in->data().at(b * M * K * N + m * K * N + k * N +
-                                         n) -
-                      unshift_factor);
-        }
-      }
-    }
-  }
-  // tmp_tensor.PrintAsTorchStyle();
-  // tmp_tensor.PrintCharacteristics();
-  // std::cout << tmp_tensor.GetMean() << std::endl;
-  // std::cout << tmp_tensor.PosDepSum() << std::endl;
-  // exit(-1);
-  // for (int i = 0; i < len; ++i) {
-  //   tmp_tensor.data().at(i) = (float)((int)in->data().at(i));
-  // }
-
   float scale = 1.0 / 127 * v_output_scale_;  // Correct
-  DequantizeActivationPerTensor(tmp_tensor.data(), len, scale);
+  DequantizeActivationPerTensor(out->data(), in->data(), len, scale);
 
-  auto tmp_tensor2 = tmp_tensor.Transpose(1, 2);
-  // std::cout << "tmp tensor2 shape: ";
-  // tmp_tensor2.PrintShape();
+  auto tmp_tensor2 = out->Transpose(1, 2);
   auto tmp_tensor3 = tmp_tensor2.Reshape({B, K, M * N});
-  // std::cout << "tmp tensor3 shape: ";
-  // tmp_tensor3.PrintShape();
-  return std::make_shared<Tensor<float>>(tmp_tensor3);
+  out->data() = std::move(tmp_tensor3.data());
 }
 
 void DecoderLayer::SetBatchSizeAndTokenLength(int bsz, int token_len) {
