@@ -8,7 +8,7 @@
 
 namespace {
 std::unique_ptr<jpyo0803::ThreadPool> thread_pool;
-constexpr int kNumThreads = 8;
+constexpr int kNumThreads = 1;
 }  // namespace
 
 extern "C" {
@@ -88,22 +88,26 @@ void Ext_Reset() {
 }
 
 // No threading needed
-void Ext_BookKeeperStore_Float(int loc, float* data, int shape_len, int* shape) {
+void Ext_BookKeeperStore_Float(int loc, float* data, int shape_len,
+                               int* shape) {
   Internal_BookKeeperStore_Float(loc, data, shape_len, shape);
 }
 
 // No threading needed
-void Ext_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len, int* shape) {
+void Ext_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
+                               int* shape) {
   Internal_BookKeeperStore_Int32(loc, data, shape_len, shape);
 }
 
 // No threading needed
-void Ext_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len, int* shape) {
+void Ext_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
+                                int* shape) {
   Internal_BookKeeperStore_Uint32(loc, data, shape_len, shape);
 }
 
 // No threading needed
-void Ext_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len, int* shape) {
+void Ext_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
+                              int* shape) {
   Internal_BookKeeperStore_Int8(loc, data, shape_len, shape);
 }
 
@@ -113,12 +117,14 @@ void Ext_BookKeeperLoad_Float(int loc, float* out, int shape_len, int* shape) {
 }
 
 // No threading needed
-void Ext_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len, int* shape) {
+void Ext_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
+                              int* shape) {
   Internal_BookKeeperLoad_Int32(loc, out, shape_len, shape);
 }
 
 // No threading needed
-void Ext_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len, int* shape) {
+void Ext_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
+                               int* shape) {
   Internal_BookKeeperLoad_Uint32(loc, out, shape_len, shape);
 }
 
@@ -143,44 +149,54 @@ void Ext_GetCprngTensor(int* out, int shape_len, int* shape) {
 
 void Ext_SetEncKeyAndDecKey(int layer_idx, int* src_enc_key_pool,
                             int* src_dec_key, int type) {
-  Internal_SetEncKeyAndDecKey(layer_idx, src_enc_key_pool, src_dec_key, static_cast<jpyo0803::ProjectionType>(type));
+  Internal_SetEncKeyAndDecKey(layer_idx, src_enc_key_pool, src_dec_key,
+                              static_cast<jpyo0803::ProjectionType>(type));
 }
 
 void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                int type) {
-  Internal_SetLinearWeightScales(layer_idx, scales, len, static_cast<jpyo0803::ProjectionType>(type));
+  Internal_SetLinearWeightScales(layer_idx, scales, len,
+                                 static_cast<jpyo0803::ProjectionType>(type));
 }
 
 void Ext_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
                                   int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeLinearActivation(layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type)); });
+  thread_pool->enqueue_task([=]() {
+    Internal_QuantizeLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
 }
 
 void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptLinearActivation(layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type)); });
+  thread_pool->enqueue_task([=]() {
+    Internal_EncryptLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
 }
 
 void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_DecryptLinearActivation(layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type)); });
+  thread_pool->enqueue_task([=]() {
+    Internal_DecryptLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
 }
 
-void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
-                                    int type) {
+void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len,
+                                    int* to, int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_DequantizeLinearActivation(layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type)); });
+  thread_pool->enqueue_task([=]() {
+    Internal_DequantizeLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
 }
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
@@ -199,7 +215,8 @@ void Ext_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
 void Ext_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_ShiftQ_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftQ_QK(layer_idx, from, locs); });
 }
 
 void Ext_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
@@ -212,13 +229,15 @@ void Ext_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
 void Ext_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_ShiftK_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftK_QK(layer_idx, from, locs); });
 }
 
 void Ext_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_Unshift_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task(
+      [=]() { Internal_Unshift_QK(layer_idx, from, locs); });
 }
 
 void Ext_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
@@ -238,7 +257,8 @@ void Ext_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
 void Ext_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_ShiftP_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftP_PV(layer_idx, from, locs); });
 }
 
 void Ext_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
@@ -251,13 +271,15 @@ void Ext_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
 void Ext_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_ShiftV_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftV_PV(layer_idx, from, locs); });
 }
 
 void Ext_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_Unshift_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task(
+      [=]() { Internal_Unshift_PV(layer_idx, from, locs); });
 }
 
 void Ext_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {

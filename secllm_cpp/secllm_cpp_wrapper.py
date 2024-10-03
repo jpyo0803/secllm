@@ -3,20 +3,13 @@ import torch
 import cupy
 from enum import Enum
 
-class ProjectionType(Enum):
-  Q = 0
-  K = 1
-  V = 2
-  O = 3
-  Gate = 4
-  Up = 5
-  Down = 6
+
 
 
 SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
-MAX_NUM_OPERATIONS = 92
+MAX_NUM_OPERATIONS = 99
 MAX_NUM_INPUTS = 3
 
 
@@ -30,6 +23,15 @@ def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
 
 
 class SecLLMCppWrapper:
+  class ProjectionType(Enum):
+    Q = 0
+    K = 1
+    V = 2
+    O = 3
+    Gate = 4
+    Up = 5
+    Down = 6
+
   def __new__(cls, config, enc_key_pool_size):
     if not hasattr(cls, 'instance'):
       cls._instance = super().__new__(cls)
@@ -91,11 +93,11 @@ class SecLLMCppWrapper:
         output will be stored in dst
     '''
 
-    assert cls.shape_bookkeeper[gate_in] is not None
-    assert cls.shape_bookkeeper[up_in] is not None
-    assert cls.shape_bookkeeper[gate_in] == cls.shape_bookkeeper[up_in]
+    assert cls.shape_bookkeeper_float[gate_in] is not None
+    assert cls.shape_bookkeeper_float[up_in] is not None
+    assert cls.shape_bookkeeper_float[gate_in] == cls.shape_bookkeeper_float[up_in]
     cls.TransportShape(gate_in, dst, cls.shape_bookkeeper_float, cls.shape_bookkeeper_float) # float to float
-    cls.shape_bookkeeper[up_in] = None
+    cls.shape_bookkeeper_float[up_in] = None
 
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_SwiGLU(gate_in, up_in, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
@@ -121,11 +123,11 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): elementwise add
         output will be stored in dst
     '''
-    assert cls.shape_bookkeeper[src1] is not None
-    assert cls.shape_bookkeeper[src2] is not None
-    assert cls.shape_bookkeeper[src1] == cls.shape_bookkeeper[src2]
+    assert cls.shape_bookkeeper_float[src1] is not None
+    assert cls.shape_bookkeeper_float[src2] is not None
+    assert cls.shape_bookkeeper_float[src1] == cls.shape_bookkeeper_float[src2]
     cls.TransportShape(src1, dst, cls.shape_bookkeeper_float, cls.shape_bookkeeper_float) # float to float
-    cls.shape_bookkeeper[src2] = None
+    cls.shape_bookkeeper_float[src2] = None
 
     dst = torch.tensor(dst, dtype=torch.int32)
 
@@ -295,7 +297,7 @@ class SecLLMCppWrapper:
     shape_list = torch.tensor(shape, dtype=torch.int32)
     out = torch.empty(shape, dtype=torch.uint32)
 
-    cls.lib.Ext_BookKeeperLoad_Uint32(loc, cast(out.data_ptr(), POINTER(c_int)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperLoad_Uint32(loc, cast(out.data_ptr(), POINTER(c_uint32)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
   
@@ -318,7 +320,7 @@ class SecLLMCppWrapper:
     # be careful src is in int64
     cls.TransportShape(src, dst, cls.shape_bookkeeper_float, cls.shape_bookkeeper_float) # float to float
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ReplicateTensorFloat(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
+    cls.lib.Ext_ReplicateTensor_Float(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
   @classmethod
   def GetCprngTensor(cls, shape):
@@ -332,7 +334,8 @@ class SecLLMCppWrapper:
     '''
         NOTE(jpyo0803): Set enc_key_pool and precomputed_dec_key
     '''
-    assert type <= 6
+    assert enc_key_pool.dtype == torch.int32
+    assert dec_key.dtype == torch.int32
     cls.lib.Ext_SetEncKeyAndDecKey(layer_idx, cast(enc_key_pool.data_ptr(), POINTER(c_int)), cast(dec_key.data_ptr(), POINTER(c_int)), type.value)
 
   @classmethod
@@ -340,7 +343,6 @@ class SecLLMCppWrapper:
     '''
         NOTE(jpyo0803): Set weight scales
     '''
-    assert type <= 6
     assert weight_scales.dtype == torch.float32
 
     cls.lib.Ext_SetLinearWeightScales(layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type.value)
@@ -483,7 +485,7 @@ class SecLLMCppWrapper:
     '''
     cls.TransportShape(src, dst, cls.shape_bookkeeper_int32, cls.shape_bookkeeper_float)
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_DequantizeQK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Dequantize_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Unshift_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -499,9 +501,17 @@ class SecLLMCppWrapper:
     '''
         NOTE(jpyo0803): Dequantize PV
     '''
-    cls.TransportShape(src, dst, cls.shape_bookkeeper_int32, cls.shape_bookkeeper_float)
+    src_shape = cls.shape_bookkeeper_int32[src]
+    cls.shape_bookkeeper_int32[src] = None
+
+    # Transpose the src_shape of dim 1 and dim 2 and merge the last two dimensions
+    new_shape = [src_shape[0], src_shape[2], src_shape[1] * src_shape[3]]
+    for e in dst:
+      assert cls.shape_bookkeeper_float[e] is None
+      cls.shape_bookkeeper_float[e] = new_shape
+    
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_DequantizePV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Dequantize_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def SetAttentionMask(cls, attn_mask):

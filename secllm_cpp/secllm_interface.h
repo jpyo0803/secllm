@@ -38,13 +38,16 @@ void Ext_Reset();
 
 // TODO(jpyo0803): Where is its declaration?
 void Ext_BookKeeperStore_Float(int loc, float* data, int shape_len, int* shape);
-void Ext_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len, int* shape);
-void Ext_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len, int* shape);
+void Ext_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
+                               int* shape);
+void Ext_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
+                                int* shape);
 void Ext_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len, int* shape);
 
 void Ext_BookKeeperLoad_Float(int loc, float* out, int shape_len, int* shape);
 void Ext_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len, int* shape);
-void Ext_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len, int* shape);
+void Ext_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
+                               int* shape);
 void Ext_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len, int* shape);
 
 void Ext_ReplicateTensor_Float(int from, int* to, int to_len);
@@ -68,12 +71,11 @@ void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
 void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type);
 
-void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
-                                   int type);
+void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len,
+                                    int* to, int type);
 
 void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
                             float k_output_scale, float v_output_scale);
-
 
 void Ext_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to);
 void Ext_ShiftQ_QK(int layer_idx, int from, int to_len, int* to);

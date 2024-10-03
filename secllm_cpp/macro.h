@@ -4,6 +4,9 @@
 #include <cstdlib>  // For std::abort()
 #include <iostream>
 
+#define DEBUG_PRINT 0
+#define CHECK_SANITY 0
+
 // Custom assert that always checks, even in release mode
 #define ASSERT_ALWAYS(cond, msg)                                               \
   do {                                                                         \

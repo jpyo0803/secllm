@@ -8,11 +8,12 @@
 
 namespace jpyo0803 {
 std::pair<std::vector<int8_t>, std::vector<float>>
-DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& in, int B, int M, int N);
+DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& in, int B,
+                                        int M, int N);
 
 void DequantizeActivationWPerChannelAPerChannel(
     std::vector<float>& out,
-    const std::vector<int32_t>& in,            // Quantized activations (B x dim)
+    const std::vector<int32_t>& in,      // Quantized activations (B x dim)
     const std::vector<float>& w_scales,  // Weight scales (dim)
     const std::vector<float>& a_scales,  // Activation scales (B)
     size_t B,                            // Batch size

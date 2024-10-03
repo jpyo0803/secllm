@@ -144,14 +144,14 @@ TEST(TransposeAndReshapeTest, TransposeAndReshapeTest) {
   tensor.PrintAsTorchStyle();
   tensor.PrintShape();
 
-  auto tensor2 = tensor.Transpose(1, 2);
-  tensor2.PrintAsTorchStyle();
-  tensor2.PrintShape();
+  tensor.Transpose(1, 2);
+  tensor.PrintAsTorchStyle();
+  tensor.PrintShape();
 
   std::vector<int> new_shape{1, 12, 2};
-  auto tensor3 = tensor2.Reshape(new_shape);
-  tensor3.PrintAsTorchStyle();
-  tensor3.PrintShape();
+  tensor.Reshape(new_shape);
+  tensor.PrintAsTorchStyle();
+  tensor.PrintShape();
 }
 
 int main(int argc, char** argv) {

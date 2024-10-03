@@ -229,6 +229,15 @@ class SqLlamaDecoderLayer(nn.Module):
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         # self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+
+        self.q_proj_weight_buffer = None
+        self.k_proj_weight_buffer = None
+        self.v_proj_weight_buffer = None
+        self.o_proj_weight_buffer = None
+        
+        self.gate_proj_weight_buffer = None
+        self.up_proj_weight_buffer = None
+        self.down_proj_weight_buffer = None
  
     def _init_rope_delegate(self):
         assert self.config.rope_scaling is None
@@ -283,7 +292,7 @@ class SqLlamaDecoderLayer(nn.Module):
         secllm_cpp_wrapper.SetAttentionMask(attention_mask)
         secllm_cpp_wrapper.SetBatchSizeAndTokenLength(self.layer_idx, self.bsz, self.q_len)
 
-        secllm_cpp_wrapper.BookKeeperStore(self.layer_idx, 1, 0, hidden_states.to(torch.float32)) # operation 1, input 0
+        secllm_cpp_wrapper.BookKeeperStore_Float(self.layer_idx, 1, 0, hidden_states.to(torch.float32)) # operation 1, input 0
 
         # residual = hidden_states
 
@@ -445,10 +454,10 @@ class SqLlamaDecoderLayer(nn.Module):
         # hidden_states = self.secllm._secllm_cpp_wrapper.ElementwiseAdd(hidden_states, residual)
         self.secllm._task_scheduler(self.layer_idx)
 
-        hidden_states = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 91, 0)
+        hidden_states = secllm_cpp_wrapper.BookKeeperLoad_Float(self.layer_idx, 98, 0)
         outputs = (hidden_states,)
 
-        self_attn_weights = secllm_cpp_wrapper.BookKeeperLoad(self.layer_idx, 91, 1)
+        self_attn_weights = secllm_cpp_wrapper.BookKeeperLoad_Float(self.layer_idx, 98, 1)
         if not output_attentions:
             self_attn_weights = None
 
@@ -498,18 +507,18 @@ class SqLlamaDecoderLayer(nn.Module):
 
         precomputed_up_proj_dec_key = cupy.matmul(cupy.from_dlpack(up_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.up_proj.weight.t().to('cuda:0')))
         precomputed_up_proj_dec_key = torch.from_dlpack(precomputed_up_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, up_proj_enc_key_pool, precomputed_up_proj_dec_key, secllm_cpp_wrapper.ProjectionType.UP)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.up_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.UP)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, up_proj_enc_key_pool, precomputed_up_proj_dec_key, secllm_cpp_wrapper.ProjectionType.Up)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.up_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.Up)
 
         precomputed_gate_proj_dec_key = cupy.matmul(cupy.from_dlpack(gate_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.gate_proj.weight.t().to('cuda:0')))
         precomputed_gate_proj_dec_key = torch.from_dlpack(precomputed_gate_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, gate_proj_enc_key_pool, precomputed_gate_proj_dec_key, secllm_cpp_wrapper.ProjectionType.GATE)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.gate_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.GATE)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, gate_proj_enc_key_pool, precomputed_gate_proj_dec_key, secllm_cpp_wrapper.ProjectionType.Gate)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.gate_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.Gate)
 
         precomputed_down_proj_dec_key = cupy.matmul(cupy.from_dlpack(down_proj_enc_key_pool.to('cuda:0')), cupy.from_dlpack(self.down_proj.weight.t().to('cuda:0')))
         precomputed_down_proj_dec_key = torch.from_dlpack(precomputed_down_proj_dec_key).to('cpu')
-        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, down_proj_enc_key_pool, precomputed_down_proj_dec_key, secllm_cpp_wrapper.ProjectionType.DOWN)
-        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.down_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.DOWN)
+        secllm_cpp_wrapper.SetEncKeyAndDecKey(self.layer_idx, down_proj_enc_key_pool, precomputed_down_proj_dec_key, secllm_cpp_wrapper.ProjectionType.Down)
+        secllm_cpp_wrapper.SetLinearWeightScales(self.layer_idx, self.down_proj.weight_scales.to(torch.float32), secllm_cpp_wrapper.ProjectionType.Down)
 
         secllm_cpp_wrapper.SetQKVOutputScales(self.layer_idx, self.q_output_scale, self.k_output_scale, self.v_output_scale)
 

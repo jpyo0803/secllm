@@ -11,7 +11,6 @@
 #define MODULO (1LL << 32)
 #define SHIFT_AMT 129
 
-#define DEBUG 0
 #define MULTKEY_POOL_SIZE 1024
 
 #include "macro.h"
@@ -99,8 +98,9 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       uint64_t ab = (uint64_t)x_mult_key_pool_[i] * y_mult_key_pool_[j];
       precomputed_key_inv_[i][j] =
           (uint32_t)RepeatedSqr(ab, (1LL << 31) - 1, MODULO);
-#if DEBUG == 1
+#if CHECK_SANITY == 1
       uint64_t test = (uint64_t)precomputed_key_inv_[i][j] * ab % MODULO;
+      ASSERT_ALWAYS(test == 1, "Key inverse is not correct!");
       if (test != 1) {
         std::cout << "Key inverse is not correct!" << std::endl;
         exit(-1);
@@ -108,9 +108,74 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
 #endif
     }
   }
+
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(q_enc_key_pool_.size() == enc_key_pool_size_,
+                "q_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(q_enc_key_pool_.at(0).size() == hidden_size_,
+                "q_enc_key_pool_ hidden size is not correct!");
+  ASSERT_ALWAYS(k_enc_key_pool_.size() == enc_key_pool_size_,
+                "k_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(k_enc_key_pool_.at(0).size() == hidden_size_,
+                "k_enc_key_pool_ hidden size is not correct!");
+  ASSERT_ALWAYS(v_enc_key_pool_.size() == enc_key_pool_size_,
+                "v_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(v_enc_key_pool_.at(0).size() == hidden_size_,
+                "v_enc_key_pool_ hidden size is not correct!");
+  ASSERT_ALWAYS(o_enc_key_pool_.size() == enc_key_pool_size_,
+                "o_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(o_enc_key_pool_.at(0).size() == hidden_size_,
+                "o_enc_key_pool_ hidden size is not correct!");
+  ASSERT_ALWAYS(up_enc_key_pool_.size() == enc_key_pool_size_,
+                "up_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(up_enc_key_pool_.at(0).size() == hidden_size_,
+                "up_enc_key_pool_ hidden size is not correct!");
+  ASSERT_ALWAYS(gate_enc_key_pool_.size() == enc_key_pool_size_,
+                "gate_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(gate_enc_key_pool_.at(0).size() == hidden_size_,
+                "gate_enc_key_pool_ hidden size is not correct!");
+  ASSERT_ALWAYS(down_enc_key_pool_.size() == enc_key_pool_size_,
+                "down_enc_key_pool_ size is not correct!");
+  ASSERT_ALWAYS(down_enc_key_pool_.at(0).size() == intermediate_size_,
+                "down_enc_key_pool_ intermediate size is not correct!");
+
+  ASSERT_ALWAYS(q_dec_key_.size() == enc_key_pool_size_,
+                "q_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(q_dec_key_.at(0).size() == num_attention_heads_ * head_dim_,
+                "q_dec_key_ hidden size is not correct!");
+  ASSERT_ALWAYS(k_dec_key_.size() == enc_key_pool_size_,
+                "k_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(k_dec_key_.at(0).size() == num_key_value_heads_ * head_dim_,
+                "k_dec_key_ hidden size is not correct!");
+  ASSERT_ALWAYS(v_dec_key_.size() == enc_key_pool_size_,
+                "v_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(v_dec_key_.at(0).size() == num_key_value_heads_ * head_dim_,
+                "v_dec_key_ hidden size is not correct!");
+  ASSERT_ALWAYS(o_dec_key_.size() == enc_key_pool_size_,
+                "o_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(o_dec_key_.at(0).size() == hidden_size_,
+                "o_dec_key_ hidden size is not correct!");
+  ASSERT_ALWAYS(up_dec_key_.size() == enc_key_pool_size_,
+                "up_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(up_dec_key_.at(0).size() == intermediate_size_,
+                "up_dec_key_ intermediate size is not correct!");
+  ASSERT_ALWAYS(gate_dec_key_.size() == enc_key_pool_size_,
+                "gate_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(gate_dec_key_.at(0).size() == intermediate_size_,
+                "gate_dec_key_ intermediate size is not correct!");
+  ASSERT_ALWAYS(down_dec_key_.size() == enc_key_pool_size_,
+                "down_dec_key_ size is not correct!");
+  ASSERT_ALWAYS(down_dec_key_.at(0).size() == hidden_size_,
+                "down_dec_key_ hidden size is not correct!");
+#endif
 }
 
 void DecoderLayer::Reset() {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Reset() Enter"
+            << std::endl;
+#endif
+
   bsz_ = 0;
   present_token_len_ = 0;
   culmulative_token_len_ = 0;
@@ -144,10 +209,18 @@ void DecoderLayer::Reset() {
 
   is_qk_dec_key_generated_ = false;
   is_pv_dec_key_generated_ = false;
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Reset() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::SetLinearWeightScales(float* weight_scales, int len,
                                          ProjectionType type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] SetLinearWeightScales() Enter" << std::endl;
+#endif
   switch (type) {
     case ProjectionType::kQ:
       q_weight_scales_.assign(weight_scales, weight_scales + len);
@@ -174,11 +247,20 @@ void DecoderLayer::SetLinearWeightScales(float* weight_scales, int len,
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
   }
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] SetLinearWeightScales() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::SetEncKeyAndDecKey(
     int* src_enc_key_pool, std::vector<std::vector<int>>& dst_enc_key_pool,
     int* src_dec_key, std::vector<std::vector<int>>& dst_dec_key) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] Inner SetEncKeyAndDecKey() Enter" << std::endl;
+#endif
   for (int i = 0; i < dst_enc_key_pool.size(); ++i) {
     for (int j = 0; j < dst_enc_key_pool[0].size(); ++j) {
       dst_enc_key_pool[i][j] =
@@ -191,10 +273,19 @@ void DecoderLayer::SetEncKeyAndDecKey(
       dst_dec_key[i][j] = src_dec_key[i * dst_dec_key[0].size() + j];
     }
   }
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] Inner SetEncKeyAndDecKey() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
                                       ProjectionType type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] Outer SetEncKeyAndDecKey() Enter" << std::endl;
+#endif
   switch (type) {
     case ProjectionType::kQ:
       SetEncKeyAndDecKey(src_enc_key_pool, q_enc_key_pool_, src_dec_key,
@@ -228,11 +319,19 @@ void DecoderLayer::SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] Outer SetEncKeyAndDecKey() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
                                             std::shared_ptr<Tensor<float>> in,
                                             ProjectionType type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] QuantizeLinearActivation() Enter" << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -269,11 +368,19 @@ void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] QuantizeLinearActivation() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                                            std::shared_ptr<Tensor<int8_t>> in,
                                            ProjectionType type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] EncryptLinearActivation() Enter" << std::endl;
+#endif
   // For encrypted linear layers, matmul is done in int32
 
   auto shape = in->shape();
@@ -318,12 +425,19 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
       exit(-1);
   }
 
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(sampled_enc_key_index->empty(),
                 "sampled_enc_key_index is not empty!");
+#endif
 
   for (int i = 0; i < B * M; ++i) {
     sampled_enc_key_index->push_back(GenerateCPRNG() % enc_key_pool_size_);
   }
+
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(sampled_enc_key_index->size() == B * M,
+                "sampled_enc_key_index size is not correct!");
+#endif
 
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
@@ -333,16 +447,30 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
         out->data()[b * M * N + m * N + n] =
             static_cast<int>(in->data()[b * M * N + m * N + n]) +
             enc_key_pool->at(enc_key_index).at(n);
+
+#if CHECK_SANITY == 1
+        int enc_test = enc_key_pool->at(enc_key_index).at(n) +
+                       static_cast<int>(in->data()[b * M * N + m * N + n]);
+        ASSERT_ALWAYS(out->data()[b * M * N + m * N + n] == enc_test,
+                      "Encrypted value is not correct!");
+#endif
       }
     }
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] EncryptLinearActivation() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                                            std::shared_ptr<Tensor<int32_t>> in,
                                            ProjectionType type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] DecryptLinearActivation() Enter" << std::endl;
+#endif
   // Note that output is int32
-
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -350,11 +478,6 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
 
   std::vector<std::vector<int>>* dec_key = nullptr;
   std::vector<int>* sampled_enc_key_index = nullptr;
-
-  ASSERT_ALWAYS(dec_key->size() == B && dec_key->at(0).size() == M * N,
-                "dec_key size is not correct!");
-  ASSERT_ALWAYS(sampled_enc_key_index->size() == B * M,
-                "sampled_enc_key_index size is not correct!");
 
   switch (type) {
     case ProjectionType::kQ:
@@ -390,6 +513,11 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
       exit(-1);
   }
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(sampled_enc_key_index->size() == B * M,
+                "sampled_enc_key_index size is not correct!");
+#endif
+
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
@@ -401,11 +529,20 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
   }
 
   sampled_enc_key_index->clear();
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] DecryptLinearActivation() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::DequantizeLinearActivation(
     std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<int32_t>> in,
     ProjectionType type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] DequantizeLinearActivation() Enter" << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -450,18 +587,35 @@ void DecoderLayer::DequantizeLinearActivation(
 
   DequantizeActivationWPerChannelAPerChannel(
       out->data(), in->data(), *weight_scales, *act_scales, B * M, N);
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] DequantizeLinearActivation() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::SetQKVOutputScales(float q_output_scale,
                                       float k_output_scale,
                                       float v_output_scale) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] SetQKVOutputScales() Enter"
+            << std::endl;
+#endif
   q_output_scale_ = q_output_scale;
   k_output_scale_ = k_output_scale;
   v_output_scale_ = v_output_scale;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] SetQKVOutputScales() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeQ_QK() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -470,10 +624,18 @@ void DecoderLayer::QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, q_output_scale_);
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeQ_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -499,10 +661,18 @@ void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
     out->data().at(i) =
         static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeK_QK() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -511,10 +681,18 @@ void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, k_output_scale_);
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeK_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -544,10 +722,18 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
     out->data().at(i) =
         static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -571,10 +757,18 @@ void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
       }
     }
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
                                  std::shared_ptr<Tensor<int32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_QK() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -586,10 +780,18 @@ void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
   float scale =
       q_output_scale_ * k_output_scale_ / sqrtf(head_dim_);  // Correct
   DequantizeActivationPerTensor(out->data(), in->data(), len, scale);
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeP_PV() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -598,10 +800,18 @@ void DecoderLayer::QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, 1.0 / 127);
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeP_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -629,10 +839,18 @@ void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
     out->data().at(i) =
         static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeV_PV() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -641,10 +859,19 @@ void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, v_output_scale_);
+#if DEBUG_PRINT == 1
+
+  std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeV_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -673,10 +900,18 @@ void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
     out->data().at(i) =
         static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -700,10 +935,18 @@ void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
       }
     }
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::Dequantize_PV(std::shared_ptr<Tensor<float>> out,
                                  std::shared_ptr<Tensor<int32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_PV() Enter"
+            << std::endl;
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -715,18 +958,33 @@ void DecoderLayer::Dequantize_PV(std::shared_ptr<Tensor<float>> out,
   float scale = 1.0 / 127 * v_output_scale_;  // Correct
   DequantizeActivationPerTensor(out->data(), in->data(), len, scale);
 
-  auto tmp_tensor2 = out->Transpose(1, 2);
-  auto tmp_tensor3 = tmp_tensor2.Reshape({B, K, M * N});
-  out->data() = std::move(tmp_tensor3.data());
+  out->Transpose(1, 2);
+  out->Reshape({B, K, M * N});
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::SetBatchSizeAndTokenLength(int bsz, int token_len) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] SetBatchSizeAndTokenLength() Enter" << std::endl;
+#endif
   bsz_ = bsz;
   present_token_len_ = token_len;
   culmulative_token_len_ += token_len;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] SetBatchSizeAndTokenLength() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::GenerateSecretKey_QK() {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateSecretKey_QK() Enter" << std::endl;
+#endif
   ASSERT_ALWAYS(is_qk_key_generated_ == false, "QK key is already generated!");
 
   if (bsz_ == 0) {
@@ -769,57 +1027,35 @@ void DecoderLayer::GenerateSecretKey_QK() {
     }
   }
 
-#if DEBUG == 1
-  auto start = std::chrono::high_resolution_clock::now();
-#endif
   // Generate Mult keys
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
       for (int n = 0; n < present_token_len_; ++n) {
         int index = GenerateCPRNG() % MULTKEY_POOL_SIZE;
         qk_x_mult_key_.at(b).at(m).emplace_back(x_mult_key_pool_[index], index);
-#if (DEBUG == 1)
-        if (std::gcd(qk_x_mult_key_.at(b).at(m).at(n).first, MODULO) != 1) {
-          std::cout << "Mult key is not coprime!" << std::endl;
-          exit(-1);
-        }
-#endif
       }
     }
     for (int m = 0; m < num_key_value_heads_; ++m) {
       for (int n = 0; n < present_token_len_; ++n) {
         int index = GenerateCPRNG() % MULTKEY_POOL_SIZE;
         qk_y_mult_key_.at(b).at(m).emplace_back(y_mult_key_pool_[index], index);
-#if (DEBUG == 1)
-        if (std::gcd(qk_y_mult_key_.at(b).at(m).at(n).first, MODULO) != 1) {
-          std::cout << "Mult key is not coprime!" << std::endl;
-          exit(-1);
-        }
-#endif
       }
     }
   }
 
-#if DEBUG == 1
-  auto end = std::chrono::high_resolution_clock::now();
-  std::cout << "Mult key generation time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                     start)
-                   .count()
-            << " ms" << std::endl;
-#endif
-  // print keys dimensions
-  // std::cout << "qk_x_mult_key: " << qk_x_mult_key_.size() << " / " << qk_x_mult_key_[0].size() << " / " << qk_x_mult_key_[0][0].size() << std::endl;
-  // std::cout << "qk_y_mult_key: " << qk_y_mult_key_.size() << " / " << qk_y_mult_key_[0].size() << " / " << qk_y_mult_key_[0][0].size() << std::endl;
-  // std::cout << "qk_x_add_key: " << qk_x_add_key_.size() << " / " << qk_x_add_key_[0].size() << " / " << qk_x_add_key_[0][0].size() << std::endl;
-  // std::cout << "qk_y_add_key: " << qk_y_add_key_.size() << " / " << qk_y_add_key_[0].size() << " / " << qk_y_add_key_[0][0].size() << std::endl;
-  // exit(-1);
-
   is_qk_key_generated_ = true;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateSecretKey_QK() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::GenerateDecryptionKey_QK(
     std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecryptionKey_QK() Enter" << std::endl;
+#endif
   ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
   ASSERT_ALWAYS(is_qk_dec_key_generated_ == false,
                 "QK decryption key is already generated!");
@@ -899,10 +1135,18 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   }
 
   is_qk_dec_key_generated_ = true;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecryptionKey_QK() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_QK() Enter"
+            << std::endl;
+#endif
   ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
 
   auto shape = in->shape();
@@ -924,10 +1168,18 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_QK() Enter"
+            << std::endl;
+#endif
   ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
 
   auto shape = in->shape();
@@ -952,10 +1204,19 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_QK() Enter"
+            << std::endl;
+#endif
   ASSERT_ALWAYS(is_qk_dec_key_generated_,
                 "QK decryption key is not generated!");
 
@@ -989,9 +1250,19 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
   is_qk_key_generated_ = false;
   is_qk_dec_key_generated_ = false;
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_QK() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::GenerateSecretKey_PV() {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateSecretKey_PV() Enter" << std::endl;
+#endif
+
   ASSERT_ALWAYS(is_pv_key_generated_ == false, "PV key is already generated!");
 
   if (bsz_ == 0) {
@@ -1015,12 +1286,6 @@ void DecoderLayer::GenerateSecretKey_PV() {
       for (int n = 0; n < present_token_len_; ++n) {
         int index = GenerateCPRNG() % MULTKEY_POOL_SIZE;
         pv_x_mult_key_.at(b).at(m).emplace_back(x_mult_key_pool_[index], index);
-#if (DEBUG == 1)
-        if (std::gcd(pv_x_mult_key_.at(b).at(m).at(n).first, MODULO) != 1) {
-          std::cout << "Mult key is not coprime!" << std::endl;
-          exit(-1);
-        }
-#endif
       }
     }
   }
@@ -1038,12 +1303,6 @@ void DecoderLayer::GenerateSecretKey_PV() {
           int index = GenerateCPRNG() % MULTKEY_POOL_SIZE;
           pv_y_mult_key_.at(b).at(m).emplace_back(y_mult_key_pool_[index],
                                                   index);
-#if (DEBUG == 1)
-          if (std::gcd(pv_y_mult_key_.at(b).at(m).at(n).first, MODULO) != 1) {
-            std::cout << "Mult key is not coprime!" << std::endl;
-            exit(-1);
-          }
-#endif
         }
       }
     }
@@ -1078,18 +1337,21 @@ void DecoderLayer::GenerateSecretKey_PV() {
     }
   }
 
-  // print keys dimensions
-  // std::cout << "pv_x_mult_key: " << pv_x_mult_key_.size() << " / " << pv_x_mult_key_[0].size() << " / " << pv_x_mult_key_[0][0].size() << std::endl;
-  // std::cout << "pv_y_mult_key: " << pv_y_mult_key_.size() << " / " << pv_y_mult_key_[0].size() << " / " << pv_y_mult_key_[0][0].size() << std::endl;
-  // std::cout << "pv_x_add_key: " << pv_x_add_key_.size() << " / " << pv_x_add_key_[0].size() << " / " << pv_x_add_key_[0][0].size() << std::endl;
-  // std::cout << "pv_y_add_key: " << pv_y_add_key_.size() << " / " << pv_y_add_key_[0].size() << " / " << pv_y_add_key_[0][0].size() << std::endl;
-  // exit(-1);
-
   is_pv_key_generated_ = true;
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateSecretKey_PV() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::GenerateDecryptionKey_PV(
     std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecryptionKey_PV() Enter" << std::endl;
+#endif
+
   ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
   ASSERT_ALWAYS(is_pv_dec_key_generated_ == false,
                 "PV decryption key is already generated!");
@@ -1184,17 +1446,20 @@ void DecoderLayer::GenerateDecryptionKey_PV(
 
   // d_row[b][m][k] = x_mult[b][m][k] * sum_n(y_add[b][m/4][n] * x[b][m][k][n]), expected dim: [1, 32, 2048]
 
-  // Print keys
-  // std::cout << "pv_dec_row: " << pv_dec_row_.size() << " / " << pv_dec_row_[0].size() << " / " << pv_dec_row_[0][0].size() << std::endl;
-  // std::cout << "pv_dec_col: " << pv_dec_col_.size() << " / " << pv_dec_col_[0].size() << " / " << pv_dec_col_[0][0].size() << std::endl;
-  // std::cout << "pv_dec_glob: " << pv_dec_glob_.size() << " / " << pv_dec_glob_[0].size() << std::endl;
-  // exit(-1);
-
   is_pv_dec_key_generated_ = true;
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecryptionKey_PV() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_PV() Enter"
+            << std::endl;
+#endif
   ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
 
   auto shape = in->shape();
@@ -1217,10 +1482,19 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_PV() Enter"
+            << std::endl;
+#endif
   ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
 
   auto shape = in->shape();
@@ -1245,10 +1519,19 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_PV() Exit"
+            << std::endl;
+#endif
 }
 
 void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Enter"
+            << std::endl;
+#endif
   ASSERT_ALWAYS(is_pv_dec_key_generated_,
                 "PV decryption key is not generated!");
 
@@ -1282,6 +1565,11 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
   // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
   is_pv_dec_key_generated_ = false;
   is_pv_key_generated_ = false;
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Exit"
+            << std::endl;
+#endif
 }
 
 }  // namespace jpyo0803

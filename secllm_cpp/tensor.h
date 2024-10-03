@@ -160,32 +160,40 @@ class Tensor {
   }
 
   // Member function to transpose the tensor
-  Tensor<T> Transpose(int dim1, int dim2) {
+  void Transpose(int dim1, int dim2) {
     if (dim1 >= shape_.size() || dim2 >= shape_.size()) {
       throw std::runtime_error("Invalid dimensions for transpose.");
     }
 
+    // Step 1: Create the new shape by swapping the dimensions
     std::vector<int> new_shape = shape_;
     std::swap(new_shape[dim1], new_shape[dim2]);
 
-    Tensor<T> result(new_shape);
+    // Step 2: Create a temporary tensor with the new shape
+    Tensor<T> temp(new_shape);
 
-    // Transpose the data by swapping the specified dimensions
+    // Step 3: Calculate strides for both the original and the new shape
     std::vector<int> strides = CalculateStrides(shape_);
     std::vector<int> new_strides = CalculateStrides(new_shape);
 
+    // Step 4: Fill the new tensor with transposed data
     for (int i = 0; i < data_.size(); ++i) {
       std::vector<int> old_indices = UnravelIndex(i, strides);
       std::swap(old_indices[dim1], old_indices[dim2]);
       int new_idx = RavelIndex(old_indices, new_strides);
-      result.data_[new_idx] = data_[i];
+      temp.data_[new_idx] = data_[i];
     }
 
-    return result;
+    // Step 5: Move the temporary tensor's data and shape into the current object
+    data_ = std::move(temp.data_);  // Move the data into the current tensor
+    shape_ =
+        std::move(temp.shape_);  // Move the new shape into the current tensor
+
+    // Now the current tensor has the transposed data and shape
   }
 
   // Member function to reshape the tensor
-  Tensor<T> Reshape(const std::vector<int>& new_shape) {
+  void Reshape(const std::vector<int>& new_shape) {
     int total_elements = std::accumulate(new_shape.begin(), new_shape.end(), 1,
                                          std::multiplies<int>());
     if (total_elements != num_elements()) {
@@ -193,11 +201,11 @@ class Tensor {
           "New shape must have the same number of elements as the original.");
     }
 
-    return Tensor<T>(new_shape, data_);
+    shape_ = new_shape;  // Modify shape in-place
   }
 
  private:
-  const std::vector<int> shape_;
+  std::vector<int> shape_;
   std::vector<T> data_;
 
  private:

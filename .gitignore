@@ -11,3 +11,4 @@ datasets/*.zst
 .vscode/
 
 hf_token
+test/
