@@ -4,8 +4,11 @@
 
 #include "aes_stream.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <random>  // for std::default_random_engine
+
 #include "func_utils.h"
 
 #define MODULO (1LL << 32)
@@ -14,6 +17,10 @@
 #define MULTKEY_POOL_SIZE 1024
 
 #include "macro.h"
+
+namespace {
+std::default_random_engine engine(0);
+}
 
 namespace jpyo0803 {
 
@@ -107,6 +114,10 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       }
 #endif
     }
+  }
+
+  for (int i = 0; i < head_dim_; ++i) {
+    qk_permuted_index_.push_back(i);
   }
 
 #if CHECK_SANITY == 1
@@ -985,7 +996,10 @@ void DecoderLayer::GenerateSecretKey_QK() {
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateSecretKey_QK() Enter" << std::endl;
 #endif
+
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_key_generated_ == false, "QK key is already generated!");
+#endif
 
   if (bsz_ == 0) {
     std::cout << "Batch size is not set!" << std::endl;
@@ -1043,6 +1057,8 @@ void DecoderLayer::GenerateSecretKey_QK() {
     }
   }
 
+  std::shuffle(qk_permuted_index_.begin(), qk_permuted_index_.end(), engine);
+
   is_qk_key_generated_ = true;
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
@@ -1056,14 +1072,13 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecryptionKey_QK() Enter" << std::endl;
 #endif
+
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
   ASSERT_ALWAYS(is_qk_dec_key_generated_ == false,
                 "QK decryption key is already generated!");
-
-  if (bsz_ == 0) {
-    std::cout << "Batch size is not set!" << std::endl;
-    exit(-1);
-  }
+  ASSERT_ALWAYS(bsz_ != 0, "Batch size is not set!");
+#endif
 
   auto x_shape = x->shape();
   int X_B = x_shape.at(0);
@@ -1147,20 +1162,28 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_QK() Enter"
             << std::endl;
 #endif
-  ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
   int K = shape.at(2);
   int N = shape.at(3);
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(qk_permuted_index_.size() == N,
+                "Permutation size is not matched!");
+#endif
+
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
           // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          out->data().at(b * M * K * N + m * K * N + k * N +
+                         qk_permuted_index_.at(n)) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   qk_x_mult_key_.at(b).at(m).at(k).first +
               qk_x_add_key_.at(b).at(m).at(n);
@@ -1180,7 +1203,10 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_QK() Enter"
             << std::endl;
 #endif
+
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_key_generated_, "QK key is not generated!");
+#endif
 
   auto shape = in->shape();
   int B = shape.at(0);
@@ -1194,7 +1220,8 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          out->data().at(b * M * K * N + m * K * N + k * N +
+                         qk_permuted_index_.at(n)) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   qk_y_mult_key_.at(b).at(m).at(k_dim - K + k).first +
               qk_y_add_key_.at(b).at(m).at(n);
@@ -1217,8 +1244,11 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_QK() Enter"
             << std::endl;
 #endif
+
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_dec_key_generated_,
                 "QK decryption key is not generated!");
+#endif
 
   auto shape = in->shape();
   int B = shape.at(0);
@@ -1263,12 +1293,10 @@ void DecoderLayer::GenerateSecretKey_PV() {
             << "] GenerateSecretKey_PV() Enter" << std::endl;
 #endif
 
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_pv_key_generated_ == false, "PV key is already generated!");
-
-  if (bsz_ == 0) {
-    std::cout << "Batch size is not set!" << std::endl;
-    exit(-1);
-  }
+  ASSERT_ALWAYS(bsz_ != 0, "Batch size is not set!");
+#endif
 
   // pv_x_mult_key: [bsz, num_attention_heads, q_len], and DO NOT ACCUMULATE, expected dim: [1, 32, 2048]
   // pv_y_mult_key: [bsz, num_key_value_heads, head_dim], and DO NOT ACCUMULATE, expected dim: [1, 8, 128]
@@ -1337,6 +1365,16 @@ void DecoderLayer::GenerateSecretKey_PV() {
     }
   }
 
+  if (pv_permuted_index_.empty()) {
+    for (int i = 0; i < present_token_len_; ++i) {
+      pv_permuted_index_.push_back(i);
+    }
+  } else {
+    pv_permuted_index_.push_back(culmulative_token_len_ - 1);
+  }
+
+  std::shuffle(pv_permuted_index_.begin(), pv_permuted_index_.end(), engine);
+
   is_pv_key_generated_ = true;
 
 #if DEBUG_PRINT == 1
@@ -1352,14 +1390,12 @@ void DecoderLayer::GenerateDecryptionKey_PV(
             << "] GenerateDecryptionKey_PV() Enter" << std::endl;
 #endif
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(bsz_ != 0, "Batch size is not set!");
   ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
   ASSERT_ALWAYS(is_pv_dec_key_generated_ == false,
                 "PV decryption key is already generated!");
-
-  if (bsz_ == 0) {
-    std::cout << "Batch size is not set!" << std::endl;
-    exit(-1);
-  }
+#endif
 
   auto x_shape = x->shape();
   int X_B = x_shape.at(0);
@@ -1373,12 +1409,11 @@ void DecoderLayer::GenerateDecryptionKey_PV(
   int Y_K = y_shape.at(2);
   int Y_N = y_shape.at(3);
 
-  if (bsz_ != X_B || bsz_ != Y_B || num_attention_heads_ != X_M ||
-      num_key_value_heads_ != Y_M) {
-    std::cout << "Batch size or num_attention_heads is not matched!"
-              << std::endl;
-    exit(-1);
-  }
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(bsz_ == X_B && bsz_ == Y_B && num_attention_heads_ == X_M &&
+                    num_key_value_heads_ == Y_M,
+                "Batch size or num_attention_heads is not matched!");
+#endif
 
   pv_dec_row_ = std::vector<std::vector<std::vector<uint32_t>>>(
       bsz_, std::vector<std::vector<uint32_t>>(num_attention_heads_));
@@ -1460,8 +1495,9 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_PV() Enter"
             << std::endl;
 #endif
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
-
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1472,7 +1508,8 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          out->data().at(b * M * K * N + m * K * N + k * N +
+                         pv_permuted_index_.at(n)) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   pv_x_mult_key_.at(b).at(m).at(k).first +
               pv_x_add_key_.at(b).at(m).at(n);
@@ -1495,8 +1532,10 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_PV() Enter"
             << std::endl;
 #endif
-  ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_key_generated_, "PV key is not generated!");
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1509,7 +1548,8 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          out->data().at(b * M * K * N + m * K * N +
+                         pv_permuted_index_.at(k) * N + n) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   pv_y_mult_key_.at(b).at(m).at(n).first +
               pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
@@ -1532,9 +1572,11 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Enter"
             << std::endl;
 #endif
+
+#if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_pv_dec_key_generated_,
                 "PV decryption key is not generated!");
-
+#endif
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);

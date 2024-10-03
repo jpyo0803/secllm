@@ -228,6 +228,9 @@ class DecoderLayer {
   bool enable_linear_encryption_;
   bool enable_atten_encryption_;
 
+  std::vector<int> qk_permuted_index_;
+  std::vector<int> pv_permuted_index_;
+
   /*
     enable_linear_encryption & enable_atten_encryption -> Target
     enable_linear_encryption & !enable_atten_encryption -> Motivation, do BMM in CPU side
