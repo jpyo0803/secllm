@@ -625,6 +625,11 @@ void DecoderLayer::DequantizeLinearActivation(
   DequantizeActivationWPerChannelAPerChannel(
       out->data(), in->data(), *weight_scales, *act_scales, B * M, N);
 
+  if (type == ProjectionType::kV) {
+    out->Reshape({B, present_token_len_, num_key_value_heads_, head_dim_});
+    out->Transpose(1, 2);
+  }
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
             << "] DequantizeLinearActivation() Exit" << std::endl;

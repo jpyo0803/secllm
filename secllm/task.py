@@ -713,7 +713,7 @@ class Task27(Task):
     
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
-        dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2)]
+        dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 0)]
         type = self.secllm_cpp_wrapper.ProjectionType.V
         self.secllm_cpp_wrapper.DequantizeLinearActivation(self.layer_idx, src, dst, type)
 
@@ -727,14 +727,14 @@ class Task28(Task):
     # inputs are all floats
     def is_ready(self):
         ready = True
-        for i in range(3):
-            ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Float(self.layer_idx, self.task_id, i)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Float(self.layer_idx, self.task_id, 0)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Float(self.layer_idx, self.task_id, 1)
         return ready
 
     def run(self):
         query_states = self.secllm_cpp_wrapper.BookKeeperLoad_Float(self.layer_idx, self.task_id, 0)
         key_states = self.secllm_cpp_wrapper.BookKeeperLoad_Float(self.layer_idx, self.task_id, 1)
-        value_states = self.secllm_cpp_wrapper.BookKeeperLoad_Float(self.layer_idx, self.task_id, 2)
+        # value_states = self.secllm_cpp_wrapper.BookKeeperLoad_Float(self.layer_idx, self.task_id, 2)
 
         bsz = self.model.layers[self.layer_idx].bsz
         q_len = self.model.layers[self.layer_idx].q_len
@@ -746,18 +746,18 @@ class Task28(Task):
 
         query_states = query_states.view(bsz, q_len, num_heads, head_dim).transpose(1, 2).contiguous()
         key_states = key_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
-        value_states = value_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
+        # value_states = value_states.view(bsz, q_len, num_key_value_heads, head_dim).transpose(1, 2).contiguous()
 
         cos, sin = self.secllm_cpp_wrapper.LlamaRotaryEmbedding(inv_freq, position_ids, torch.float32)
         query_states, key_states = self.secllm_cpp_wrapper.ApplyRotaryPosEmb(query_states, key_states, cos, sin)
 
         assert self.next_task_ids[0] == 30
         assert self.next_task_ids[1] == 31
-        assert self.next_task_ids[2] == 47
+        # assert self.next_task_ids[2] == 47
 
         self.secllm_cpp_wrapper.BookKeeperStore_Float(self.layer_idx, self.next_task_ids[0], 0, query_states.to(torch.float32))
         self.secllm_cpp_wrapper.BookKeeperStore_Float(self.layer_idx, self.next_task_ids[1], 0, key_states.to(torch.float32))
-        self.secllm_cpp_wrapper.BookKeeperStore_Float(self.layer_idx, self.next_task_ids[2], 0, value_states.to(torch.float32))
+        # self.secllm_cpp_wrapper.BookKeeperStore_Float(self.layer_idx, self.next_task_ids[2], 0, value_states.to(torch.float32))
 
     def __call__(self):
         self.run()
