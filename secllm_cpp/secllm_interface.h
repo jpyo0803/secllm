@@ -16,8 +16,7 @@ void Ext_Softmax(int from, int to_len, int* to);
 
 void Ext_SwiGLU(int from1, int from2, int to_len, int* to);
 
-void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
-                 float eps);
+void Ext_RMSNorm(int layer_idx, int from, int to_len, int* to, int type);
 void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to);
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
@@ -61,6 +60,8 @@ void Ext_SetEncKeyAndDecKey(int layer_idx, int* src_enc_key_pool,
                             int* src_dec_key, int type);
 
 void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len, int type);
+
+void Ext_SetRMSNormWeight(int layer_idx, float* weight, float eps, int type);
 
 void Ext_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
                                   int type);

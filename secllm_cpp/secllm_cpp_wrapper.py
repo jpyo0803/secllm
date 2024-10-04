@@ -101,10 +101,9 @@ class SecLLMCppWrapper:
 
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_SwiGLU(gate_in, up_in, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
-
   
   @classmethod
-  def RMSNorm(cls, src : int, dst : list[int], weight, eps):
+  def RMSNorm(cls, layer_idx : int, src : int, dst : list[int], type):
     '''
         NOTE(jpyo0803): RMSNorm
         output will be stored in dst
@@ -112,10 +111,10 @@ class SecLLMCppWrapper:
 
     cls.TransportShape(src, dst, cls.shape_bookkeeper_float, cls.shape_bookkeeper_float) # float to float
 
-    weight = weight.to(torch.float32) # should happen only once if necessary
+    # weight = weight.to(torch.float32) # should happen only once if necessary
 
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_RMSNorm(src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), cast(weight.data_ptr(), POINTER(c_float)), c_float(eps))
+    cls.lib.Ext_RMSNorm(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
   
   @classmethod
   def ElementwiseAdd(cls, src1 : int, src2 : int, dst : list[int]):
@@ -347,6 +346,15 @@ class SecLLMCppWrapper:
 
     cls.lib.Ext_SetLinearWeightScales(layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type.value)
   
+  @classmethod
+  def SetRMSNormWeight(cls, layer_idx : int, weight, eps, type : int):
+    '''
+        NOTE(jpyo0803): Set RMSNorm weight
+    '''
+    weight = weight.to(torch.float32)
+    assert weight.dtype == torch.float32
+    cls.lib.Ext_SetRMSNormWeight(layer_idx, cast(weight.data_ptr(), POINTER(c_float)), c_float(eps), type)
+
   @classmethod
   def QuantizeLinearActivation(cls, layer_idx: int , src : int, dst : list[int], type : ProjectionType):
     '''

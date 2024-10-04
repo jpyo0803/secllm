@@ -48,6 +48,12 @@ class SecLLM {
   void SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
                              ProjectionType type);
 
+  void SetRMSNormWeight(int layer_idx, float* weight, float eps,
+                        int type);  // type 0:
+
+  void RMSNorm(int layer_idx, std::shared_ptr<Tensor<float>> out,
+               std::shared_ptr<Tensor<float>> in, int type);
+
   void QuantizeLinearActivation(int layer_idx,
                                 std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in,
@@ -180,8 +186,7 @@ void Internal_SwiGLU(int from1, int from2, std::vector<int> locs);
 void Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
                               int N, float eps);
 
-void Internal_RMSNorm(int from, int to_len, int* to, const float* const weight,
-                      float eps);
+void Internal_RMSNorm(int layer_idx, int from, std::vector<int> locs, int type);
 
 void Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
 
@@ -215,6 +220,9 @@ void Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
 
 void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                     jpyo0803::ProjectionType type);
+
+void Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps,
+                               int type);
 
 void Internal_QuantizeLinearActivation(int layer_idx, int from,
                                        std::vector<int> locs,

@@ -28,32 +28,29 @@ void Ext_Softmax(int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
   thread_pool->enqueue_task([=]() { Internal_Softmax(from, locs); });
-
-  // std::thread softmax_thread([=]() { Internal_Softmax(from, locs); });
-
-  // softmax_thread.detach();
 }
 
 void Ext_SwiGLU(int from1, int from2, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
   thread_pool->enqueue_task([=]() { Internal_SwiGLU(from1, from2, locs); });
-
-  // std::thread swiglu_thread([=]() { Internal_SwiGLU(from1, from2, locs); });
-
-  // swiglu_thread.detach();
 }
 
 // Dont need threading, it is in the critical node
-void Ext_RMSNorm(int from, int to_len, int* to, const float* const weight,
-                 float eps) {
-  Internal_RMSNorm(from, to_len, to, weight, eps);
+void Ext_RMSNorm(int layer_idx, int from, int to_len, int* to, int type) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_RMSNorm(layer_idx, from, locs, type); });
+  // Internal_RMSNorm(layer_idx, from, locs, type);
 }
 
 // Dont need threading, it is in the critical node
 void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
-  Internal_ElementWiseAdd(from1, from2, locs);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_ElementWiseAdd(from1, from2, locs); });
 }
 
 // Not threaded yet
@@ -69,6 +66,250 @@ void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                            const float* const cos, const float* const sin,
                            int B, int Q_M, int K_M, int N, int K) {
   Internal_ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
+}
+
+void Ext_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
+                                  int type) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task([=]() {
+    Internal_QuantizeLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
+}
+
+void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
+                                 int type) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task([=]() {
+    Internal_EncryptLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
+}
+
+void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
+                                 int type) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task([=]() {
+    Internal_DecryptLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
+}
+
+void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len,
+                                    int* to, int type) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task([=]() {
+    Internal_DequantizeLinearActivation(
+        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+  });
+}
+
+void Ext_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_QuantizeQ_QK(layer_idx, from, locs); });
+}
+
+void Ext_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftQ_QK(layer_idx, from, locs); });
+}
+
+void Ext_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_QuantizeK_QK(layer_idx, from, locs); });
+}
+
+void Ext_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftK_QK(layer_idx, from, locs); });
+}
+
+void Ext_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_Unshift_QK(layer_idx, from, locs); });
+}
+
+void Ext_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_Dequantize_QK(layer_idx, from, locs); });
+}
+
+void Ext_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_QuantizeP_PV(layer_idx, from, locs); });
+}
+
+void Ext_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftP_PV(layer_idx, from, locs); });
+}
+
+void Ext_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_QuantizeV_PV(layer_idx, from, locs); });
+}
+
+void Ext_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_ShiftV_PV(layer_idx, from, locs); });
+}
+
+void Ext_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_Unshift_PV(layer_idx, from, locs); });
+}
+
+void Ext_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_Dequantize_PV(layer_idx, from, locs); });
+}
+
+void Ext_GenerateSecretKey_QK(int layer_idx) {
+  thread_pool->enqueue_task(
+      [=]() { Internal_GenerateSecretKey_QK(layer_idx); });
+}
+
+void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
+  thread_pool->enqueue_task(
+      [=]() { Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y); });
+}
+
+void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_EncryptX_QK(layer_idx, from, locs); });
+}
+
+void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_EncryptY_QK(layer_idx, from, locs); });
+}
+
+void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_Decrypt_QK(layer_idx, from, locs); });
+}
+
+void Ext_GenerateSecretKey_PV(int layer_idx) {
+  thread_pool->enqueue_task(
+      [=]() { Internal_GenerateSecretKey_PV(layer_idx); });
+}
+
+void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
+  thread_pool->enqueue_task(
+      [=]() { Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y); });
+}
+
+void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_EncryptX_PV(layer_idx, from, locs); });
+}
+
+void Ext_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> to_vec(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_EncryptY_PV(layer_idx, from, to_vec); });
+}
+
+void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task(
+      [=]() { Internal_Decrypt_PV(layer_idx, from, locs); });
+}
+
+////////////////////////// Functions below do not neet multi-threading //////////////////////////
+
+void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
+                            float k_output_scale, float v_output_scale) {
+  Internal_SetQKVOutputScales(layer_idx, q_output_scale, k_output_scale,
+                              v_output_scale);
+}
+
+// No threading needed
+void Ext_SetAttentionMask(float* mask, int M, int N) {
+  Internal_SetAttentionMask(mask, M, N);
+}
+
+// No threading needed
+void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length) {
+  Internal_SetBatchSizeAndTokenLength(layer_idx, bsz, token_length);
+}
+
+// No threading needed
+void Ext_BookKeeperIsAvailable_Float(int loc, bool* ret) {
+  Internal_BookKeeperIsAvailable_Float(loc, ret);
+}
+
+// No threading needed
+void Ext_BookKeeperIsAvailable_Int32(int loc, bool* ret) {
+  Internal_BookKeeperIsAvailable_Int32(loc, ret);
+}
+
+// No threading needed
+void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
+  Internal_BookKeeperIsAvailable_Uint32(loc, ret);
+}
+
+// No threading needed
+void Ext_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
+  Internal_BookKeeperIsAvailable_Int8(loc, ret);
+}
+
+// No threading needed
+void Ext_QKKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKKeyIsAvailable(layer_idx, ret);
+}
+
+// No threading needed
+void Ext_PVKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVKeyIsAvailable(layer_idx, ret);
+}
+
+// No threading needed
+void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKDecKeyIsAvailable(layer_idx, ret);
+}
+
+// No threading needed
+void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVDecKeyIsAvailable(layer_idx, ret);
 }
 
 uint32_t Ext_GenerateCPRNG() {
@@ -159,244 +400,8 @@ void Ext_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                  static_cast<jpyo0803::ProjectionType>(type));
 }
 
-void Ext_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
-                                  int type) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task([=]() {
-    Internal_QuantizeLinearActivation(
-        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
-  });
-}
-
-void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
-                                 int type) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task([=]() {
-    Internal_EncryptLinearActivation(
-        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
-  });
-}
-
-void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
-                                 int type) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task([=]() {
-    Internal_DecryptLinearActivation(
-        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
-  });
-}
-
-void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len,
-                                    int* to, int type) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task([=]() {
-    Internal_DequantizeLinearActivation(
-        layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
-  });
-}
-
-void Ext_SetQKVOutputScales(int layer_idx, float q_output_scale,
-                            float k_output_scale, float v_output_scale) {
-  Internal_SetQKVOutputScales(layer_idx, q_output_scale, k_output_scale,
-                              v_output_scale);
-}
-
-void Ext_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeQ_QK(layer_idx, from, locs); });
-}
-
-void Ext_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftQ_QK(layer_idx, from, locs); });
-}
-
-void Ext_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeK_QK(layer_idx, from, locs); });
-}
-
-void Ext_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftK_QK(layer_idx, from, locs); });
-}
-
-void Ext_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_Unshift_QK(layer_idx, from, locs); });
-}
-
-void Ext_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_Dequantize_QK(layer_idx, from, locs); });
-}
-
-void Ext_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeP_PV(layer_idx, from, locs); });
-}
-
-void Ext_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftP_PV(layer_idx, from, locs); });
-}
-
-void Ext_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeV_PV(layer_idx, from, locs); });
-}
-
-void Ext_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftV_PV(layer_idx, from, locs); });
-}
-
-void Ext_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_Unshift_PV(layer_idx, from, locs); });
-}
-
-void Ext_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_Dequantize_PV(layer_idx, from, locs); });
-}
-
-void Ext_SetAttentionMask(float* mask, int M, int N) {
-  Internal_SetAttentionMask(mask, M, N);
-}
-
-void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length) {
-  Internal_SetBatchSizeAndTokenLength(layer_idx, bsz, token_length);
-}
-
-void Ext_GenerateSecretKey_QK(int layer_idx) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateSecretKey_QK(layer_idx); });
-}
-
-void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y); });
-}
-
-void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptX_QK(layer_idx, from, locs); });
-}
-
-void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptY_QK(layer_idx, from, locs); });
-}
-
-void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_Decrypt_QK(layer_idx, from, locs); });
-}
-
-void Ext_GenerateSecretKey_PV(int layer_idx) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateSecretKey_PV(layer_idx); });
-}
-
-void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y); });
-}
-
-void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptX_PV(layer_idx, from, locs); });
-}
-
-void Ext_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> to_vec(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptY_PV(layer_idx, from, to_vec); });
-}
-
-void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
-  std::vector<int> locs(to, to + to_len);
-
-  thread_pool->enqueue_task(
-      [=]() { Internal_Decrypt_PV(layer_idx, from, locs); });
-}
-
-// No threading needed
-void Ext_BookKeeperIsAvailable_Float(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Float(loc, ret);
-}
-
-// No threading needed
-void Ext_BookKeeperIsAvailable_Int32(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Int32(loc, ret);
-}
-
-// No threading needed
-void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Uint32(loc, ret);
-}
-
-// No threading needed
-void Ext_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Int8(loc, ret);
-}
-
-// No threading needed
-void Ext_QKKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKKeyIsAvailable(layer_idx, ret);
-}
-
-// No threading needed
-void Ext_PVKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVKeyIsAvailable(layer_idx, ret);
-}
-
-// No threading needed
-void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKDecKeyIsAvailable(layer_idx, ret);
-}
-
-// No threading needed
-void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVDecKeyIsAvailable(layer_idx, ret);
+void Ext_SetRMSNormWeight(int layer_idx, float* weight, float eps, int type) {
+  Internal_SetRMSNormWeight(layer_idx, weight, eps, type);
 }
 
 void Ext_PrintTest(int a, int b) {

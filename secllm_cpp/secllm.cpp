@@ -135,6 +135,16 @@ void SecLLM::SetLinearWeightScales(int layer_idx, float* weight_scale, int len,
   decoder_layers_->at(layer_idx).SetLinearWeightScales(weight_scale, len, type);
 }
 
+void SecLLM::SetRMSNormWeight(int layer_idx, float* weight, float eps,
+                              int type) {
+  decoder_layers_->at(layer_idx).SetRMSNormWeight(weight, eps, type);
+}
+
+void SecLLM::RMSNorm(int layer_idx, std::shared_ptr<Tensor<float>> out,
+                     std::shared_ptr<Tensor<float>> in, int type) {
+  decoder_layers_->at(layer_idx).RMSNorm(out, in, type);
+}
+
 void SecLLM::QuantizeLinearActivation(int layer_idx,
                                       std::shared_ptr<Tensor<int8_t>> out,
                                       std::shared_ptr<Tensor<float>> in,
@@ -384,10 +394,8 @@ void Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
   jpyo0803::RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
-void Internal_RMSNorm(int from, int to_len, int* to, const float* const weight,
-                      float eps) {
-  std::vector<int> locs(to, to + to_len);
-
+void Internal_RMSNorm(int layer_idx, int from, std::vector<int> locs,
+                      int type) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
   auto shape = retrieved_data->shape();
@@ -399,8 +407,7 @@ void Internal_RMSNorm(int from, int to_len, int* to, const float* const weight,
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
 
-  jpyo0803::RMSNorm(out->data().data(), retrieved_data->data().data(), weight,
-                    B, M, N, eps);
+  secllm_ptr->RMSNorm(layer_idx, out, retrieved_data, type);
 
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
@@ -661,6 +668,11 @@ void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                     jpyo0803::ProjectionType type) {
   // weight scales's dim == 1
   secllm_ptr->SetLinearWeightScales(layer_idx, scales, len, type);
+}
+
+void Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps,
+                               int type) {
+  secllm_ptr->SetRMSNormWeight(layer_idx, weight, eps, type);
 }
 
 void Internal_QuantizeLinearActivation(int layer_idx, int from,

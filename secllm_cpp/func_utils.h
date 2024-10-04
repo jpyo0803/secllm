@@ -41,8 +41,8 @@ void SwiGLU(float* out, float* gate_in, float* up_in, int B, int M, int N);
 void RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N,
                      float eps);
 
-void RMSNorm(float* out, float* in, const float* const weight, int B, int M,
-             int N, float eps);
+void RMSNorm_Func(float* out, float* in, const float* const weight, int B,
+                  int M, int N, float eps);
 
 void ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
 
@@ -67,6 +67,8 @@ uint32_t GenerateAddKey();
 uint64_t RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod);
 
 void Matmul(int32_t* out, int8_t* x, int8_t* y, int B, int M, int K, int N);
+
+void GetTimeStamp_Monotonic();
 
 }  // namespace jpyo0803
 

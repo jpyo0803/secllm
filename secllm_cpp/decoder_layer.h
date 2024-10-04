@@ -29,6 +29,10 @@ class DecoderLayer {
   void SetLinearWeightScales(float* weight_scales, int len,
                              ProjectionType type);
 
+  void SetRMSNormWeight(
+      float* weight, float eps,
+      int type);  // type==0 -> input_layernorm, type==1 -> post_attention_layernorm
+
   void QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in,
                                 ProjectionType type);
@@ -119,6 +123,9 @@ class DecoderLayer {
 
   void Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,  // D_ROW
                   std::shared_ptr<Tensor<uint32_t>> in);  // D_COL
+
+  void RMSNorm(std::shared_ptr<Tensor<float>> out,
+               std::shared_ptr<Tensor<float>> in, int type);
 
   // This is not actually thread-safe but it is okay, task scheduler can run it next cycle
   bool IsQKKeyGenerated() const { return is_qk_key_generated_; }
@@ -230,6 +237,12 @@ class DecoderLayer {
 
   std::vector<int> qk_permuted_index_;
   std::vector<int> pv_permuted_index_;
+
+  std::vector<float> input_layernorm_weights_;
+  float input_layernorm_eps_;
+
+  std::vector<float> post_attention_layernorm_weights_;
+  float post_attention_layernorm_eps_;
 
   /*
     enable_linear_encryption & enable_atten_encryption -> Target

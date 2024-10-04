@@ -41,6 +41,7 @@ class ThreadPool:
         self.stop = True
         for worker in self.workers:
             worker.join()
+        print("Shutdown ThreadPool")
 
 # Test the thread pool
 if __name__ == "__main__":

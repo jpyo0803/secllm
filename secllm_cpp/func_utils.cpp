@@ -1,6 +1,8 @@
 #include "func_utils.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <iostream>
 #include <numeric>
 #include <vector>
 
@@ -225,8 +227,8 @@ void jpyo0803::RMSNorm_InPlace(float* x, const float* const weight, int B,
   }
 }
 
-void jpyo0803::RMSNorm(float* out, float* in, const float* const weight, int B,
-                       int M, int N, float eps) {
+void jpyo0803::RMSNorm_Func(float* out, float* in, const float* const weight,
+                            int B, int M, int N, float eps) {
   // weight, x: [B, M, N]
 
   for (int b = 0; b < B; ++b) {
@@ -423,4 +425,10 @@ void jpyo0803::Matmul(int32_t* out, int8_t* x, int8_t* y, int B, int M, int N,
       }
     }
   }
+}
+
+void jpyo0803::GetTimeStamp_Monotonic() {
+  auto start = std::chrono::steady_clock::now();
+  std::cout << "Current time: " << start.time_since_epoch().count() / 1e9
+            << std::endl;
 }

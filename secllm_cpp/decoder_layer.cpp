@@ -120,6 +120,9 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
   //   qk_permuted_index_.push_back(i);
   // }
 
+  input_layernorm_weights_.resize(hidden_size_);
+  post_attention_layernorm_weights_.resize(hidden_size_);
+
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(q_enc_key_pool_.size() == enc_key_pool_size_,
                 "q_enc_key_pool_ size is not correct!");
@@ -262,6 +265,29 @@ void DecoderLayer::SetLinearWeightScales(float* weight_scales, int len,
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
             << "] SetLinearWeightScales() Exit" << std::endl;
+#endif
+}
+
+void DecoderLayer::SetRMSNormWeight(float* weight, float eps, int type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] SetRMSNormWeight() Enter"
+            << std::endl;
+#endif
+
+  if (type == 0) {
+    input_layernorm_weights_.assign(weight, weight + hidden_size_);
+    input_layernorm_eps_ = eps;
+  } else if (type == 1) {
+    post_attention_layernorm_weights_.assign(weight, weight + hidden_size_);
+    post_attention_layernorm_eps_ = eps;
+  } else {
+    std::cout << "Invalid RMSNorm Type!" << std::endl;
+    exit(-1);
+  }
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] SetRMSNormWeight() Exit"
+            << std::endl;
 #endif
 }
 
@@ -1606,6 +1632,31 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Exit"
+            << std::endl;
+#endif
+}
+
+void DecoderLayer::RMSNorm(std::shared_ptr<Tensor<float>> out,
+                           std::shared_ptr<Tensor<float>> in, int type) {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] RMSNorm() Enter"
+            << std::endl;
+#endif
+
+  auto shape = in->shape();
+  int B = shape.at(0);
+  int M = shape.at(1);
+  int N = shape.at(2);
+
+  float eps = type == 0 ? input_layernorm_eps_ : post_attention_layernorm_eps_;
+  const float* const weight = type == 0
+                                  ? input_layernorm_weights_.data()
+                                  : post_attention_layernorm_weights_.data();
+
+  RMSNorm_Func(out->data().data(), in->data().data(), weight, B, M, N, eps);
+
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_ << "] RMSNorm() Exit"
             << std::endl;
 #endif
 }

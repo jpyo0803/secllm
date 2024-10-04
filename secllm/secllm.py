@@ -38,3 +38,7 @@ class SecLLM:
     cls = type(self)
     if not hasattr(cls, '__init'):
       cls.__init = True
+
+  @classmethod
+  def close(cls):
+    cls._thread_pool.shutdown()

@@ -370,6 +370,12 @@ class SqLlamaDecoderLayer(nn.Module):
 
         secllm_cpp_wrapper.SetQKVOutputScales(self.layer_idx, self.q_output_scale, self.k_output_scale, self.v_output_scale)
 
+        secllm_cpp_wrapper.SetRMSNormWeight(self.layer_idx, self.input_layernorm.weight, self.input_layernorm.variance_epsilon, 0)
+        secllm_cpp_wrapper.SetRMSNormWeight(self.layer_idx, self.post_attention_layernorm.weight, self.post_attention_layernorm.variance_epsilon, 1)
+
+    def close(self):
+        pass
+
 LLAMA_START_DOCSTRING = r"""
     This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
     library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
@@ -531,6 +537,9 @@ class LlamaModel(LlamaPreTrainedModel):
 
     def reset(self):
         self.secllm._secllm_cpp_wrapper.Reset()
+    
+    def close(self):
+        self.secllm.close()
 
     @add_start_docstrings_to_model_forward(LLAMA_INPUTS_DOCSTRING)
     def forward(
@@ -955,3 +964,6 @@ class UnwoundSqLlamaForCausalLM(LlamaPreTrainedModel):
     
     def my_post_init(self):
         self.model.my_post_init()
+
+    def close(self):
+        self.model.close()

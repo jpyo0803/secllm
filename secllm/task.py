@@ -183,8 +183,8 @@ class Task2(Task):
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
 
-        input_layernorm = self.model.layers[self.layer_idx].input_layernorm
-        self.secllm_cpp_wrapper.RMSNorm(src, dst, input_layernorm.weight, input_layernorm.variance_epsilon)
+        # input_layernorm = self.model.layers[self.layer_idx].input_layernorm
+        self.secllm_cpp_wrapper.RMSNorm(self.layer_idx, src, dst, 0)
 
     def __call__(self):
         self.run()
@@ -1555,8 +1555,8 @@ class Task70(Task):
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
-        post_attention_layernorm = self.model.layers[self.layer_idx].post_attention_layernorm
-        self.secllm_cpp_wrapper.RMSNorm(src, dst, post_attention_layernorm.weight, post_attention_layernorm.variance_epsilon)
+        # post_attention_layernorm = self.model.layers[self.layer_idx].post_attention_layernorm
+        self.secllm_cpp_wrapper.RMSNorm(self.layer_idx, src, dst, 1)
 
     def __call__(self):
         self.run()
