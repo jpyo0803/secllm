@@ -124,6 +124,50 @@ bool SecLLM::BookKeeperIsAvailable_Int8(int loc) {
   return book_keeper_int8_->IsAvailable(loc);
 }
 
+int SecLLM::BookKeeperGetShapeLength_Float(int loc) {
+  return book_keeper_float_->RetrieveWithoutReset(loc)->shape().size();
+}
+
+int SecLLM::BookKeeperGetShapeLength_Int32(int loc) {
+  return book_keeper_int32_->RetrieveWithoutReset(loc)->shape().size();
+}
+
+int SecLLM::BookKeeperGetShapeLength_Uint32(int loc) {
+  return book_keeper_uint32_->RetrieveWithoutReset(loc)->shape().size();
+}
+
+int SecLLM::BookKeeperGetShapeLength_Int8(int loc) {
+  return book_keeper_int8_->RetrieveWithoutReset(loc)->shape().size();
+}
+
+void SecLLM::BookKeeperGetShape_Float(int loc, int* out) {
+  auto shape = book_keeper_float_->RetrieveWithoutReset(loc)->shape();
+  for (int i = 0; i < shape.size(); ++i) {
+    out[i] = shape[i];
+  }
+}
+
+void SecLLM::BookKeeperGetShape_Int32(int loc, int* out) {
+  auto shape = book_keeper_int32_->RetrieveWithoutReset(loc)->shape();
+  for (int i = 0; i < shape.size(); ++i) {
+    out[i] = shape[i];
+  }
+}
+
+void SecLLM::BookKeeperGetShape_Uint32(int loc, int* out) {
+  auto shape = book_keeper_uint32_->RetrieveWithoutReset(loc)->shape();
+  for (int i = 0; i < shape.size(); ++i) {
+    out[i] = shape[i];
+  }
+}
+
+void SecLLM::BookKeeperGetShape_Int8(int loc, int* out) {
+  auto shape = book_keeper_int8_->RetrieveWithoutReset(loc)->shape();
+  for (int i = 0; i < shape.size(); ++i) {
+    out[i] = shape[i];
+  }
+}
+
 void SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
                                 ProjectionType type) {
   decoder_layers_->at(layer_idx).SetEncKeyAndDecKey(enc_key_pool, dec_key,
@@ -1021,6 +1065,38 @@ void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
 
 void Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
   *ret = secllm_ptr->BookKeeperIsAvailable_Int8(loc);
+}
+
+void Internal_BookKeeperGetShapeLength_Float(int loc, int* ret) {
+  *ret = secllm_ptr->BookKeeperGetShapeLength_Float(loc);
+}
+
+void Internal_BookKeeperGetShapeLength_Int32(int loc, int* ret) {
+  *ret = secllm_ptr->BookKeeperGetShapeLength_Int32(loc);
+}
+
+void Internal_BookKeeperGetShapeLength_Uint32(int loc, int* ret) {
+  *ret = secllm_ptr->BookKeeperGetShapeLength_Uint32(loc);
+}
+
+void Internal_BookKeeperGetShapeLength_Int8(int loc, int* ret) {
+  *ret = secllm_ptr->BookKeeperGetShapeLength_Int8(loc);
+}
+
+void Internal_BookKeeperGetShape_Float(int loc, int* ret) {
+  secllm_ptr->BookKeeperGetShape_Float(loc, ret);
+}
+
+void Internal_BookKeeperGetShape_Int32(int loc, int* ret) {
+  secllm_ptr->BookKeeperGetShape_Int32(loc, ret);
+}
+
+void Internal_BookKeeperGetShape_Uint32(int loc, int* ret) {
+  secllm_ptr->BookKeeperGetShape_Uint32(loc, ret);
+}
+
+void Internal_BookKeeperGetShape_Int8(int loc, int* ret) {
+  secllm_ptr->BookKeeperGetShape_Int8(loc, ret);
 }
 
 void Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {

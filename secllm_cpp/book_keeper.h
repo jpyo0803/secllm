@@ -18,6 +18,15 @@ class BookKeeper {
 
   int size() const { return dict_.size(); }
 
+  std::shared_ptr<T> RetrieveWithoutReset(int loc) {
+#if CHECK_SANITY == 1
+    ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(),
+                  "Invalid location, RetrieveWithoutReset");
+    ASSERT_ALWAYS(dict_[loc] != nullptr, "No object at the location");
+#endif
+    return dict_[loc];
+  }
+
   void Keep(const std::vector<int>& locs, std::shared_ptr<T>& obj) {
     for (auto loc : locs) {
 #if CHECK_SANITY == 1

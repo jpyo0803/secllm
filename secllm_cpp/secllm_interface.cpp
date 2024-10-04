@@ -407,4 +407,36 @@ void Ext_SetRMSNormWeight(int layer_idx, float* weight, float eps, int type) {
 void Ext_PrintTest(int a, int b) {
   Internal_PrintTest(a, b);
 }
+
+void Ext_BookKeeperGetShapeLength_Float(int loc, int* out) {
+  Internal_BookKeeperGetShapeLength_Float(loc, out);
+}
+
+void Ext_BookKeeperGetShapeLength_Int32(int loc, int* out) {
+  Internal_BookKeeperGetShapeLength_Int32(loc, out);
+}
+
+void Ext_BookKeeperGetShapeLength_Uint32(int loc, int* out) {
+  Internal_BookKeeperGetShapeLength_Uint32(loc, out);
+}
+
+void Ext_BookKeeperGetShapeLength_Int8(int loc, int* out) {
+  Internal_BookKeeperGetShapeLength_Int8(loc, out);
+}
+
+void Ext_BookKeeperGetShape_Float(int loc, int* out) {
+  Internal_BookKeeperGetShape_Float(loc, out);
+}
+
+void Ext_BookKeeperGetShape_Int32(int loc, int* out) {
+  Internal_BookKeeperGetShape_Int32(loc, out);
+}
+
+void Ext_BookKeeperGetShape_Uint32(int loc, int* out) {
+  Internal_BookKeeperGetShape_Uint32(loc, out);
+}
+
+void Ext_BookKeeperGetShape_Int8(int loc, int* out) {
+  Internal_BookKeeperGetShape_Int8(loc, out);
+}
 }

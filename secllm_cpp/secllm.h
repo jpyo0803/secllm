@@ -42,6 +42,16 @@ class SecLLM {
   bool BookKeeperIsAvailable_Uint32(int loc);
   bool BookKeeperIsAvailable_Int8(int loc);
 
+  int BookKeeperGetShapeLength_Float(int loc);
+  int BookKeeperGetShapeLength_Int32(int loc);
+  int BookKeeperGetShapeLength_Uint32(int loc);
+  int BookKeeperGetShapeLength_Int8(int loc);
+
+  void BookKeeperGetShape_Float(int loc, int* out);
+  void BookKeeperGetShape_Int32(int loc, int* out);
+  void BookKeeperGetShape_Uint32(int loc, int* out);
+  void BookKeeperGetShape_Int8(int loc, int* out);
+
   void SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
                           ProjectionType type);
 
@@ -300,6 +310,16 @@ void Internal_BookKeeperIsAvailable_Float(int loc, bool* ret);
 void Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret);
 void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
 void Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret);
+
+void Internal_BookKeeperGetShapeLength_Float(int loc, int* ret);
+void Internal_BookKeeperGetShapeLength_Int32(int loc, int* ret);
+void Internal_BookKeeperGetShapeLength_Uint32(int loc, int* ret);
+void Internal_BookKeeperGetShapeLength_Int8(int loc, int* ret);
+
+void Internal_BookKeeperGetShape_Float(int loc, int* out);
+void Internal_BookKeeperGetShape_Int32(int loc, int* out);
+void Internal_BookKeeperGetShape_Uint32(int loc, int* out);
+void Internal_BookKeeperGetShape_Int8(int loc, int* out);
 
 void Internal_QKKeyIsAvailable(int layer_idx, bool* ret);
 void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret);

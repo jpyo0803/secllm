@@ -49,6 +49,16 @@ void Ext_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
                                int* shape);
 void Ext_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len, int* shape);
 
+void Ext_BookKeeperGetShapeLength_Float(int loc, int* out);
+void Ext_BookKeeperGetShapeLength_Int32(int loc, int* out);
+void Ext_BookKeeperGetShapeLength_Uint32(int loc, int* out);
+void Ext_BookKeeperGetShapeLength_Int8(int loc, int* out);
+
+void Ext_BookKeeperGetShape_Float(int loc, int* out);
+void Ext_BookKeeperGetShape_Int32(int loc, int* out);
+void Ext_BookKeeperGetShape_Uint32(int loc, int* out);
+void Ext_BookKeeperGetShape_Int8(int loc, int* out);
+
 void Ext_ReplicateTensor_Float(int from, int* to, int to_len);
 void Ext_ReplicateTensor_Int32(int from, int* to, int to_len);
 void Ext_ReplicateTensor_Uint32(int from, int* to, int to_len);
