@@ -61,4 +61,4 @@ peak_cpu_mem_used, peak_gpu_mem_used = memory_monitor.get_max_mem_used()
 print(f"Peak CPU memory usage: {peak_cpu_mem_used:0.3f} MB")
 print(f"Peak GPU memory usage: {peak_gpu_mem_used:0.3f} MB")
 
-model.close()
+model.close() # must be called to collect timestamp data

@@ -2,13 +2,21 @@
 #include "secllm.h"
 #include "thread_pool.h"
 
+#include <array>
+#include <fstream>
 #include <memory>
 #include <thread>
+#include <vector>
+#include "time_stamp.h"
 #include "types.h"
 
 namespace {
 std::unique_ptr<jpyo0803::ThreadPool> thread_pool;
 constexpr int kNumThreads = 8;
+std::array<std::vector<jpyo0803::TimeStamp>, kNumThreads> time_stamps;
+
+std::array<std::string, 7> proj_type_str = {"Q",    "K",  "V",   "O",
+                                            "Gate", "Up", "Down"};
 }  // namespace
 
 extern "C" {
@@ -24,33 +32,58 @@ void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
   thread_pool = std::make_unique<jpyo0803::ThreadPool>(kNumThreads);
 }
 
-void Ext_Softmax(int from, int to_len, int* to) {
+void Ext_Softmax(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_Softmax(from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "Softmax");
+    ts.Start();
+    Internal_Softmax(from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
-void Ext_SwiGLU(int from1, int from2, int to_len, int* to) {
+void Ext_SwiGLU(int layer_idx, int from1, int from2, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() { Internal_SwiGLU(from1, from2, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "SwiGLU");
+    ts.Start();
+    Internal_SwiGLU(from1, from2, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 // Dont need threading, it is in the critical node
 void Ext_RMSNorm(int layer_idx, int from, int to_len, int* to, int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_RMSNorm(layer_idx, from, locs, type); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id,
+                           "RMSNorm " + std::to_string(type + 1));
+    ts.Start();
+    Internal_RMSNorm(layer_idx, from, locs, type);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
   // Internal_RMSNorm(layer_idx, from, locs, type);
 }
 
 // Dont need threading, it is in the critical node
-void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
+void Ext_ElementWiseAdd(int layer_idx, int from1, int from2, int to_len,
+                        int* to, int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_ElementWiseAdd(from1, from2, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id,
+                           "Residual Add " + std::to_string(type + 1));
+    ts.Start();
+    Internal_ElementWiseAdd(from1, from2, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 // Not threaded yet
@@ -72,9 +105,14 @@ void Ext_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
                                   int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id,
+                           "[" + proj_type_str[type] + "] Quantize input");
+    ts.Start();
     Internal_QuantizeLinearActivation(
         layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
   });
 }
 
@@ -82,9 +120,14 @@ void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id,
+                           "[" + proj_type_str[type] + "] Encrypt input");
+    ts.Start();
     Internal_EncryptLinearActivation(
         layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
   });
 }
 
@@ -92,9 +135,14 @@ void Ext_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to,
                                  int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id,
+                           "[" + proj_type_str[type] + " proj] Decrypt result");
+    ts.Start();
     Internal_DecryptLinearActivation(
         layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
   });
 }
 
@@ -102,156 +150,272 @@ void Ext_DequantizeLinearActivation(int layer_idx, int from, int to_len,
                                     int* to, int type) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task([=]() {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(
+        layer_idx, thread_id,
+        "[" + proj_type_str[type] + " proj] Dequantize result");
+    ts.Start();
     Internal_DequantizeLinearActivation(
         layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
   });
 }
 
 void Ext_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeQ_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Quantize Q input");
+    ts.Start();
+    Internal_QuantizeQ_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftQ_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Shift Q input");
+    ts.Start();
+    Internal_ShiftQ_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeK_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Quantize K input");
+    ts.Start();
+    Internal_QuantizeK_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftK_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Shift K input");
+    ts.Start();
+    Internal_ShiftK_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_Unshift_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Unshift result");
+    ts.Start();
+    Internal_Unshift_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_Dequantize_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Dequantize result");
+    ts.Start();
+    Internal_Dequantize_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeP_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Quantize P input");
+    ts.Start();
+    Internal_QuantizeP_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftP_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Shift P input");
+    ts.Start();
+    Internal_ShiftP_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_QuantizeV_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Quantize V input");
+    ts.Start();
+    Internal_QuantizeV_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_ShiftV_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Shift V input");
+    ts.Start();
+    Internal_ShiftV_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_Unshift_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Unshift result");
+    ts.Start();
+    Internal_Unshift_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_Dequantize_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Dequantize result");
+    ts.Start();
+    Internal_Dequantize_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_GenerateSecretKey_QK(int layer_idx) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateSecretKey_QK(layer_idx); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Key Generation");
+    ts.Start();
+    Internal_GenerateSecretKey_QK(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Dec. Key Generation");
+    ts.Start();
+    Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptX_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Encrypt Q input");
+    ts.Start();
+    Internal_EncryptX_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptY_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Encrypt K input");
+    ts.Start();
+    Internal_EncryptY_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_Decrypt_QK(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Decrypt result");
+    ts.Start();
+    Internal_Decrypt_QK(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_GenerateSecretKey_PV(int layer_idx) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateSecretKey_PV(layer_idx); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Key Generation");
+    ts.Start();
+    Internal_GenerateSecretKey_PV(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
-  thread_pool->enqueue_task(
-      [=]() { Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Dec. Key Generation");
+    ts.Start();
+    Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptX_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Encrypt P input");
+    ts.Start();
+    Internal_EncryptX_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> to_vec(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_EncryptY_PV(layer_idx, from, to_vec); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Encrypt V input");
+    ts.Start();
+    Internal_EncryptY_PV(layer_idx, from, to_vec);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 void Ext_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
-  thread_pool->enqueue_task(
-      [=]() { Internal_Decrypt_PV(layer_idx, from, locs); });
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Decrypt result");
+    ts.Start();
+    Internal_Decrypt_PV(layer_idx, from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
 }
 
 ////////////////////////// Functions below do not neet multi-threading //////////////////////////
@@ -438,5 +602,21 @@ void Ext_BookKeeperGetShape_Uint32(int loc, int* out) {
 
 void Ext_BookKeeperGetShape_Int8(int loc, int* out) {
   Internal_BookKeeperGetShape_Int8(loc, out);
+}
+
+void Ext_Close(const char* output_filename) {
+  // shutdown the thread pool
+  thread_pool->shutdown();
+
+  // Flush the time stamps
+  // open the file named output_filename, do not overwrite
+  std::ofstream file(output_filename, std::ios::app);
+
+  // write the time stamps to the file
+  for (int i = 0; i < kNumThreads; ++i) {
+    for (const auto& ts : time_stamps[i]) {
+      file << ts.ToString() << std::endl;
+    }
+  }
 }
 }

@@ -12,12 +12,13 @@ void Ext_CreateSecLLM(int hidden_size, int intermediate_size,
                       int num_hidden_layers, int num_key_value_heads,
                       int enc_key_pool_size);
 
-void Ext_Softmax(int from, int to_len, int* to);
+void Ext_Softmax(int layer_idx, int from, int to_len, int* to);
 
-void Ext_SwiGLU(int from1, int from2, int to_len, int* to);
+void Ext_SwiGLU(int layer_idx, int from1, int from2, int to_len, int* to);
 
 void Ext_RMSNorm(int layer_idx, int from, int to_len, int* to, int type);
-void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to);
+void Ext_ElementWiseAdd(int layer_idx, int from1, int from2, int to_len,
+                        int* to, int type);
 
 void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                            const float* const cos, const float* const sin,
@@ -135,6 +136,8 @@ void Ext_QKKeyIsAvailable(int layer_idx, bool* ret);
 void Ext_PVKeyIsAvailable(int layer_idx, bool* ret);
 void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret);
 void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret);
+
+void Ext_Close(const char* output_filename);
 }
 
 #endif

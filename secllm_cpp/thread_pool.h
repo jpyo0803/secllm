@@ -17,15 +17,15 @@ class ThreadPool {
 
   ~ThreadPool();
 
-  void enqueue_task(std::function<void()> task);
+  void enqueue_task(std::function<void(int)> task);
 
   void shutdown();
 
  private:
-  void worker();
+  void worker(int thread_id);
 
   std::vector<std::thread> workers;
-  std::queue<std::function<void()>> tasks;
+  std::queue<std::function<void(int)>> tasks;
 
   std::mutex queue_mutex;
   std::condition_variable condition;

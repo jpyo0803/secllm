@@ -10,8 +10,8 @@ class ThreadPool:
         self.stop = False
 
         # Create worker threads
-        for _ in range(num_threads):
-            worker = threading.Thread(target=self.worker)
+        for worker_id in range(num_threads):
+            worker = threading.Thread(target=self.worker, args=(worker_id,))
             worker.start()
             self.workers.append(worker)
 
@@ -21,15 +21,15 @@ class ThreadPool:
         """
         self.tasks.put(task)
 
-    def worker(self):
+    def worker(self, worker_id):
         """
         Worker thread function that processes tasks.
         """
         while not self.stop:
             try:
                 task = self.tasks.get(timeout=1)  # Timeout to check if stop is True
-                task.print_info()
-                task()  # Execute the task
+                # task.print_info()
+                task(worker_id)  # Execute the task
                 self.tasks.task_done()
             except Exception as e:
                 pass

@@ -101,22 +101,22 @@ class SecLLMCppWrapper:
     cls.lib.Ext_PrintTest(a, b)
   
   @classmethod
-  def Softmax(cls, src : int, dst: list[int]):
+  def Softmax(cls, layer_idx : int, src : int, dst: list[int]):
     '''
         NOTE(jpyo0803): Softmax
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Softmax(src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Softmax(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
-  def SwiGLU(cls, gate_in : int, up_in : int, dst : list[int]):
+  def SwiGLU(cls, layer_idx : int, gate_in : int, up_in : int, dst : list[int]):
     '''
         NOTE(jpyo0803): SwiGLU
         output will be stored in dst
     '''
 
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_SwiGLU(gate_in, up_in, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_SwiGLU(layer_idx, gate_in, up_in, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
   
   @classmethod
   def RMSNorm(cls, layer_idx : int, src : int, dst : list[int], type):
@@ -129,14 +129,14 @@ class SecLLMCppWrapper:
     cls.lib.Ext_RMSNorm(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
   
   @classmethod
-  def ElementwiseAdd(cls, src1 : int, src2 : int, dst : list[int]):
+  def ElementwiseAdd(cls, layer_idx : int, src1 : int, src2 : int, dst : list[int], type : int):
     '''
         NOTE(jpyo0803): elementwise add
         output will be stored in dst
     '''
     
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ElementWiseAdd(src1, src2, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_ElementWiseAdd(layer_idx, src1, src2, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
 
 
   @classmethod
@@ -579,6 +579,11 @@ class SecLLMCppWrapper:
   def Reset(cls):
     print("Reset internal states")
     cls.lib.Ext_Reset()
+
+  @classmethod
+  def Close(cls, output_file_name : str):
+    # pass string to C++
+    cls.lib.Ext_Close(c_char_p(output_file_name.encode('utf-8'))) 
 
 if __name__ == '__main__':
     secllm = SecLLM(32)
