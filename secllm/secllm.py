@@ -1,6 +1,9 @@
 
 from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper
 from secllm.task_scheduler import TaskScheduler
+from secllm.thread_pool import ThreadPool
+
+NUM_WORKERS = 8
 
 class SecLLM:
   def __new__(cls, model_info):
@@ -24,7 +27,10 @@ class SecLLM:
 
       cls._model_info = model_info
       
-      cls._task_scheduler = TaskScheduler(cls._graph, cls._secllm_cpp_wrapper, cls._model_info)
+      cls._thread_pool = ThreadPool(NUM_WORKERS)
+
+      cls._task_scheduler = TaskScheduler(cls._graph, cls._secllm_cpp_wrapper, cls._model_info, cls._thread_pool)
+
 
     return cls._instance
   

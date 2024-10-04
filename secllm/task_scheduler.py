@@ -13,9 +13,10 @@ from secllm.topological_sort import TopologicalSort
 import secllm.task
 
 class TaskScheduler:
-    def __init__(self, graph, secllm_cpp_wrapper, model_info):
+    def __init__(self, graph, secllm_cpp_wrapper, model_info, thread_pool):
         task_order = TopologicalSort(graph)
         self.tasks_per_layer = []
+        self.thread_pool = thread_pool 
 
         for layer_idx in range(model_info.config.num_hidden_layers):
             tasks = []
@@ -43,8 +44,10 @@ class TaskScheduler:
         while copied_tasks:
             for task in copied_tasks:
                 if task.is_ready():
-                    print(f'Running task {task.task_id}')
-                    task()
+                    # print(f'Enqueue the task: {task.task_id}')
+                    # task()
+                    # task.print_info()
+                    self.thread_pool.enqueue_task(task)
                     copied_tasks.remove(task)
                 else:
                     pass

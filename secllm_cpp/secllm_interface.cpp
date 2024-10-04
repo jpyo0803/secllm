@@ -8,7 +8,7 @@
 
 namespace {
 std::unique_ptr<jpyo0803::ThreadPool> thread_pool;
-constexpr int kNumThreads = 1;
+constexpr int kNumThreads = 8;
 }  // namespace
 
 extern "C" {
