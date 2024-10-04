@@ -961,7 +961,7 @@ class Task39(Task):
         past_key_value = self.model.layers[self.layer_idx].past_key_value
         if past_key_value is not None:
             k = past_key_value.update_key(k, self.layer_idx)
-            
+
         k = repeat_kv(k, self.model.layers[self.layer_idx].num_key_value_groups)
 
         q_cupy = cupy.from_dlpack(q)
@@ -1254,11 +1254,12 @@ class Task55(Task):
 
         assert p.dtype == torch.uint32
         assert v.dtype == torch.uint32
-        assert p.shape[-1] == v.shape[-2]
 
         past_key_value = self.model.layers[self.layer_idx].past_key_value
         if past_key_value is not None:
             v = past_key_value.update_value(v, self.layer_idx)
+
+        assert p.shape[-1] == v.shape[-2]
 
         v = repeat_kv(v, self.model.layers[self.layer_idx].num_key_value_groups)
 

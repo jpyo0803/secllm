@@ -19,7 +19,7 @@ input_token_length = 128
 output_token_length = 128
 
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
-local_model_id = './pretrained_weights/Meta-Llama-3-8B-unwound-smoothquant.pt'
+local_model_id = 'jpyo0803/secllm'
 
 tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 tokenizer.pad_token = '?'
