@@ -6,6 +6,10 @@
 #include <numeric>
 #include <vector>
 
+#include "Eigen/Dense"
+
+using namespace Eigen;
+
 namespace {
 // Helper function to find the max absolute value for each row in the flattened vector.
 std::vector<float> max_abs_per_token(const std::vector<float>& t, size_t B,
@@ -407,8 +411,30 @@ uint64_t jpyo0803::RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod) {
   return result;
 }
 
-void jpyo0803::Matmul(int32_t* out, int8_t* x, int8_t* y, int B, int M, int N,
-                      int K) {
+void jpyo0803::Matmul_Eigen(int32_t* out, int8_t* x, int8_t* y, int B, int M,
+                            int N, int K) {
+  // Notice the dim K is the shared dim
+  // a: [B, M, K]
+  // b: [B, N, K]
+
+  for (int b = 0; b < B; ++b) {
+    // Map raw data to Eigen matrices
+    Eigen::Map<Matrix<int8_t, Dynamic, Dynamic, RowMajor>> mat_x(x + b * M * K,
+                                                                 M, K);
+    Eigen::Map<Matrix<int8_t, Dynamic, Dynamic, RowMajor>> mat_y(y + b * N * K,
+                                                                 N, K);
+
+    // Compute the matrix product
+    Matrix<int32_t, Dynamic, Dynamic, RowMajor> result =
+        (mat_x.cast<int32_t>() * mat_y.transpose().cast<int32_t>());
+
+    // Copy result back to output array
+    std::memcpy(out + b * M * N, result.data(), M * N * sizeof(int32_t));
+  }
+}
+
+void jpyo0803::Matmul_Naive(int32_t* out, int8_t* x, int8_t* y, int B, int M,
+                            int N, int K) {
   // Notice the dim K is the shared dim
   // a: [B, M, K]
   // b: [B, N, K]

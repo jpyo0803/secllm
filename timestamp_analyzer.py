@@ -82,9 +82,12 @@ if __name__ == '__main__':
   data_by_op = GroupByCategory(data)
   
   avg_time_by_op = ComputeAverageByCategory(data_by_op)
+  for op, avg_time in avg_time_by_op.items():
+    print(f'{op}: {avg_time / 1e6:.2f} ms')
+  assert False
 
   percentage_by_op = ComputePercentageByCategory(data_by_op)
   # sort by percentage, so that with the highest percentage is at the bottom
 
-  for op, percentage in percentage_by_op.items():
-    print(f'{op}: {percentage * 100:.2f} %')
+  # for op, percentage in percentage_by_op.items():
+  #   print(f'{op}: {percentage * 100:.2f} %')

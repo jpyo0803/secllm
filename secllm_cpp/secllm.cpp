@@ -521,7 +521,8 @@ void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
 
   jpyo0803::Tensor<float> tensor(
       shape_vec,
-      input_vec);  // this involves copy, so it may include some overhead
+      std::move(
+          input_vec));  // this involves copy, so it may include some overhead
 
   std::shared_ptr<jpyo0803::Tensor<float>> data_ptr =
       std::make_shared<jpyo0803::Tensor<float>>(tensor);
@@ -538,7 +539,7 @@ void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
 
   std::vector<int32_t> input_vec(data, data + num_elements);
 
-  jpyo0803::Tensor<int32_t> tensor(shape_vec, input_vec);
+  jpyo0803::Tensor<int32_t> tensor(shape_vec, std::move(input_vec));
 
   std::shared_ptr<jpyo0803::Tensor<int32_t>> data_ptr =
       std::make_shared<jpyo0803::Tensor<int32_t>>(tensor);
@@ -555,7 +556,7 @@ void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
 
   std::vector<uint32_t> input_vec(data, data + num_elements);
 
-  jpyo0803::Tensor<uint32_t> tensor(shape_vec, input_vec);
+  jpyo0803::Tensor<uint32_t> tensor(shape_vec, std::move(input_vec));
 
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> data_ptr =
       std::make_shared<jpyo0803::Tensor<uint32_t>>(tensor);
@@ -572,7 +573,7 @@ void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
 
   std::vector<int8_t> input_vec(data, data + num_elements);
 
-  jpyo0803::Tensor<int8_t> tensor(shape_vec, input_vec);
+  jpyo0803::Tensor<int8_t> tensor(shape_vec, std::move(input_vec));
 
   std::shared_ptr<jpyo0803::Tensor<int8_t>> data_ptr =
       std::make_shared<jpyo0803::Tensor<int8_t>>(tensor);

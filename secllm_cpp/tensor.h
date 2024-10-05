@@ -17,12 +17,12 @@ class Tensor {
         data_(std::accumulate(shape.begin(), shape.end(), 1,
                               std::multiplies<int>())) {}
 
-  Tensor(const std::vector<int>& shape, const std::vector<T>& data)
-      : shape_(shape), data_(data) {
+  Tensor(const std::vector<int>& shape, std::vector<T>&& data) : shape_(shape) {
     if (data.size() != std::accumulate(shape.begin(), shape.end(), 1,
                                        std::multiplies<int>())) {
       throw std::runtime_error("Data size does not match the shape.");
     }
+    data_ = std::move(data);
   }
 
   Tensor(const Tensor& other) : shape_(other.shape_), data_(other.data_) {}

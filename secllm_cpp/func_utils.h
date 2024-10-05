@@ -66,7 +66,11 @@ uint32_t GenerateAddKey();
 
 uint64_t RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod);
 
-void Matmul(int32_t* out, int8_t* x, int8_t* y, int B, int M, int K, int N);
+void Matmul_Eigen(int32_t* out, int8_t* x, int8_t* y, int B, int M, int K,
+                  int N);
+
+void Matmul_Naive(int32_t* out, int8_t* x, int8_t* y, int B, int M, int K,
+                  int N);
 
 void GetTimeStamp_Monotonic();
 
