@@ -16,6 +16,7 @@
 
 #define MULTKEY_POOL_SIZE 1024
 
+#include "Eigen/Dense"
 #include "macro.h"
 
 namespace {
@@ -119,9 +120,10 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
     }
   }
 
-  // for (int i = 0; i < head_dim_; ++i) {
-  //   qk_permuted_index_.push_back(i);
-  // }
+  for (int i = 0; i < head_dim_; ++i) {
+    qk_permuted_index_.push_back(i);
+  }
+  std::shuffle(qk_permuted_index_.begin(), qk_permuted_index_.end(), engine);
 
   input_layernorm_weights_.resize(hidden_size_);
   post_attention_layernorm_weights_.resize(hidden_size_);
@@ -422,8 +424,8 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_
             << "] EncryptLinearActivation() Enter" << std::endl;
 #endif
-  // For encrypted linear layers, matmul is done in int32
 
+  // For encrypted linear layers, matmul is done in int32
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -480,24 +482,47 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                 "sampled_enc_key_index size is not correct!");
 #endif
 
+#if INTERNAL_TIME_MEASURE == 1
+  auto start = std::chrono::steady_clock::now();
+#endif
+
+  // Optimization using Eigen for the innermost loop (across N)
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        int enc_key_index = sampled_enc_key_index->at(b * M + m);
+      int enc_key_index = sampled_enc_key_index->at(b * M + m);
 
-        out->data()[b * M * N + m * N + n] =
-            static_cast<int>(in->data()[b * M * N + m * N + n]) +
-            enc_key_pool->at(enc_key_index).at(n);
+      // Eigen Map for the input and output vectors across N dimension
+      Eigen::Map<const Eigen::Matrix<int8_t, 1, Eigen::Dynamic>> in_vec(
+          in->data().data() + b * M * N + m * N, N);
+      Eigen::Map<Eigen::Matrix<int32_t, 1, Eigen::Dynamic>> out_vec(
+          out->data().data() + b * M * N + m * N, N);
+
+      // Eigen Map for the encryption key vector (reshaped as a row vector)
+      Eigen::Map<const Eigen::Matrix<int, 1, Eigen::Dynamic>> enc_key_vec(
+          enc_key_pool->at(enc_key_index).data(), 1, N);
+
+      // Element-wise addition using Eigen
+      out_vec = in_vec.cast<int32_t>() + enc_key_vec;
 
 #if CHECK_SANITY == 1
+      for (int n = 0; n < N; ++n) {
         int enc_test = enc_key_pool->at(enc_key_index).at(n) +
                        static_cast<int>(in->data()[b * M * N + m * N + n]);
         ASSERT_ALWAYS(out->data()[b * M * N + m * N + n] == enc_test,
                       "Encrypted value is not correct!");
-#endif
       }
+#endif
     }
   }
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto end = std::chrono::steady_clock::now();
+  auto diff = end - start;
+  std::cout << static_cast<int>(type) << ", EncryptLinearActivation Time: "
+            << std::chrono::duration<double, std::milli>(diff).count() << " ms"
+            << std::endl;
+#endif
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
             << "] EncryptLinearActivation() Exit" << std::endl;
@@ -1092,8 +1117,6 @@ void DecoderLayer::GenerateSecretKey_QK() {
     }
   }
 
-  // std::shuffle(qk_permuted_index_.begin(), qk_permuted_index_.end(), engine);
-
   is_qk_key_generated_ = true;
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
@@ -1246,7 +1269,8 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
           // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          out->data().at(b * M * K * N + m * K * N + k * N +
+                         qk_permuted_index_.at(n)) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   qk_x_mult_key_.at(b).at(m).at(k).first +
               qk_x_add_key_.at(b).at(m).at(n);
@@ -1283,7 +1307,8 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          out->data().at(b * M * K * N + m * K * N + k * N +
+                         qk_permuted_index_.at(n)) =
               in->data().at(b * M * K * N + m * K * N + k * N + n) *
                   qk_y_mult_key_.at(b).at(m).at(k_dim - K + k).first +
               qk_y_add_key_.at(b).at(m).at(n);
