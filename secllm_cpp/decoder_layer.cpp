@@ -127,8 +127,11 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
 
   for (int i = 0; i < head_dim_; ++i) {
     qk_permuted_index_.push_back(i);
+    pv_permuted_index_.push_back(i);
   }
+
   std::shuffle(qk_permuted_index_.begin(), qk_permuted_index_.end(), engine);
+  std::shuffle(pv_permuted_index_.begin(), pv_permuted_index_.end(), engine);
 
   input_layernorm_weights_.resize(hidden_size_);
   post_attention_layernorm_weights_.resize(hidden_size_);
@@ -1279,8 +1282,8 @@ void DecoderLayer::GenerateDecryptionKey_QK(
 
   int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ * X_K *
                 culmulative_token_len_;
-  qk_add_dec_key_buffer = std::vector<uint32_t>(len, 0);
-  qk_mult_dec_key_buffer = std::vector<uint32_t>(len, 0);
+  qk_add_dec_key_buffer = std::vector<uint32_t>(len);
+  qk_mult_dec_key_buffer = std::vector<uint32_t>(len);
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
@@ -1840,7 +1843,7 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
             pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
         int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
-          out->data().at(index_without_n + n) =
+          out->data().at(index_without_n + pv_permuted_index_.at(n)) =
               in->data().at(index_without_n + n) *
                   pv_y_mult_key_.at(b).at(m).at(n).first +
               pv_y_add_key_factor;
@@ -1874,20 +1877,20 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
   int K = shape.at(2);
   int N = shape.at(3);
 
-  int64_t total_elements = static_cast<int64_t>(B) * M * K * N;
-
-  // Use Eigen to map the data as 1D arrays for vectorized operations
-  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
-      out->data().data(), total_elements);
-  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> in_map(
-      in->data().data(), total_elements);
-  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> add_key_map(
-      pv_add_dec_key_buffer.data(), total_elements);
-  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> mult_key_map(
-      pv_mult_dec_key_buffer.data(), total_elements);
-
-  // Perform the decryption operation using Eigen
-  out_map = (in_map - add_key_map).array() * mult_key_map;
+  for (int b = 0; b < B; ++b) {
+    for (int m = 0; m < M; ++m) {
+      for (int k = 0; k < K; ++k) {
+        int64_t index_without_n = b * M * K * N + m * K * N + k * N;
+        for (int n = 0; n < N; ++n) {
+          int64_t inorder_index = index_without_n + n;
+          out->data().at(inorder_index) =
+              (in->data().at(index_without_n + pv_permuted_index_.at(n)) -
+               pv_add_dec_key_buffer.at(inorder_index)) *
+              pv_mult_dec_key_buffer.at(inorder_index);
+        }
+      }
+    }
+  }
 
   pv_add_dec_key_buffer.clear();
   pv_mult_dec_key_buffer.clear();
