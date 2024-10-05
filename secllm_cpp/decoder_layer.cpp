@@ -730,31 +730,43 @@ void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Enter"
             << std::endl;
 #endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
   int K = shape.at(2);
   int N = shape.at(3);
 
+  // Initialize qk_x_row_shift_sum_ with dimensions [B][M][K]
   qk_x_row_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
-      B, std::vector<std::vector<int>>(M));  // input is 4D
+      B, std::vector<std::vector<int>>(M, std::vector<int>(K, 0)));
+
+  // Iterate over B, M, K and compute the sum over N using Eigen
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
-        int sum = 0;
-        for (int n = 0; n < N; ++n) {
-          sum += (int)in->data().at(b * M * K * N + m * K * N + k * N + n);
-        }
-        qk_x_row_shift_sum_[b][m].push_back(sum);
+        // Map the data for a single row (1xN) from in tensor as int8_t
+        Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> row_in_map(
+            &in->data()[b * M * K * N + m * K * N + k * N], N);
+
+        // Sum the row after casting to int
+        qk_x_row_shift_sum_[b][m][k] = row_in_map.cast<int>().sum();
       }
     }
   }
 
+  // Apply the SHIFT_AMT to all elements using Eigen for the entire tensor
   int64_t len = static_cast<int64_t>(B) * M * K * N;
-  for (int i = 0; i < len; ++i) {
-    out->data().at(i) =
-        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
-  }
+
+  // Create an Eigen Map for the output tensor (uint32_t) and input tensor (int8_t)
+  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), len);
+  Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), len);
+
+  // Explicitly cast the int8_t values to int before adding SHIFT_AMT, then cast to uint32_t
+  out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Exit"
             << std::endl;
@@ -787,6 +799,7 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Enter"
             << std::endl;
 #endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -795,27 +808,35 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
   if (qk_y_col_shift_sum_.empty()) {
     qk_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
-        B, std::vector<std::vector<int>>(M));  // input is 4D
+        B, std::vector<std::vector<int>>(M, std::vector<int>(K, 0)));
   }
 
+  // Iterate over B, M, and K to compute the column sums over N using Eigen
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
-        int sum = 0;
-        for (int n = 0; n < N; ++n) {
-          sum += static_cast<int32_t>(
-              in->data().at(b * M * K * N + m * K * N + k * N + n));
-        }
-        qk_y_col_shift_sum_.at(b).at(m).push_back(sum);
+        // Map the data for a single row (1xN) from in tensor as int8_t
+        Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> col_in_map(
+            &in->data()[b * M * K * N + m * K * N + k * N], N);
+
+        // Sum the row after casting to int
+        qk_y_col_shift_sum_[b][m][k] = col_in_map.cast<int>().sum();
       }
     }
   }
 
+  // Apply the SHIFT_AMT to all elements using Eigen for the entire tensor
   int64_t len = static_cast<int64_t>(B) * M * K * N;
-  for (int i = 0; i < len; ++i) {
-    out->data().at(i) =
-        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
-  }
+
+  // Create an Eigen Map for the output tensor (uint32_t) and input tensor (int8_t)
+  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), len);
+  Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), len);
+
+  // Explicitly cast the int8_t values to int before adding SHIFT_AMT, then cast to uint32_t
+  out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Exit"
             << std::endl;
@@ -906,33 +927,43 @@ void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Enter"
             << std::endl;
 #endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
   int K = shape.at(2);
   int N = shape.at(3);
 
+  // Initialize pv_x_row_shift_sum_ to store row-wise sums
   pv_x_row_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
-      B, std::vector<std::vector<int>>(M));  // input is 4D
+      B, std::vector<std::vector<int>>(M, std::vector<int>(K, 0)));
 
+  // Compute the row sums over N using Eigen
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
-        int sum = 0;
-        for (int n = 0; n < N; ++n) {
-          sum += static_cast<int32_t>(
-              in->data().at(b * M * K * N + m * K * N + k * N + n));
-        }
-        pv_x_row_shift_sum_.at(b).at(m).push_back(sum);
+        // Map the data for a single row (1xN) from in tensor as int8_t
+        Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> row_in_map(
+            &in->data()[b * M * K * N + m * K * N + k * N], N);
+
+        // Sum the row after casting to int
+        pv_x_row_shift_sum_[b][m][k] = row_in_map.cast<int>().sum();
       }
     }
   }
 
+  // Apply the SHIFT_AMT to all elements using Eigen for the entire tensor
   int64_t len = static_cast<int64_t>(B) * M * K * N;
-  for (int i = 0; i < len; ++i) {
-    out->data().at(i) =
-        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
-  }
+
+  // Create Eigen Maps for input and output
+  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), len);
+  Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), len);
+
+  // Shift the values and cast to uint32_t
+  out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Exit"
             << std::endl;
@@ -966,34 +997,44 @@ void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Enter"
             << std::endl;
 #endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
   int K = shape.at(2);
   int N = shape.at(3);
 
+  // Initialize pv_y_col_shift_sum_ to store column-wise sums
   if (pv_y_col_shift_sum_.empty()) {
     pv_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
-        B, std::vector<std::vector<int>>(
-               M, std::vector<int>(N, 0)));  // input is 4D
+        B, std::vector<std::vector<int>>(M, std::vector<int>(N, 0)));
   }
 
+  // Compute the column sums over K using Eigen
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
         for (int n = 0; n < N; ++n) {
-          pv_y_col_shift_sum_.at(b).at(m).at(n) += static_cast<int32_t>(
+          // Accumulate the column sums for each element in in
+          pv_y_col_shift_sum_[b][m][n] += static_cast<int>(
               in->data().at(b * M * K * N + m * K * N + k * N + n));
         }
       }
     }
   }
 
+  // Apply the SHIFT_AMT to all elements using Eigen for the entire tensor
   int64_t len = static_cast<int64_t>(B) * M * K * N;
-  for (int i = 0; i < len; ++i) {
-    out->data().at(i) =
-        static_cast<uint32_t>(static_cast<int>(in->data().at(i)) + SHIFT_AMT);
-  }
+
+  // Create Eigen Maps for input and output
+  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), len);
+  Eigen::Map<const Eigen::Array<int8_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), len);
+
+  // Shift the values and cast to uint32_t
+  out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Exit"
             << std::endl;
