@@ -332,55 +332,44 @@ void jpyo0803::ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
   shape of q = torch.Size([1, 32, 2048, 128])
   shape of k = torch.Size([1, 8, 2048, 128])
   shape of cos, sin = torch.Size([1, 2048, 128])
-*/
-  std::vector<float> result_buffer(N * K);
+  */
 
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < Q_M; ++m) {
       for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          int k2 = (k + K / 2) % K;
+        Eigen::Map<Eigen::ArrayXf> q_input(
+            &q_tensor[b * Q_M * N * K + m * N * K + n * K], K);
+        Eigen::Map<const Eigen::ArrayXf> cos_map(&cos[n * K], K);
+        Eigen::Map<const Eigen::ArrayXf> sin_map(&sin[n * K], K);
 
-          float q_cos_val = q_tensor[b * Q_M * N * K + m * N * K + n * K + k] *
-                            cos[n * K + k];
-          float rh_q_sin_val =
-              q_tensor[b * Q_M * N * K + m * N * K + n * K + k2] *
-              sin[n * K + k];
+        // Split into two halves
+        Eigen::ArrayXf q_cos_part = q_input.head(K / 2) * cos_map.head(K / 2) -
+                                    q_input.tail(K / 2) * sin_map.head(K / 2);
+        Eigen::ArrayXf q_sin_part = q_input.head(K / 2) * sin_map.head(K / 2) +
+                                    q_input.tail(K / 2) * cos_map.head(K / 2);
 
-          result_buffer.at(n * K + k) =
-              k < K / 2 ? q_cos_val - rh_q_sin_val : q_cos_val + rh_q_sin_val;
-        }
-      }
-      // copy result_buffer to q_tensor
-      for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          q_tensor[b * Q_M * N * K + m * N * K + n * K + k] =
-              result_buffer.at(n * K + k);
-        }
+        // Concatenate the result
+        q_input.head(K / 2) = q_cos_part;
+        q_input.tail(K / 2) = q_sin_part;
       }
     }
 
     for (int m = 0; m < K_M; ++m) {
       for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          int k2 = (k + K / 2) % K;
+        Eigen::Map<Eigen::ArrayXf> k_input(
+            &k_tensor[b * K_M * N * K + m * N * K + n * K], K);
+        Eigen::Map<const Eigen::ArrayXf> cos_map(&cos[n * K], K);
+        Eigen::Map<const Eigen::ArrayXf> sin_map(&sin[n * K], K);
 
-          float k_cos_val = k_tensor[b * K_M * N * K + m * N * K + n * K + k] *
-                            cos[n * K + k];
-          float rh_k_sin_val =
-              k_tensor[b * K_M * N * K + m * N * K + n * K + k2] *
-              sin[n * K + k];
+        // Split into two halves
+        Eigen::ArrayXf k_cos_part = k_input.head(K / 2) * cos_map.head(K / 2) -
+                                    k_input.tail(K / 2) * sin_map.head(K / 2);
+        Eigen::ArrayXf k_sin_part = k_input.head(K / 2) * sin_map.head(K / 2) +
+                                    k_input.tail(K / 2) * cos_map.head(K / 2);
 
-          result_buffer.at(n * K + k) =
-              k < K / 2 ? k_cos_val - rh_k_sin_val : k_cos_val + rh_k_sin_val;
-        }
-      }
-      // copy result_buffer to k_tensor
-      for (int n = 0; n < N; ++n) {
-        for (int k = 0; k < K; ++k) {
-          k_tensor[b * K_M * N * K + m * N * K + n * K + k] =
-              result_buffer.at(n * K + k);
-        }
+        // Concatenate the result
+        k_input.head(K / 2) = k_cos_part;
+        k_input.tail(K / 2) = k_sin_part;
       }
     }
   }
@@ -393,25 +382,20 @@ void jpyo0803::LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
   /*
       inv_freq: [64]
       position_ids: [1, 2048], but treat it [2048]
-
       cos, sin: [1, 2048, 128]
   */
 
-  std::vector<float> half_emb_buffer(position_ids_M * inv_freq_M);
+  Eigen::Map<const Eigen::ArrayXf> inv_freq_map(inv_freq, inv_freq_M);
+  Eigen::Map<const Eigen::ArrayXf> pos_ids_map(position_ids, position_ids_M);
 
   for (int i = 0; i < position_ids_M; ++i) {
-    for (int j = 0; j < inv_freq_M; ++j) {
-      half_emb_buffer.at(i * inv_freq_M + j) = position_ids[i] * inv_freq[j];
-    }
-  }
+    Eigen::ArrayXf half_emb = pos_ids_map(i) * inv_freq_map;
 
-  int col_size = inv_freq_M * 2;
-  for (int i = 0; i < position_ids_M; ++i) {
     for (int j = 0; j < inv_freq_M; ++j) {
-      cos[i * col_size + j] = cos[i * col_size + (inv_freq_M + j)] =
-          std::cos(half_emb_buffer.at(i * inv_freq_M + j));
-      sin[i * col_size + j] = sin[i * col_size + (inv_freq_M + j)] =
-          std::sin(half_emb_buffer.at(i * inv_freq_M + j));
+      cos[i * inv_freq_M * 2 + j] = cos[i * inv_freq_M * 2 + (inv_freq_M + j)] =
+          std::cos(half_emb(j));
+      sin[i * inv_freq_M * 2 + j] = sin[i * inv_freq_M * 2 + (inv_freq_M + j)] =
+          std::sin(half_emb(j));
     }
   }
 }
