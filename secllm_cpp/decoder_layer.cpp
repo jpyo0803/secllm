@@ -1311,6 +1311,7 @@ void DecoderLayer::GenerateDecryptionKey_QK(
 #endif
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
+      int index_m_for_y = m / num_key_value_groups_;
       for (int k = 0; k < X_K; ++k) {
         int qk_x_mult_key_index = qk_x_mult_key_.at(b).at(m).at(k).second;
         for (int n = 0; n < culmulative_token_len_; ++n) {
@@ -1320,10 +1321,7 @@ void DecoderLayer::GenerateDecryptionKey_QK(
 
           qk_mult_dec_key_buffer.at(index) =
               precomputed_key_inv_.at(qk_x_mult_key_index)
-                  .at(qk_y_mult_key_.at(b)
-                          .at(m / num_key_value_groups_)
-                          .at(n)
-                          .second);
+                  .at(qk_y_mult_key_.at(b).at(index_m_for_y).at(n).second);
         }
       }
     }
@@ -1741,11 +1739,11 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
+        uint32_t pv_x_mult_key_factor = pv_x_mult_key_.at(b).at(m).at(k).first;
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              in->data().at(b * M * K * N + m * K * N + k * N + n) *
-                  pv_x_mult_key_.at(b).at(m).at(k).first +
-              pv_x_add_key_.at(b).at(m).at(n);
+          int64_t index = b * M * K * N + m * K * N + k * N + n;
+          out->data().at(index) = in->data().at(index) * pv_x_mult_key_factor +
+                                  pv_x_add_key_.at(b).at(m).at(n);
           // out->data().at(b * M * K * N + m * K * N + k * N + n) =
           //     in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
@@ -1780,11 +1778,14 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
+        uint32_t pv_y_add_key_factor =
+            pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
+        int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              in->data().at(b * M * K * N + m * K * N + k * N + n) *
+          out->data().at(index_without_n + n) =
+              in->data().at(index_without_n + n) *
                   pv_y_mult_key_.at(b).at(m).at(n).first +
-              pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
+              pv_y_add_key_factor;
           // out->data().at(b * M * K * N + m * K * N + k * N + n) =
           //     in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
