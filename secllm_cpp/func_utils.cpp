@@ -271,22 +271,23 @@ void jpyo0803::RMSNorm_InPlace(float* x, const float* const weight, int B,
 
 void jpyo0803::RMSNorm_Func(float* out, float* in, const float* const weight,
                             int B, int M, int N, float eps) {
-  // weight, x: [B, M, N]
+  // Map the weight array as an Eigen vector
+  Eigen::Map<const Eigen::VectorXf> weight_vec(weight, N);
 
+  // Iterate over batches and M
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
-      float sqr_sum = 0.0f;
-      for (int n = 0; n < N; ++n) {
-        sqr_sum += in[b * M * N + m * N + n] * in[b * M * N + m * N + n];
-      }
+      // Map the current slice of in and out for the current batch and M index
+      Eigen::Map<Eigen::VectorXf> out_vec(out + b * M * N + m * N, N);
+      Eigen::Map<const Eigen::VectorXf> in_vec(in + b * M * N + m * N, N);
 
+      // Calculate the square sum (L2 norm squared)
+      float sqr_sum = in_vec.squaredNorm();
       float variance = sqr_sum / N;
 
-      for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
-            in[b * M * N + m * N + n] / std::sqrt(variance + eps);
-        out[b * M * N + m * N + n] *= weight[n];
-      }
+      // Perform normalization and apply the weight
+      out_vec = in_vec.array() / std::sqrt(variance + eps);
+      out_vec = out_vec.array() * weight_vec.array();
     }
   }
 }
@@ -303,14 +304,13 @@ void jpyo0803::ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
 
 void jpyo0803::ElementWiseAdd(float* out, float* x, float* y, int B, int M,
                               int N) {
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
-            x[b * M * N + m * N + n] + y[b * M * N + m * N + n];
-      }
-    }
-  }
+  // Map the input and output arrays as Eigen matrices
+  Eigen::Map<Eigen::MatrixXf> out_mat(out, B * M, N);
+  Eigen::Map<const Eigen::MatrixXf> x_mat(x, B * M, N);
+  Eigen::Map<const Eigen::MatrixXf> y_mat(y, B * M, N);
+
+  // Perform element-wise addition
+  out_mat = x_mat + y_mat;
 }
 
 void jpyo0803::ElementWiseSubtract(float* out, float* x, float* y, int B, int M,
