@@ -472,7 +472,11 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
   ASSERT_ALWAYS(sampled_enc_key_index->empty(),
                 "sampled_enc_key_index is not empty!");
 #endif
+#if INTERNAL_TIME_MEASURE == 1
+  auto start = std::chrono::steady_clock::now();
+#endif
 
+  // 3ms
   for (int i = 0; i < B * M; ++i) {
     sampled_enc_key_index->push_back(GenerateCPRNG() % enc_key_pool_size_);
   }
@@ -480,10 +484,6 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(sampled_enc_key_index->size() == B * M,
                 "sampled_enc_key_index size is not correct!");
-#endif
-
-#if INTERNAL_TIME_MEASURE == 1
-  auto start = std::chrono::steady_clock::now();
 #endif
 
   // Optimization using Eigen for the innermost loop (across N)
@@ -536,6 +536,7 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_
             << "] DecryptLinearActivation() Enter" << std::endl;
 #endif
+
   // Note that output is int32
   auto shape = in->shape();
   int B = shape.at(0);
@@ -584,15 +585,37 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                 "sampled_enc_key_index size is not correct!");
 #endif
 
+#if INTERNAL_TIME_MEASURE == 1
+  auto start = std::chrono::steady_clock::now();
+#endif
+
+  // Optimization using Eigen for the innermost loop (across N)
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out->data()[b * M * N + m * N + n] =
-            in->data()[b * M * N + m * N + n] -
-            dec_key->at(sampled_enc_key_index->at(b * M + m)).at(n);
-      }
+      int enc_key_index = sampled_enc_key_index->at(b * M + m);
+
+      // Map the input and output tensors for the N dimension
+      Eigen::Map<const Eigen::Matrix<int32_t, 1, Eigen::Dynamic>> in_vec(
+          in->data().data() + b * M * N + m * N, N);
+      Eigen::Map<Eigen::Matrix<int32_t, 1, Eigen::Dynamic>> out_vec(
+          out->data().data() + b * M * N + m * N, N);
+
+      // Map the decryption key as a row vector
+      Eigen::Map<const Eigen::Matrix<int, 1, Eigen::Dynamic>> dec_key_vec(
+          dec_key->at(enc_key_index).data(), 1, N);
+
+      // Perform element-wise subtraction using Eigen
+      out_vec = in_vec - dec_key_vec;
     }
   }
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto end = std::chrono::steady_clock::now();
+  auto diff = end - start;
+  std::cout << static_cast<int>(type) << ", DecryptLinearActivation Time: "
+            << std::chrono::duration<double, std::milli>(diff).count() << " ms"
+            << std::endl;
+#endif
 
   sampled_enc_key_index->clear();
 
