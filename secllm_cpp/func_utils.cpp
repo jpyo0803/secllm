@@ -19,14 +19,13 @@ std::vector<float> max_abs_per_token(const std::vector<float>& t, size_t B,
 
   for (size_t b = 0; b < B; ++b) {
     for (size_t m = 0; m < M; ++m) {
-      float max_val = 0.0;
-      for (size_t n = 0; n < N; ++n) {
-        size_t index =
-            b * M * N + m * N + n;  // Calculate 1D index for (b, m, n)
-        max_val = std::max(max_val, std::abs(t[index]));
-      }
-      max_vals[b * M + m] =
-          std::max(max_val, 1e-8f) / 127.0f;  // Clamp and normalize
+      // Map the current row to Eigen
+      Eigen::Map<const Eigen::MatrixXf> row_vec(t.data() + b * M * N + m * N, 1,
+                                                N);
+      // Compute max absolute value in the row
+      float max_val = row_vec.cwiseAbs().maxCoeff();
+      // Store the normalized and clamped max value
+      max_vals[b * M + m] = std::max(max_val, 1e-8f) / 127.0f;
     }
   }
 
