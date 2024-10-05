@@ -11,6 +11,7 @@
 #include "func_utils.h"
 #include "secllm.h"
 
+#include "Eigen/Dense"
 #include "macro.h"
 
 namespace {
@@ -512,18 +513,24 @@ void Internal_Reset() {
 // TODO(jpyo0803): Where is its declaration?
 void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
                                     int* shape) {
+  // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
 
+  // Compute the total number of elements based on shape
   int num_elements = std::accumulate(shape_vec.begin(), shape_vec.end(), 1,
                                      std::multiplies<int>());
 
-  std::vector<float> input_vec(data, data + num_elements);
+  // Create an empty std::vector to hold the data
+  std::vector<float> input_vec(num_elements);
 
-  jpyo0803::Tensor<float> tensor(
-      shape_vec,
-      std::move(
-          input_vec));  // this involves copy, so it may include some overhead
+  // Use Eigen::Map to vectorize the copy operation
+  Eigen::Map<Eigen::VectorXf> data_map(data, num_elements);
+  Eigen::Map<Eigen::VectorXf>(input_vec.data(), num_elements) = data_map;
 
+  // Now input_vec contains the data copied from `data` in a vectorized way
+  jpyo0803::Tensor<float> tensor(shape_vec, std::move(input_vec));
+
+  // Store the tensor in the BookKeeper
   std::shared_ptr<jpyo0803::Tensor<float>> data_ptr =
       std::make_shared<jpyo0803::Tensor<float>>(tensor);
 
@@ -532,15 +539,24 @@ void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
 
 void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
                                     int* shape) {
+  // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
 
+  // Compute the total number of elements based on shape
   int num_elements = std::accumulate(shape_vec.begin(), shape_vec.end(), 1,
                                      std::multiplies<int>());
 
-  std::vector<int32_t> input_vec(data, data + num_elements);
+  // Create an empty std::vector to hold the data
+  std::vector<int32_t> input_vec(num_elements);
 
+  // Use Eigen::Map to vectorize the copy operation
+  Eigen::Map<Eigen::VectorXi> data_map(data, num_elements);
+  Eigen::Map<Eigen::VectorXi>(input_vec.data(), num_elements) = data_map;
+
+  // Create the tensor with the data in the input_vec
   jpyo0803::Tensor<int32_t> tensor(shape_vec, std::move(input_vec));
 
+  // Store the tensor in the BookKeeper
   std::shared_ptr<jpyo0803::Tensor<int32_t>> data_ptr =
       std::make_shared<jpyo0803::Tensor<int32_t>>(tensor);
 
@@ -549,15 +565,26 @@ void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
 
 void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
                                      int* shape) {
+  // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
 
+  // Compute the total number of elements based on shape
   int num_elements = std::accumulate(shape_vec.begin(), shape_vec.end(), 1,
                                      std::multiplies<int>());
 
-  std::vector<uint32_t> input_vec(data, data + num_elements);
+  // Create an empty std::vector to hold the data
+  std::vector<uint32_t> input_vec(num_elements);
 
+  // Use Eigen::Map to vectorize the copy operation
+  Eigen::Map<Eigen::Matrix<uint32_t, Eigen::Dynamic, 1>> data_map(data,
+                                                                  num_elements);
+  Eigen::Map<Eigen::Matrix<uint32_t, Eigen::Dynamic, 1>>(
+      input_vec.data(), num_elements) = data_map;
+
+  // Create the tensor with the data in the input_vec
   jpyo0803::Tensor<uint32_t> tensor(shape_vec, std::move(input_vec));
 
+  // Store the tensor in the BookKeeper
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> data_ptr =
       std::make_shared<jpyo0803::Tensor<uint32_t>>(tensor);
 
@@ -566,15 +593,26 @@ void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
 
 void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
                                    int* shape) {
+  // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
 
+  // Compute the total number of elements based on shape
   int num_elements = std::accumulate(shape_vec.begin(), shape_vec.end(), 1,
                                      std::multiplies<int>());
 
-  std::vector<int8_t> input_vec(data, data + num_elements);
+  // Create an empty std::vector to hold the data
+  std::vector<int8_t> input_vec(num_elements);
 
+  // Use Eigen::Map to vectorize the copy operation
+  Eigen::Map<Eigen::Matrix<int8_t, Eigen::Dynamic, 1>> data_map(data,
+                                                                num_elements);
+  Eigen::Map<Eigen::Matrix<int8_t, Eigen::Dynamic, 1>>(input_vec.data(),
+                                                       num_elements) = data_map;
+
+  // Create the tensor with the data in the input_vec
   jpyo0803::Tensor<int8_t> tensor(shape_vec, std::move(input_vec));
 
+  // Store the tensor in the BookKeeper
   std::shared_ptr<jpyo0803::Tensor<int8_t>> data_ptr =
       std::make_shared<jpyo0803::Tensor<int8_t>>(tensor);
 
@@ -590,6 +628,8 @@ void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
     throw std::runtime_error("No object at the location: " +
                              std::to_string(loc));
   }
+
+  // Check for shape mismatch
   for (int i = 0; i < shape_len; ++i) {
     if (retrieved_data->shape()[i] != shape[i]) {
       throw std::runtime_error("Shape mismatch at the location: " +
@@ -597,7 +637,14 @@ void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
     }
   }
 
-  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+  // Get the total number of elements
+  int num_elements =
+      std::accumulate(shape, shape + shape_len, 1, std::multiplies<int>());
+
+  // Use Eigen's Map to vectorize the data copy
+  Eigen::Map<Eigen::VectorXf>(out, num_elements) =
+      Eigen::Map<const Eigen::VectorXf>(retrieved_data->data().data(),
+                                        num_elements);
 }
 
 void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
@@ -609,6 +656,8 @@ void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
     throw std::runtime_error("No object at the location: " +
                              std::to_string(loc));
   }
+
+  // Check for shape mismatch
   for (int i = 0; i < shape_len; ++i) {
     if (retrieved_data->shape()[i] != shape[i]) {
       throw std::runtime_error("Shape mismatch at the location: " +
@@ -616,7 +665,14 @@ void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
     }
   }
 
-  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+  // Get the total number of elements
+  int num_elements =
+      std::accumulate(shape, shape + shape_len, 1, std::multiplies<int>());
+
+  // Use Eigen's Map to vectorize the data copy
+  Eigen::Map<Eigen::VectorXi>(out, num_elements) =
+      Eigen::Map<const Eigen::VectorXi>(retrieved_data->data().data(),
+                                        num_elements);
 }
 
 void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
@@ -628,6 +684,8 @@ void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
     throw std::runtime_error("No object at the location: " +
                              std::to_string(loc));
   }
+
+  // Check for shape mismatch
   for (int i = 0; i < shape_len; ++i) {
     if (retrieved_data->shape()[i] != shape[i]) {
       throw std::runtime_error("Shape mismatch at the location: " +
@@ -635,7 +693,14 @@ void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
     }
   }
 
-  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+  // Get the total number of elements
+  int num_elements =
+      std::accumulate(shape, shape + shape_len, 1, std::multiplies<int>());
+
+  // Use Eigen's Map to vectorize the data copy
+  Eigen::Map<Eigen::Matrix<uint32_t, Eigen::Dynamic, 1>>(out, num_elements) =
+      Eigen::Map<const Eigen::Matrix<uint32_t, Eigen::Dynamic, 1>>(
+          retrieved_data->data().data(), num_elements);
 }
 
 void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
@@ -647,6 +712,8 @@ void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
     throw std::runtime_error("No object at the location: " +
                              std::to_string(loc));
   }
+
+  // Check for shape mismatch
   for (int i = 0; i < shape_len; ++i) {
     if (retrieved_data->shape()[i] != shape[i]) {
       throw std::runtime_error("Shape mismatch at the location: " +
@@ -654,7 +721,14 @@ void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
     }
   }
 
-  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+  // Get the total number of elements
+  int num_elements =
+      std::accumulate(shape, shape + shape_len, 1, std::multiplies<int>());
+
+  // Use Eigen's Map to vectorize the data copy
+  Eigen::Map<Eigen::Matrix<int8_t, Eigen::Dynamic, 1>>(out, num_elements) =
+      Eigen::Map<const Eigen::Matrix<int8_t, Eigen::Dynamic, 1>>(
+          retrieved_data->data().data(), num_elements);
 }
 
 void Internal_ReplicateTensor_Float(int from, int* to, int to_len) {
