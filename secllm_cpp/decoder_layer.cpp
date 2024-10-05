@@ -405,6 +405,7 @@ void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
   }
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
             << "] QuantizeLinearActivation() Exit" << std::endl;
@@ -1279,6 +1280,10 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
                 "QK decryption key is not generated!");
 #endif
 
+#if INTERNAL_TIME_MEASURE == 1
+  auto start = std::chrono::steady_clock::now();
+#endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1341,6 +1346,14 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
   is_qk_key_generated_ = false;
   is_qk_dec_key_generated_ = false;
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto end = std::chrono::steady_clock::now();
+  auto diff = end - start;
+  std::cout << "Decrypt_QK: "
+            << std::chrono::duration<double, std::milli>(diff).count() << " ms"
+            << std::endl;
+#endif
 
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_QK() Exit"

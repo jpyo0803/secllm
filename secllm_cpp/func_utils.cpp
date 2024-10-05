@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Eigen/Dense"
+#include "macro.h"
 
 using namespace Eigen;
 
@@ -132,31 +133,82 @@ void jpyo0803::Softmax_InPlace(float* x, int B, int M, int N, int K) {
   }
 }
 
-void jpyo0803::Softmax(float* out, float* in, int B, int M, int N, int K) {
-  // x: [B, M, N, K]
+// Helper to calculate exponential using AVX512
+inline __m512 exp512_ps(__m512 x) {
+  // AVX512 does not have a native exp, so we can use a polynomial approximation or use libraries like sleef.
+  // This is a simple placeholder using std::exp for scalar fallback.
+  float tmp[16];
+  _mm512_storeu_ps(tmp, x);
+  for (int i = 0; i < 16; ++i) {
+    tmp[i] = std::exp(
+        tmp[i]);  // Replace with a faster approximation for real-time use.
+  }
+  return _mm512_loadu_ps(tmp);
+}
 
+void jpyo0803::Softmax(float* out, float* in, int B, int M, int N, int K) {
+
+  // x: [B, M, N, K]
+#if INTERNAL_TIME_MEASURE == 1
+  auto start = std::chrono::steady_clock::now();
+#endif
+
+  // for (int b = 0; b < B; ++b) {
+  //   for (int m = 0; m < M; ++m) {
+  //     for (int n = 0; n < N; ++n) {
+  //       float max_val = in[b * M * N * K + m * N * K + n * K];
+  //       for (int k = 1; k < K; ++k) {
+  //         max_val =
+  //             std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
+  //       }
+
+  //       float sum = 0.0f;
+  //       for (int k = 0; k < K; ++k) {
+  //         out[b * M * N * K + m * N * K + n * K + k] =
+  //             std::exp(in[b * M * N * K + m * N * K + n * K + k] - max_val);
+  //         sum += out[b * M * N * K + m * N * K + n * K + k];
+  //       }
+
+  //       for (int k = 0; k < K; ++k) {
+  //         out[b * M * N * K + m * N * K + n * K + k] /= sum;
+  //       }
+  //     }
+  //   }
+  // }
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        float max_val = in[b * M * N * K + m * N * K + n * K];
-        for (int k = 1; k < K; ++k) {
-          max_val =
-              std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
-        }
+        int base_index = b * M * N * K + m * N * K + n * K;
 
-        float sum = 0.0f;
-        for (int k = 0; k < K; ++k) {
-          out[b * M * N * K + m * N * K + n * K + k] =
-              std::exp(in[b * M * N * K + m * N * K + n * K + k] - max_val);
-          sum += out[b * M * N * K + m * N * K + n * K + k];
-        }
+        // Initialize Eigen::Map for input and output vectors (in-place processing)
+        Eigen::Map<Eigen::Array<float, Eigen::Dynamic, 1>> input(
+            &in[base_index], K);
+        Eigen::Map<Eigen::Array<float, Eigen::Dynamic, 1>> output(
+            &out[base_index], K);
 
-        for (int k = 0; k < K; ++k) {
-          out[b * M * N * K + m * N * K + n * K + k] /= sum;
-        }
+        // Step 1: Find the maximum value (to improve numerical stability)
+        float max_val = input.maxCoeff();
+
+        // Step 2: Compute the exponentials and their sum
+        Eigen::Array<float, Eigen::Dynamic, 1> exp_values =
+            (input - max_val).exp();
+        float sum_exp = exp_values.sum();
+
+        // Step 3: Normalize the exponentials (in-place, no extra memory allocation)
+        output = exp_values / sum_exp;
       }
     }
   }
+
+#if INTERNAL_TIME_MEASURE == 1
+  // display in milli
+  auto end = std::chrono::steady_clock::now();
+  std::cout << "Softmax: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                     start)
+                   .count()
+            << " ms" << std::endl;
+#endif
 }
 
 void jpyo0803::SiLU(float* x, int B, int M, int N) {
