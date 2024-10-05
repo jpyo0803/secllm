@@ -23,6 +23,7 @@ namespace {
 std::default_random_engine engine(0);
 std::vector<uint32_t> qk_add_dec_key_buffer;   // flattened 4-D Tensor,
 std::vector<uint32_t> qk_mult_dec_key_buffer;  // flattened 4-D Tensor
+std::vector<int> qk_unshift_buffer;            // flattened 3-D Tensor
 // notice this shared across all layers, assume no two layers happen at the same time
 }  // namespace
 
@@ -849,29 +850,28 @@ void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Enter"
             << std::endl;
 #endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
   int K = shape.at(2);
   int N = shape.at(3);
 
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int k = 0; k < K; ++k) {
-        for (int n = 0; n < N; ++n) {
-          int unshift_factor =
-              (qk_x_row_shift_sum_.at(b).at(m).at(k) +
-               qk_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n)) *
-                  SHIFT_AMT +
-              head_dim_ * SHIFT_AMT * SHIFT_AMT;
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              static_cast<int>(
-                  in->data().at(b * M * K * N + m * K * N + k * N + n)) -
-              unshift_factor;
-        }
-      }
-    }
-  }
+  int64_t total_elements = static_cast<int64_t>(B) * M * K * N;
+
+  // Use Eigen's Map to treat the data as 1D arrays for vectorized operations
+  Eigen::Map<Eigen::Array<int32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), total_elements);
+
+  // Corrected qk_unshift_buffer to int32_t
+  Eigen::Map<const Eigen::Array<int32_t, Eigen::Dynamic, 1>> unshift_buffer_map(
+      qk_unshift_buffer.data(), total_elements);
+
+  // Perform the vectorized subtraction (unshift operation)
+  out_map = in_map.cast<int32_t>() - unshift_buffer_map;
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Exit"
             << std::endl;
@@ -1295,6 +1295,26 @@ void DecoderLayer::GenerateDecryptionKey_QK(
                           .at(m / num_key_value_groups_)
                           .at(n)
                           .second);
+        }
+      }
+    }
+  }
+
+  // NOTE(jpyo0803): Filling up unshift buffer can be parallelized
+  qk_unshift_buffer = std::vector<int>(len);
+
+  int hss = head_dim_ * SHIFT_AMT * SHIFT_AMT;
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int k = 0; k < X_K; ++k) {
+        int row_unshift_factor = qk_x_row_shift_sum_.at(b).at(m).at(k);
+        for (int n = 0; n < culmulative_token_len_; ++n) {
+          int col_unshift_factor =
+              qk_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n);
+          qk_unshift_buffer.at(
+              b * num_attention_heads_ * X_K * culmulative_token_len_ +
+              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ +
+              n) = (row_unshift_factor + col_unshift_factor) * SHIFT_AMT + hss;
         }
       }
     }
