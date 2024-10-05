@@ -24,6 +24,10 @@ std::default_random_engine engine(0);
 std::vector<uint32_t> qk_add_dec_key_buffer;   // flattened 4-D Tensor,
 std::vector<uint32_t> qk_mult_dec_key_buffer;  // flattened 4-D Tensor
 std::vector<int> qk_unshift_buffer;            // flattened 3-D Tensor
+
+std::vector<uint32_t> pv_add_dec_key_buffer;   // flattened 4-D Tensor,
+std::vector<uint32_t> pv_mult_dec_key_buffer;  // flattened 4-D Tensor
+std::vector<int> pv_unshift_buffer;            // flattened 3-D Tensor
 // notice this shared across all layers, assume no two layers happen at the same time
 }  // namespace
 
@@ -1053,23 +1057,21 @@ void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
   int K = shape.at(2);
   int N = shape.at(3);
 
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int k = 0; k < K; ++k) {
-        for (int n = 0; n < N; ++n) {
-          int unshift_factor =
-              (pv_x_row_shift_sum_.at(b).at(m).at(k) +
-               pv_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n)) *
-                  SHIFT_AMT +
-              culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              static_cast<int>(
-                  in->data().at(b * M * K * N + m * K * N + k * N + n)) -
-              unshift_factor;
-        }
-      }
-    }
-  }
+  int64_t total_elements = static_cast<int64_t>(B) * M * K * N;
+
+  // Use Eigen's Map to treat the data as 1D arrays for vectorized operations
+  Eigen::Map<Eigen::Array<int32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), total_elements);
+
+  // Corrected pv_unshift_buffer to int32_t
+  Eigen::Map<const Eigen::Array<int32_t, Eigen::Dynamic, 1>> unshift_buffer_map(
+      pv_unshift_buffer.data(), total_elements);
+
+  // Perform the vectorized subtraction (unshift operation)
+  out_map = in_map.cast<int32_t>() - unshift_buffer_map;
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Exit"
             << std::endl;
@@ -1712,6 +1714,26 @@ void DecoderLayer::GenerateDecryptionKey_PV(
   // Y: [bsz, num_key_value_heads, q_len, head_dim]
 
   // d_row[b][m][k] = x_mult[b][m][k] * sum_n(y_add[b][m/4][n] * x[b][m][k][n]), expected dim: [1, 32, 2048]
+
+  int64_t len =
+      static_cast<int64_t>(bsz_) * num_attention_heads_ * X_K * head_dim_;
+  pv_unshift_buffer = std::vector<int>(len);
+
+  int hss = culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int k = 0; k < X_K; ++k) {
+        int row_unshift_factor = pv_x_row_shift_sum_.at(b).at(m).at(k);
+        for (int n = 0; n < head_dim_; ++n) {
+          int col_unshift_factor =
+              pv_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n);
+          pv_unshift_buffer.at(b * num_attention_heads_ * X_K * head_dim_ +
+                               m * X_K * head_dim_ + k * head_dim_ + n) =
+              (row_unshift_factor + col_unshift_factor) * SHIFT_AMT + hss;
+        }
+      }
+    }
+  }
 
   is_pv_dec_key_generated_ = true;
 
