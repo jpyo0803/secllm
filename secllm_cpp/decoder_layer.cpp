@@ -1717,6 +1717,42 @@ void DecoderLayer::GenerateDecryptionKey_PV(
 
   int64_t len =
       static_cast<int64_t>(bsz_) * num_attention_heads_ * X_K * head_dim_;
+
+  pv_add_dec_key_buffer = std::vector<uint32_t>(len);
+
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      uint32_t pv_dec_glob_factor = pv_dec_glob_.at(b).at(m);
+      for (int k = 0; k < X_K; ++k) {
+        uint32_t pv_dec_row_factor = pv_dec_row_.at(b).at(m).at(k);
+        for (int n = 0; n < head_dim_; ++n) {
+          int64_t index = b * num_attention_heads_ * X_K * head_dim_ +
+                          m * X_K * head_dim_ + k * head_dim_ + n;
+          pv_add_dec_key_buffer.at(index) = pv_dec_row_factor +
+                                            pv_dec_glob_factor +
+                                            pv_dec_col_.at(b).at(m).at(n);
+        }
+      }
+    }
+  }
+
+  pv_mult_dec_key_buffer = std::vector<uint32_t>(len);
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      int index_m_for_y = m / num_key_value_groups_;
+      for (int k = 0; k < X_K; ++k) {
+        int pv_x_mult_key_index = pv_x_mult_key_.at(b).at(m).at(k).second;
+        for (int n = 0; n < head_dim_; ++n) {
+          int64_t index = b * num_attention_heads_ * X_K * head_dim_ +
+                          m * X_K * head_dim_ + k * head_dim_ + n;
+          pv_mult_dec_key_buffer.at(index) =
+              precomputed_key_inv_.at(pv_x_mult_key_index)
+                  .at(pv_y_mult_key_.at(b).at(index_m_for_y).at(n).second);
+        }
+      }
+    }
+  }
+
   pv_unshift_buffer = std::vector<int>(len);
 
   int hss = culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
@@ -1838,26 +1874,23 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
   int K = shape.at(2);
   int N = shape.at(3);
 
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int k = 0; k < K; ++k) {
-        for (int n = 0; n < N; ++n) {
-          uint32_t tmp = in->data().at(b * M * K * N + m * K * N + k * N + n) -
-                         pv_dec_row_.at(b).at(m).at(k) -
-                         pv_dec_col_.at(b).at(m).at(n) -
-                         pv_dec_glob_.at(b).at(m);
-          tmp *=
-              precomputed_key_inv_.at(pv_x_mult_key_.at(b).at(m).at(k).second)
-                  .at(pv_y_mult_key_.at(b)
-                          .at(m / num_key_value_groups_)
-                          .at(n)
-                          .second);
-          out->data().at(b * M * K * N + m * K * N + k * N + n) = tmp;
-          // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
-        }
-      }
-    }
-  }
+  int64_t total_elements = static_cast<int64_t>(B) * M * K * N;
+
+  // Use Eigen to map the data as 1D arrays for vectorized operations
+  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> add_key_map(
+      pv_add_dec_key_buffer.data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> mult_key_map(
+      pv_mult_dec_key_buffer.data(), total_elements);
+
+  // Perform the decryption operation using Eigen
+  out_map = (in_map - add_key_map).array() * mult_key_map;
+
+  pv_add_dec_key_buffer.clear();
+  pv_mult_dec_key_buffer.clear();
 
   // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
   is_pv_dec_key_generated_ = false;
