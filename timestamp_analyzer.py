@@ -71,10 +71,16 @@ def ComputePercentageByCategory(data_by_op, sort_increasing_order=False):
 
   if sort_increasing_order:
     percentage_by_op = dict(sorted(percentage_by_op.items(), key=lambda item: item[1], reverse=True))
-  else:
-    percentage_by_op = dict(sorted(percentage_by_op.items(), key=lambda item: item[1]))
 
   return percentage_by_op
+
+def PrintPercentByCategory(percentage_by_op):
+  # sort by op, input's op is not sorted yet
+  sorted_ops = sorted(percentage_by_op.keys())
+  for op in sorted_ops:
+    print(f'{op}: {percentage_by_op[op] * 100:.2f}%')
+
+
 
 if __name__ == '__main__':
   data = ReadInData()
@@ -82,12 +88,11 @@ if __name__ == '__main__':
   data_by_op = GroupByCategory(data)
   
   avg_time_by_op = ComputeAverageByCategory(data_by_op)
-  for op, avg_time in avg_time_by_op.items():
-    print(f'{op}: {avg_time / 1e6:.2f} ms')
-  assert False
+  # for op, avg_time in avg_time_by_op.items():
+  #   print(f'{op}: {avg_time / 1e6:.2f} ms')
+  # assert False
 
   percentage_by_op = ComputePercentageByCategory(data_by_op)
   # sort by percentage, so that with the highest percentage is at the bottom
 
-  # for op, percentage in percentage_by_op.items():
-  #   print(f'{op}: {percentage * 100:.2f} %')
+  PrintPercentByCategory(percentage_by_op)

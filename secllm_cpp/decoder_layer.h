@@ -208,6 +208,8 @@ class DecoderLayer {
   std::vector<std::vector<std::vector<uint32_t>>> qk_dec_col_;  // D_COL
   std::vector<std::vector<uint32_t>> qk_dec_glob_;              // D_GLOB
 
+  //   std::vector<uint32_t> qk_dec_key_buffer_; // flattened 4-D Tensor
+
   std::vector<std::vector<std::vector<int>>> pv_x_row_shift_sum_;
   std::vector<std::vector<std::vector<int>>> pv_y_col_shift_sum_;
 

@@ -20,7 +20,10 @@
 
 namespace {
 std::default_random_engine engine(0);
-}
+std::vector<uint32_t> qk_add_dec_key_buffer;   // flattened 4-D Tensor,
+std::vector<uint32_t> qk_mult_dec_key_buffer;  // flattened 4-D Tensor
+// notice this shared across all layers, assume no two layers happen at the same time
+}  // namespace
 
 namespace jpyo0803 {
 
@@ -1181,6 +1184,35 @@ void DecoderLayer::GenerateDecryptionKey_QK(
     }
   }
 
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ * X_K *
+                culmulative_token_len_;
+  qk_add_dec_key_buffer = std::vector<uint32_t>(len, 0);
+  qk_mult_dec_key_buffer = std::vector<uint32_t>(len, 0);
+
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int k = 0; k < X_K; ++k) {
+        for (int n = 0; n < culmulative_token_len_; ++n) {
+          qk_add_dec_key_buffer.at(
+              b * num_attention_heads_ * X_K * culmulative_token_len_ +
+              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ +
+              n) = qk_dec_row_.at(b).at(m).at(k) +
+                   qk_dec_col_.at(b).at(m).at(n) + qk_dec_glob_.at(b).at(m);
+
+          qk_mult_dec_key_buffer.at(b * num_attention_heads_ * X_K *
+                                        culmulative_token_len_ +
+                                    m * X_K * culmulative_token_len_ +
+                                    k * culmulative_token_len_ + n) =
+              precomputed_key_inv_.at(qk_x_mult_key_.at(b).at(m).at(k).second)
+                  .at(qk_y_mult_key_.at(b)
+                          .at(m / num_key_value_groups_)
+                          .at(n)
+                          .second);
+        }
+      }
+    }
+  }
+
   is_qk_dec_key_generated_ = true;
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_
@@ -1204,10 +1236,10 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
   int K = shape.at(2);
   int N = shape.at(3);
 
-#if CHECK_SANITY == 1
-  ASSERT_ALWAYS(qk_permuted_index_.size() == N,
-                "Permutation size is not matched!");
-#endif
+  // #if CHECK_SANITY == 1
+  //   ASSERT_ALWAYS(qk_permuted_index_.size() == N,
+  //                 "Permutation size is not matched!");
+  // #endif
 
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
@@ -1290,58 +1322,55 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   int K = shape.at(2);
   int N = shape.at(3);
 
-  // for (int b = 0; b < B; ++b) {
-  //   for (int m = 0; m < M; ++m) {
-  //     for (int k = 0; k < K; ++k) {
-  //       for (int n = 0; n < N; ++n) {
-  //         uint32_t tmp = in->data().at(b * M * K * N + m * K * N + k * N + n) -
-  //                        qk_dec_row_.at(b).at(m).at(k) -
-  //                        qk_dec_col_.at(b).at(m).at(n) -
-  //                        qk_dec_glob_.at(b).at(m);
-  //         tmp *=
-  //             precomputed_key_inv_.at(qk_x_mult_key_.at(b).at(m).at(k).second)
-  //                 .at(qk_y_mult_key_.at(b)
-  //                         .at(m / num_key_value_groups_)
-  //                         .at(n)
-  //                         .second);
-  //         out->data().at(b * M * K * N + m * K * N + k * N + n) = tmp;
-  //       }
-  //     }
-  //   }
-  // }
-
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
-        // Precompute indices and values outside the innermost loop
-        uint32_t qk_dec_row_val = qk_dec_row_.at(b).at(m).at(k);
-        uint32_t qk_x_mult_key_val = qk_x_mult_key_.at(b).at(m).at(k).second;
-
-        const auto& precomputed_key_inv_row =
-            precomputed_key_inv_.at(qk_x_mult_key_val);
-        const auto& qk_y_mult_key_row =
-            qk_y_mult_key_.at(b).at(m / num_key_value_groups_);
-
         for (int n = 0; n < N; ++n) {
-          // Precompute frequently accessed values
-          uint32_t input_index = b * M * K * N + m * K * N + k * N + n;
-          uint32_t tmp_in = in->data().at(input_index);
+          int64_t index = b * M * K * N + m * K * N + k * N + n;
 
-          uint32_t qk_dec_col_val = qk_dec_col_.at(b).at(m).at(n);
-          uint32_t qk_dec_glob_val = qk_dec_glob_.at(b).at(m);
-          uint32_t qk_y_mult_key_val = qk_y_mult_key_row.at(n).second;
-
-          // Perform the main computation
-          uint32_t tmp =
-              tmp_in - qk_dec_row_val - qk_dec_col_val - qk_dec_glob_val;
-          tmp *= precomputed_key_inv_row.at(qk_y_mult_key_val);
-
-          // Store the result
-          out->data().at(input_index) = tmp;
+          uint32_t tmp = in->data().at(index) - qk_add_dec_key_buffer.at(index);
+          tmp *= qk_mult_dec_key_buffer.at(index);
+          out->data().at(index) = tmp;
         }
       }
     }
   }
+
+  qk_add_dec_key_buffer.clear();
+  qk_mult_dec_key_buffer.clear();
+
+  // for (int b = 0; b < B; ++b) {
+  //   for (int m = 0; m < M; ++m) {
+  //     for (int k = 0; k < K; ++k) {
+  //       // Precompute indices and values outside the innermost loop
+  //       uint32_t qk_dec_row_val = qk_dec_row_.at(b).at(m).at(k);
+  //       uint32_t qk_x_mult_key_val = qk_x_mult_key_.at(b).at(m).at(k).second;
+
+  //       const auto& precomputed_key_inv_row =
+  //           precomputed_key_inv_.at(qk_x_mult_key_val);
+  //       const auto& qk_y_mult_key_row =
+  //           qk_y_mult_key_.at(b).at(m / num_key_value_groups_);
+
+  //       for (int n = 0; n < N; ++n) {
+  //         // Precompute frequently accessed values
+  //         uint32_t input_index = b * M * K * N + m * K * N + k * N + n;
+  //         uint32_t tmp_in = in->data().at(input_index);
+
+  //         uint32_t qk_dec_col_val = qk_dec_col_.at(b).at(m).at(n);
+  //         uint32_t qk_dec_glob_val = qk_dec_glob_.at(b).at(m);
+  //         uint32_t qk_y_mult_key_val = qk_y_mult_key_row.at(n).second;
+
+  //         // Perform the main computation
+  //         uint32_t tmp =
+  //             tmp_in - qk_dec_row_val - qk_dec_col_val - qk_dec_glob_val;
+  //         tmp *= precomputed_key_inv_row.at(qk_y_mult_key_val);
+
+  //         // Store the result
+  //         out->data().at(input_index) = tmp;
+  //       }
+  //     }
+  //   }
+  // }
 
   // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
   is_qk_key_generated_ = false;

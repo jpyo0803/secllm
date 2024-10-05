@@ -107,7 +107,7 @@ void Ext_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to,
 
   thread_pool->enqueue_task([=](int thread_id) {
     jpyo0803::TimeStamp ts(layer_idx, thread_id,
-                           "[" + proj_type_str[type] + "] Quantize input");
+                           "[" + proj_type_str[type] + " proj] Quantize input");
     ts.Start();
     Internal_QuantizeLinearActivation(
         layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));
@@ -122,7 +122,7 @@ void Ext_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to,
 
   thread_pool->enqueue_task([=](int thread_id) {
     jpyo0803::TimeStamp ts(layer_idx, thread_id,
-                           "[" + proj_type_str[type] + "] Encrypt input");
+                           "[" + proj_type_str[type] + " proj] Encrypt input");
     ts.Start();
     Internal_EncryptLinearActivation(
         layer_idx, from, locs, static_cast<jpyo0803::ProjectionType>(type));

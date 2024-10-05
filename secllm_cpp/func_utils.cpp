@@ -133,19 +133,6 @@ void jpyo0803::Softmax_InPlace(float* x, int B, int M, int N, int K) {
   }
 }
 
-// Helper to calculate exponential using AVX512
-inline __m512 exp512_ps(__m512 x) {
-  // AVX512 does not have a native exp, so we can use a polynomial approximation or use libraries like sleef.
-  // This is a simple placeholder using std::exp for scalar fallback.
-  float tmp[16];
-  _mm512_storeu_ps(tmp, x);
-  for (int i = 0; i < 16; ++i) {
-    tmp[i] = std::exp(
-        tmp[i]);  // Replace with a faster approximation for real-time use.
-  }
-  return _mm512_loadu_ps(tmp);
-}
-
 void jpyo0803::Softmax(float* out, float* in, int B, int M, int N, int K) {
 
   // x: [B, M, N, K]
