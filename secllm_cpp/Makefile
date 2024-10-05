@@ -1,6 +1,6 @@
 CC = g++
 # CXXFLAGS = -fPIC -Wall -O2
-CXXFLAGS = -fPIC -Wall -O2 -march=native -DEIGEN_USE_MKL_ALL -I/home/jpyo0803/secllm/include  # Include path to mkl.h
+CXXFLAGS = -fPIC -Wall -O2 -march=native -ffast-math -DEIGEN_USE_MKL_ALL -I/home/jpyo0803/secllm/include  # Include path to mkl.h
 LDFLAGS = -shared /home/jpyo0803/secllm/lib/libmkl_intel_lp64.so.2 \
 /home/jpyo0803/secllm/lib/libmkl_core.so.2 \
 /home/jpyo0803/secllm/lib/libmkl_sequential.so.2 -lm -ldl  # Direct full path to MKL .so files

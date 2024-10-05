@@ -95,17 +95,19 @@ void jpyo0803::DequantizeActivationWPerChannelAPerChannel(
     size_t B,                            // Batch size
     size_t dim                           // Dimension
 ) {
+  // Map the weight scales and activation scales to Eigen vectors
+  Eigen::Map<const Eigen::VectorXf> w_scales_vec(w_scales.data(), dim);
+  Eigen::Map<const Eigen::VectorXf> a_scales_vec(a_scales.data(), B);
+
+  // Iterate over each batch
   for (size_t b = 0; b < B; ++b) {
-    for (size_t d = 0; d < dim; ++d) {
-      size_t index = b * dim + d;  // Calculate the 1D index for (b, d)
+    // Map the input and output slices for the current batch (size `dim`)
+    Eigen::Map<const Eigen::VectorXi> in_vec(in.data() + b * dim, dim);
+    Eigen::Map<Eigen::VectorXf> out_vec(out.data() + b * dim, dim);
 
-      // Convert q_act to float, and apply the per-channel and per-token scaling
-
-      // Becareful data is represented in uint32_t but it is actually int32
-      int tmp = static_cast<int>(in[index]);
-      float q_val = static_cast<float>(tmp);
-      out[index] = q_val * w_scales[d] * a_scales[b];
-    }
+    // Dequantize: Convert `in` to float and apply per-channel (w_scales) and per-batch (a_scales[b]) scaling
+    out_vec =
+        in_vec.cast<float>().array() * w_scales_vec.array() * a_scales_vec[b];
   }
 }
 
