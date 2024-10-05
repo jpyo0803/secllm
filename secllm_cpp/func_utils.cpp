@@ -36,25 +36,32 @@ std::vector<float> max_abs_per_token(const std::vector<float>& t, size_t B,
 void jpyo0803::QuantizeActivationPerTensor(std::vector<int8_t>& out,
                                            const std::vector<float>& in,
                                            int64_t len, float scale) {
+  // Ensure the output vector is resized to match the input length
+  out.resize(len);
 
-  // Quantize the matrix
-  for (int64_t i = 0; i < len; ++i) {
-    // Convert t to int8_t, and apply the scaling
-    float q_val = in.at(i) / scale;
-    q_val = std::round(q_val);                   // Round
-    q_val = std::clamp(q_val, -128.0f, 127.0f);  // Clamp between -128 and 127
-    out.at(i) = static_cast<int8_t>(q_val);      // Store quantized value
-  }
+  // Map input and output data to Eigen arrays
+  Eigen::Map<const Eigen::ArrayXf> in_array(in.data(), len);
+  Eigen::Map<Eigen::Array<int8_t, Eigen::Dynamic, 1>> out_array(out.data(),
+                                                                len);
+
+  // Apply the quantization process using Eigen
+  out_array = (in_array / scale).round().unaryExpr([](float val) {
+    return static_cast<int8_t>(std::clamp(val, -128.0f, 127.0f));
+  });
 }
 
 void jpyo0803::DequantizeActivationPerTensor(std::vector<float>& out,
                                              const std::vector<int32_t>& in,
                                              int64_t len, float scale) {
-  // Iterate through the batch and the dimension
-  for (int64_t i = 0; i < len; ++i) {
-    // Convert t to float, and apply the scaling
-    out[i] = static_cast<float>(in[i]) * scale;
-  }
+  // Ensure the output vector is resized to match the input length
+  out.resize(len);
+
+  // Map input and output data to Eigen arrays
+  Eigen::Map<const Eigen::ArrayXi> in_array(in.data(), len);
+  Eigen::Map<Eigen::ArrayXf> out_array(out.data(), len);
+
+  // Apply the dequantization process using Eigen
+  out_array = in_array.cast<float>() * scale;
 }
 
 std::pair<std::vector<int8_t>, std::vector<float>>
