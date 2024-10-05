@@ -68,14 +68,17 @@ jpyo0803::DynamicQuantizeActivationPerTokenAbsmax(const std::vector<float>& in,
   for (size_t b = 0; b < B; ++b) {
     for (size_t m = 0; m < M; ++m) {
       float max_val = max_vals[b * M + m];  // Get max value for the row
-      for (size_t n = 0; n < N; ++n) {
-        size_t index =
-            b * M * N + m * N + n;        // Calculate 1D index for (b, m, n)
-        float val = in[index] / max_val;  // Normalize
-        val = std::round(val);            // Round
-        val = std::clamp(val, -128.0f, 127.0f);   // Clamp between -128 and 127
-        q_act[index] = static_cast<int8_t>(val);  // Store quantized value
-      }
+
+      // Map the row of `in` and `q_act` for Eigen
+      Eigen::Map<const Eigen::MatrixXf> in_vec(in.data() + b * M * N + m * N, 1,
+                                               N);
+      Eigen::Map<Eigen::Matrix<int8_t, 1, Eigen::Dynamic>> q_act_vec(
+          q_act.data() + b * M * N + m * N, 1, N);
+
+      // Perform quantization using Eigen
+      Eigen::MatrixXf normalized =
+          (in_vec / max_val).array().round().cwiseMin(127.0f).cwiseMax(-128.0f);
+      q_act_vec = normalized.cast<int8_t>();
     }
   }
 
