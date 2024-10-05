@@ -234,21 +234,16 @@ void jpyo0803::SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M,
 
 void jpyo0803::SwiGLU(float* out, float* gate_in, float* up_in, int B, int M,
                       int N) {
-  // gate_in: [B, M, N]
-  // up_in: [B, M, N]
-  // SwiGLU(gate_in, up_in) = silu(gate_in) * up_in
+  // Map the input and output data as Eigen matrices
+  Eigen::Map<Eigen::MatrixXf> gate_mat(gate_in, B * M, N);
+  Eigen::Map<Eigen::MatrixXf> up_mat(up_in, B * M, N);
+  Eigen::Map<Eigen::MatrixXf> out_mat(out, B * M, N);
 
-  jpyo0803::SiLU(gate_in, B, M, N);
-  // gate_in is silued
+  // Apply the SiLU activation on gate_in
+  gate_mat = gate_mat.array() / (1.0f + (-gate_mat.array()).exp());
 
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int n = 0; n < N; ++n) {
-        out[b * M * N + m * N + n] =
-            gate_in[b * M * N + m * N + n] * up_in[b * M * N + m * N + n];
-      }
-    }
-  }
+  // Perform element-wise multiplication for SwiGLU
+  out_mat = gate_mat.array() * up_mat.array();
 }
 
 void jpyo0803::RMSNorm_InPlace(float* x, const float* const weight, int B,
