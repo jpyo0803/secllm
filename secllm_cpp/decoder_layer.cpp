@@ -1214,12 +1214,12 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   int Y_K = y_shape.at(2);
   int Y_N = y_shape.at(3);
 
-  if (bsz_ != X_B || bsz_ != Y_B || num_attention_heads_ != X_M ||
-      num_key_value_heads_ != Y_M) {
-    std::cout << "Batch size or num_attention_heads is not matched!"
-              << std::endl;
-    exit(-1);
-  }
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(bsz_ == X_B && bsz_ == Y_B,
+                "Batch size is not matched between x and y!");
+  ASSERT_ALWAYS(num_attention_heads_ == X_M && num_key_value_heads_ == Y_M,
+                "num_attention_heads is not matched!");
+#endif
 
   qk_dec_row_ = std::vector<std::vector<std::vector<uint32_t>>>(
       bsz_, std::vector<std::vector<uint32_t>>(num_attention_heads_));
@@ -1247,6 +1247,10 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   // d_row[b][m][k] = x_mult[b][m][k] * sum_n(y_add[b][m/4][n] * x[b][m][k][n]), expected dim: [1, 32, 2048]
   // d_col[b][m][k] = y_mult[b][m/4][k] * sum_n(x_add[b][m][n] * y[b][m/4][k][n]), notice m/4 = 0 : num_key_value_heads, expected dim: [1, 32, 2048]
   // d_glob[b][m] = sum_n(x_add[b][m][n] * y_add[b][m/4][n]), expected dim: [1, 32]
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto start_dec_key_gen = std::chrono::steady_clock::now();
+#endif
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
@@ -1278,19 +1282,44 @@ void DecoderLayer::GenerateDecryptionKey_QK(
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
+      uint32_t qk_dec_glob_factor = qk_dec_glob_.at(b).at(m);
       for (int k = 0; k < X_K; ++k) {
+        uint32_t qk_dec_row_factor = qk_dec_row_.at(b).at(m).at(k);
         for (int n = 0; n < culmulative_token_len_; ++n) {
-          qk_add_dec_key_buffer.at(
+          int64_t index =
               b * num_attention_heads_ * X_K * culmulative_token_len_ +
-              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ +
-              n) = qk_dec_row_.at(b).at(m).at(k) +
-                   qk_dec_col_.at(b).at(m).at(n) + qk_dec_glob_.at(b).at(m);
+              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ + n;
+          qk_add_dec_key_buffer.at(index) = qk_dec_row_factor +
+                                            qk_dec_glob_factor +
+                                            qk_dec_col_.at(b).at(m).at(n);
+        }
+      }
+    }
+  }
+#if INTERNAL_TIME_MEASURE == 1
+  auto end_dec_key_gen = std::chrono::steady_clock::now();
+  // print the time difference in ms
+  std::cout << "Decryption Key Generation Time (Add factor): "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   end_dec_key_gen - start_dec_key_gen)
+                   .count()
+            << " ms" << std::endl;
+#endif
 
-          qk_mult_dec_key_buffer.at(b * num_attention_heads_ * X_K *
-                                        culmulative_token_len_ +
-                                    m * X_K * culmulative_token_len_ +
-                                    k * culmulative_token_len_ + n) =
-              precomputed_key_inv_.at(qk_x_mult_key_.at(b).at(m).at(k).second)
+#if INTERNAL_TIME_MEASURE == 1
+  auto start_dec_mult_key_gen = std::chrono::steady_clock::now();
+#endif
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int k = 0; k < X_K; ++k) {
+        int qk_x_mult_key_index = qk_x_mult_key_.at(b).at(m).at(k).second;
+        for (int n = 0; n < culmulative_token_len_; ++n) {
+          int64_t index =
+              b * num_attention_heads_ * X_K * culmulative_token_len_ +
+              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ + n;
+
+          qk_mult_dec_key_buffer.at(index) =
+              precomputed_key_inv_.at(qk_x_mult_key_index)
                   .at(qk_y_mult_key_.at(b)
                           .at(m / num_key_value_groups_)
                           .at(n)
@@ -1299,6 +1328,20 @@ void DecoderLayer::GenerateDecryptionKey_QK(
       }
     }
   }
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto end_dec_mult_key_gen = std::chrono::steady_clock::now();
+  // print the time difference in ms
+  std::cout << "Decryption Key Generation Time (Mult factor): "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   end_dec_mult_key_gen - start_dec_mult_key_gen)
+                   .count()
+            << " ms" << std::endl;
+#endif
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto start_unshift_gen = std::chrono::steady_clock::now();
+#endif
 
   // NOTE(jpyo0803): Filling up unshift buffer can be parallelized
   qk_unshift_buffer = std::vector<int>(len);
@@ -1319,6 +1362,16 @@ void DecoderLayer::GenerateDecryptionKey_QK(
       }
     }
   }
+
+#if INTERNAL_TIME_MEASURE == 1
+  auto end_unshift_gen = std::chrono::steady_clock::now();
+  // print the time difference in ms
+  std::cout << "Unshift Generation Time: "
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   end_unshift_gen - start_unshift_gen)
+                   .count()
+            << " ms" << std::endl;
+#endif
 
   is_qk_dec_key_generated_ = true;
 #if DEBUG_PRINT == 1
@@ -1351,12 +1404,12 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
+        uint32_t qk_x_mult_key_factor = qk_x_mult_key_.at(b).at(m).at(k).first;
+        int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
           // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
-          out->data().at(b * M * K * N + m * K * N + k * N +
-                         qk_permuted_index_.at(n)) =
-              in->data().at(b * M * K * N + m * K * N + k * N + n) *
-                  qk_x_mult_key_.at(b).at(m).at(k).first +
+          out->data().at(index_without_n + qk_permuted_index_.at(n)) =
+              in->data().at(index_without_n + n) * qk_x_mult_key_factor +
               qk_x_add_key_.at(b).at(m).at(n);
         }
       }
@@ -1390,11 +1443,12 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int k = 0; k < K; ++k) {
+        uint32_t qk_y_mult_key_factor =
+            qk_y_mult_key_.at(b).at(m).at(k_dim - K + k).first;
+        int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
-          out->data().at(b * M * K * N + m * K * N + k * N +
-                         qk_permuted_index_.at(n)) =
-              in->data().at(b * M * K * N + m * K * N + k * N + n) *
-                  qk_y_mult_key_.at(b).at(m).at(k_dim - K + k).first +
+          out->data().at(index_without_n + qk_permuted_index_.at(n)) =
+              in->data().at(index_without_n + n) * qk_y_mult_key_factor +
               qk_y_add_key_.at(b).at(m).at(n);
           // out->data().at(b * M * K * N + m * K * N + k * N + n) = in->data().at(b * M * K * N + m * K * N + k * N + n);
           // NOTE(jpyo083): Dont forget that you use the valid mult key
@@ -1431,57 +1485,25 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   int K = shape.at(2);
   int N = shape.at(3);
 
-  for (int b = 0; b < B; ++b) {
-    for (int m = 0; m < M; ++m) {
-      for (int k = 0; k < K; ++k) {
-        for (int n = 0; n < N; ++n) {
-          int64_t index = b * M * K * N + m * K * N + k * N + n;
+  int64_t total_elements = static_cast<int64_t>(B) * M * K * N;
 
-          uint32_t tmp = in->data().at(index) - qk_add_dec_key_buffer.at(index);
-          tmp *= qk_mult_dec_key_buffer.at(index);
-          out->data().at(index) = tmp;
-        }
-      }
-    }
-  }
+  // Use Eigen to map the data as 1D arrays for vectorized operations
+  Eigen::Map<Eigen::Array<uint32_t, Eigen::Dynamic, 1>> out_map(
+      out->data().data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> in_map(
+      in->data().data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> add_key_map(
+      qk_add_dec_key_buffer.data(), total_elements);
+  Eigen::Map<const Eigen::Array<uint32_t, Eigen::Dynamic, 1>> mult_key_map(
+      qk_mult_dec_key_buffer.data(), total_elements);
+
+  // Perform the decryption operation using Eigen
+  out_map = (in_map - add_key_map).array() * mult_key_map;
 
   qk_add_dec_key_buffer.clear();
   qk_mult_dec_key_buffer.clear();
 
-  // for (int b = 0; b < B; ++b) {
-  //   for (int m = 0; m < M; ++m) {
-  //     for (int k = 0; k < K; ++k) {
-  //       // Precompute indices and values outside the innermost loop
-  //       uint32_t qk_dec_row_val = qk_dec_row_.at(b).at(m).at(k);
-  //       uint32_t qk_x_mult_key_val = qk_x_mult_key_.at(b).at(m).at(k).second;
-
-  //       const auto& precomputed_key_inv_row =
-  //           precomputed_key_inv_.at(qk_x_mult_key_val);
-  //       const auto& qk_y_mult_key_row =
-  //           qk_y_mult_key_.at(b).at(m / num_key_value_groups_);
-
-  //       for (int n = 0; n < N; ++n) {
-  //         // Precompute frequently accessed values
-  //         uint32_t input_index = b * M * K * N + m * K * N + k * N + n;
-  //         uint32_t tmp_in = in->data().at(input_index);
-
-  //         uint32_t qk_dec_col_val = qk_dec_col_.at(b).at(m).at(n);
-  //         uint32_t qk_dec_glob_val = qk_dec_glob_.at(b).at(m);
-  //         uint32_t qk_y_mult_key_val = qk_y_mult_key_row.at(n).second;
-
-  //         // Perform the main computation
-  //         uint32_t tmp =
-  //             tmp_in - qk_dec_row_val - qk_dec_col_val - qk_dec_glob_val;
-  //         tmp *= precomputed_key_inv_row.at(qk_y_mult_key_val);
-
-  //         // Store the result
-  //         out->data().at(input_index) = tmp;
-  //       }
-  //     }
-  //   }
-  // }
-
-  // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
+  // Reset key generation flags
   is_qk_key_generated_ = false;
   is_qk_dec_key_generated_ = false;
 
