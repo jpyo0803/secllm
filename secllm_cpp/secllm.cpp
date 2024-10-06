@@ -31,16 +31,16 @@ SecLLM::SecLLM(int hidden_size, int intermediate_size,
   std::cout << "SecLLM is created with " << num_hidden_layers_ << " layers."
             << std::endl;
   book_keeper_float_ =
-      std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 105 * 3);
+      std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 110 * 3);
 
   book_keeper_int32_ = std::make_unique<BookKeeper<Tensor<int32_t>>>(
-      num_hidden_layers_ * 105 * 3);
+      num_hidden_layers_ * 110 * 3);
 
   book_keeper_uint32_ = std::make_unique<BookKeeper<Tensor<uint32_t>>>(
-      num_hidden_layers_ * 105 * 3);
+      num_hidden_layers_ * 110 * 3);
 
   book_keeper_int8_ = std::make_unique<BookKeeper<Tensor<int8_t>>>(
-      num_hidden_layers_ * 105 * 3);
+      num_hidden_layers_ * 110 * 3);
 
   /*
     We have total 91 operations [0, 90]

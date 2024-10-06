@@ -122,12 +122,14 @@ task_description = {
     101: '[PV] Dec Compute Add Factor',
     102: '[PV] Dec Compute Mult Factor',
     103: '[PV] Dec Compute Unshift Factor',
+    104: '[QK^T] Move K Cache to GPU',
+    105: '[PV] Move V Cache to GPU',
 }
 
 def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   # NOTE(jpyo0803): debugging purpose
   # Assume there are 105 operations in a layer  
-  return layer_index * 315 + input_index * 105 + operation_index
+  return layer_index * 330 + input_index * 110 + operation_index
 
 class Task:
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
@@ -1068,6 +1070,10 @@ class Task38(Task):
         torch.cuda.synchronize()
         if MEASURE_TIME_WITH_NVTX == True:
             nvtx.range_pop()
+
+        # Update K cache in CPU, Dont use the returned value, just update internally
+        _ = self.model.layers[self.layer_idx].past_key_value.update_key(act, self.layer_idx)
+
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 1)
         self.model.tensor_buffer[dst] = act
         # threading.Thread(target=async_task).start()
@@ -1087,12 +1093,18 @@ class Task39(Task):
         ready = True
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 1)] is not None
+        if self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 2)] is not None:
+            ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 2)][1]
+        else:
+            # if none, then it must wait
+            ready &= False
         return ready
     
     def run(self):
         # def async_task():
         q_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         k_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 1)
+        k_cache_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 2)
 
         q = self.model.tensor_buffer[q_loc]
         self.model.tensor_buffer[q_loc] = None
@@ -1100,13 +1112,21 @@ class Task39(Task):
         k = self.model.tensor_buffer[k_loc]
         self.model.tensor_buffer[k_loc] = None
 
+        # this kv_cache is copy in GPU
+        k_cache, _ = self.model.tensor_buffer[k_cache_loc]
+        self.model.tensor_buffer[k_cache_loc] = None
+
         assert q.dtype == torch.uint32
         assert k.dtype == torch.uint32
         assert q.shape[-1] == k.shape[-1]
 
-        past_key_value = self.model.layers[self.layer_idx].past_key_value
-        if past_key_value is not None:
-            k = past_key_value.update_key(k, self.layer_idx)
+        # past_key_value = self.model.layers[self.layer_idx].past_key_value
+        # if past_key_value is not None:
+        #     k = past_key_value.update_key(k, self.layer_idx)
+
+        # update k_cache, and get updated k
+        if k_cache is not None:
+            k = torch.cat([k_cache, k], dim=-2)
 
         k = repeat_kv(k, self.model.layers[self.layer_idx].num_key_value_groups)
 
@@ -1407,6 +1427,9 @@ class Task54(Task):
         torch.cuda.synchronize()
         if MEASURE_TIME_WITH_NVTX == True:
             nvtx.range_pop()
+
+        _ = self.model.layers[self.layer_idx].past_key_value.update_value(act, self.layer_idx)
+
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 1)
         self.model.tensor_buffer[dst] = act
         # threading.Thread(target=async_task).start()
@@ -1426,12 +1449,18 @@ class Task55(Task):
         ready = True
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
         ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 1)] is not None
+        if self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 2)] is not None:
+            ready &= self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 2)][1]
+        else:
+            # if none, then it must wait
+            ready &= False
         return ready
 
     def run(self):
         # def aync_task():
         p_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         v_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 1)
+        v_cache_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 2)
 
         p = self.model.tensor_buffer[p_loc]
         self.model.tensor_buffer[p_loc] = None
@@ -1439,12 +1468,17 @@ class Task55(Task):
         v = self.model.tensor_buffer[v_loc]
         self.model.tensor_buffer[v_loc] = None
 
+        v_cache, _ = self.model.tensor_buffer[v_cache_loc]
+        self.model.tensor_buffer[v_cache_loc] = None
+
         assert p.dtype == torch.uint32
         assert v.dtype == torch.uint32
 
-        past_key_value = self.model.layers[self.layer_idx].past_key_value
-        if past_key_value is not None:
-            v = past_key_value.update_value(v, self.layer_idx)
+        # past_key_value = self.model.layers[self.layer_idx].past_key_value
+        # if past_key_value is not None:
+        #     v = past_key_value.update_value(v, self.layer_idx)
+        if v_cache is not None:
+            v = torch.cat([v_cache, v], dim=-2)
 
         assert p.shape[-1] == v.shape[-2]
 
@@ -2565,3 +2599,71 @@ class Task103(Task):
     
     def __call__(self, worker_id):
         self.run()
+
+class Task104(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        return True
+    
+    def run(self):
+        # For now we assume 'past_key_value' is used in ours
+        dynamic_cache = self.model.layers[self.layer_idx].past_key_value
+        # if len(k_cache) == 0, it is prefill phase
+        is_k_cache_available = len(dynamic_cache.key_cache) > self.layer_idx
+
+        k_cache = None
+        if is_k_cache_available:
+            k_cache = dynamic_cache.key_cache[self.layer_idx]
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            k_cache = k_cache.to('cuda:0')
+            torch.cuda.synchronize()
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2)    
+        self.model.tensor_buffer[dst] = (k_cache, True)
+        # if past_key_value is not None:
+        #     k = past_key_value.update_key(k, self.layer_idx)
+        
+    def __call__(self, worker_id):
+        ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
+        ts.Start()
+        self.run()
+        ts.End()
+        self.time_collector.Insert(worker_id, ts)
+
+class Task105(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        return True
+    
+    def run(self):
+        # For now we assume 'past_key_value' is used in ours
+        dynamic_cache = self.model.layers[self.layer_idx].past_key_value
+        # if len(k_cache) == 0, it is prefill phase
+        is_v_cache_available = len(dynamic_cache.value_cache) > self.layer_idx
+
+        v_cache = None
+        if is_v_cache_available:
+            v_cache = dynamic_cache.value_cache[self.layer_idx]
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            v_cache = v_cache.to('cuda:0')
+            torch.cuda.synchronize()
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2)
+        self.model.tensor_buffer[dst] = (v_cache, True)
+        
+    def __call__(self, worker_id):
+        ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
+        ts.Start()
+        self.run()
+        ts.End()
+        self.time_collector.Insert(worker_id, ts)

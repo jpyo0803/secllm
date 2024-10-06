@@ -12,7 +12,7 @@
 
 namespace {
 std::unique_ptr<jpyo0803::ThreadPool> thread_pool;
-constexpr int kNumThreads = 2;
+constexpr int kNumThreads = 1;
 std::array<std::vector<jpyo0803::TimeStamp>, kNumThreads> time_stamps;
 
 std::array<std::string, 7> proj_type_str = {"Q",    "K",  "V",   "O",

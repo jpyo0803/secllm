@@ -24,7 +24,7 @@ class SecLLM:
           key, value = line.strip().split(':')
           cls._graph[int(key)] = eval(value)
 
-      model_info.tensor_buffer = [None for _ in range(32 * 315)]
+      model_info.tensor_buffer = [None for _ in range(32 * 330)]
 
       cls._model_info = model_info
       

@@ -9,7 +9,7 @@ from enum import Enum
 SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
-MAX_NUM_OPERATIONS = 105
+MAX_NUM_OPERATIONS = 110
 MAX_NUM_INPUTS = 3
 
 
@@ -19,7 +19,7 @@ def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   assert operation_index < MAX_NUM_OPERATIONS
   assert input_index < MAX_NUM_INPUTS
 
-  return layer_index * 315 + input_index * 105 + operation_index
+  return layer_index * 330 + input_index * 110 + operation_index
 
 
 class SecLLMCppWrapper:
