@@ -4,7 +4,7 @@ from secllm.task_scheduler import TaskScheduler
 from secllm.thread_pool import ThreadPool
 from secllm.time_collector import TimeCollector
 
-NUM_WORKERS = 1
+NUM_WORKERS = 16
 
 class SecLLM:
   def __new__(cls, model_info):
@@ -24,7 +24,7 @@ class SecLLM:
           key, value = line.strip().split(':')
           cls._graph[int(key)] = eval(value)
 
-      model_info.tensor_buffer = [None for _ in range(32 * 300)]
+      model_info.tensor_buffer = [None for _ in range(32 * 315)]
 
       cls._model_info = model_info
       

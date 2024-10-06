@@ -31,16 +31,16 @@ SecLLM::SecLLM(int hidden_size, int intermediate_size,
   std::cout << "SecLLM is created with " << num_hidden_layers_ << " layers."
             << std::endl;
   book_keeper_float_ =
-      std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 100 * 3);
+      std::make_unique<BookKeeper<Tensor<float>>>(num_hidden_layers_ * 105 * 3);
 
   book_keeper_int32_ = std::make_unique<BookKeeper<Tensor<int32_t>>>(
-      num_hidden_layers_ * 100 * 3);
+      num_hidden_layers_ * 105 * 3);
 
   book_keeper_uint32_ = std::make_unique<BookKeeper<Tensor<uint32_t>>>(
-      num_hidden_layers_ * 100 * 3);
+      num_hidden_layers_ * 105 * 3);
 
   book_keeper_int8_ = std::make_unique<BookKeeper<Tensor<int8_t>>>(
-      num_hidden_layers_ * 100 * 3);
+      num_hidden_layers_ * 105 * 3);
 
   /*
     We have total 91 operations [0, 90]
@@ -309,6 +309,18 @@ void SecLLM::GenerateDecryptionKey_QK(int layer_idx,
   decoder_layers_->at(layer_idx).GenerateDecryptionKey_QK(x, y);
 }
 
+void SecLLM::GenerateDecAddBuffer_QK(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateDecAddBuffer_QK();
+}
+
+void SecLLM::GenerateDecMultBuffer_QK(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateDecMultBuffer_QK();
+}
+
+void SecLLM::GenerateUnshiftBuffer_QK(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateUnshiftBuffer_QK();
+}
+
 void SecLLM::EncryptX_QK(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                          std::shared_ptr<Tensor<uint32_t>> in) {
   decoder_layers_->at(layer_idx).EncryptX_QK(out, in);
@@ -355,6 +367,26 @@ bool SecLLM::QKKeyIsAvailable(int layer_idx) {
 
 bool SecLLM::QKDecKeyIsAvailable(int layer_idx) {
   return decoder_layers_->at(layer_idx).IsQKDecKeyGenerated();
+}
+
+bool SecLLM::QKDecAddBufferIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKDecAddBufferGenerated();
+}
+
+bool SecLLM::QKDecMultBufferIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKDecMultBufferGenerated();
+}
+
+bool SecLLM::QKShiftedQIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKShiftQDone();
+}
+
+bool SecLLM::QKShiftedKIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKShiftKDone();
+}
+
+bool SecLLM::QKUnshiftBufferIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsQKUnshiftBufferGenerated();
 }
 
 bool SecLLM::PVKeyIsAvailable(int layer_idx) {
@@ -1041,6 +1073,18 @@ void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_QK(layer_idx, x, y);
 }
 
+void Internal_GenerateDecAddBuffer_QK(int layer_idx) {
+  secllm_ptr->GenerateDecAddBuffer_QK(layer_idx);
+}
+
+void Internal_GenerateDecMultBuffer_QK(int layer_idx) {
+  secllm_ptr->GenerateDecMultBuffer_QK(layer_idx);
+}
+
+void Internal_GenerateUnshiftBuffer_QK(int layer_idx) {
+  secllm_ptr->GenerateUnshiftBuffer_QK(layer_idx);
+}
+
 void Internal_EncryptX_QK(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
@@ -1180,6 +1224,26 @@ void Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {
 
 void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKDecKeyIsAvailable(layer_idx);
+}
+
+void Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKDecAddBufferIsAvailable(layer_idx);
+}
+
+void Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKDecMultBufferIsAvailable(layer_idx);
+}
+
+void Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKUnshiftBufferIsAvailable(layer_idx);
+}
+
+void Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKShiftedQIsAvailable(layer_idx);
+}
+
+void Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->QKShiftedKIsAvailable(layer_idx);
 }
 
 void Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {

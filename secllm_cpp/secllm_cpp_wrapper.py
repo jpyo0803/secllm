@@ -9,7 +9,7 @@ from enum import Enum
 SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
-MAX_NUM_OPERATIONS = 99
+MAX_NUM_OPERATIONS = 105
 MAX_NUM_INPUTS = 3
 
 
@@ -19,7 +19,7 @@ def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   assert operation_index < MAX_NUM_OPERATIONS
   assert input_index < MAX_NUM_INPUTS
 
-  return layer_index * 300 + input_index * 100 + operation_index
+  return layer_index * 315 + input_index * 105 + operation_index
 
 
 class SecLLMCppWrapper:
@@ -514,6 +514,18 @@ class SecLLMCppWrapper:
     cls.lib.Ext_GenerateDecryptionKey_QK(layer_idx, src_x, src_y)
 
   @classmethod
+  def GenerateDecAddBuffer_QK(cls, layer_idx):
+    cls.lib.Ext_GenerateDecAddBuffer_QK(layer_idx)
+
+  @classmethod
+  def GenerateDecMultBuffer_QK(cls, layer_idx):
+    cls.lib.Ext_GenerateDecMultBuffer_QK(layer_idx)
+
+  @classmethod
+  def GenerateUnshiftBuffer_QK(cls, layer_idx):
+    cls.lib.Ext_GenerateUnshiftBuffer_QK(layer_idx)
+
+  @classmethod
   def EncryptX_QK(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
     cls.lib.Ext_EncryptX_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
@@ -558,15 +570,45 @@ class SecLLMCppWrapper:
     return ret.value
 
   @classmethod
-  def PVKeyIsAvailable(cls, layer_idx):
-    ret = c_bool(-1)
-    cls.lib.Ext_PVKeyIsAvailable(layer_idx, byref(ret))
-    return ret.value
-  
-  @classmethod
   def QKDecKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
     cls.lib.Ext_QKDecKeyIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def QKDecAddBufferIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKDecAddBufferIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def QKDecMultBufferIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKDecMultBufferIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def QKShiftedQIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKShiftedQIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def QKShiftedKIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKShiftedKIsAvailable(layer_idx, byref(ret))
+    return ret.value
+
+  @classmethod
+  def QKUnshiftBufferIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_QKUnshiftBufferIsAvailable(layer_idx, byref(ret))
+    return ret.value
+
+  @classmethod
+  def PVKeyIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVKeyIsAvailable(layer_idx, byref(ret))
     return ret.value
   
   @classmethod

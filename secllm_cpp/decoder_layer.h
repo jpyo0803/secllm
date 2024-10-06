@@ -101,6 +101,10 @@ class DecoderLayer {
   void GenerateDecryptionKey_QK(std::shared_ptr<Tensor<uint32_t>> x,
                                 std::shared_ptr<Tensor<uint32_t>> y);
 
+  void GenerateDecAddBuffer_QK();
+  void GenerateDecMultBuffer_QK();
+  void GenerateUnshiftBuffer_QK();
+
   void EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
                    std::shared_ptr<Tensor<uint32_t>> in);
 
@@ -130,6 +134,16 @@ class DecoderLayer {
   // This is not actually thread-safe but it is okay, task scheduler can run it next cycle
   bool IsQKKeyGenerated() const { return is_qk_key_generated_; }
   bool IsQKDecKeyGenerated() const { return is_qk_dec_key_generated_; }
+  bool IsQKDecAddBufferGenerated() const { return is_qk_add_buffer_generated_; }
+  bool IsQKDecMultBufferGenerated() const {
+    return is_qk_mult_buffer_generated_;
+  }
+  bool IsQKUnshiftBufferGenerated() const {
+    return is_qk_unshift_buffer_generated_;
+  }
+  bool IsQKShiftQDone() const { return is_qk_shift_q_done_; }
+  bool IsQKShiftKDone() const { return is_qk_shift_k_done_; }
+
   bool IsPVKeyGenerated() const { return is_pv_key_generated_; }
   bool IsPVDecKeyGenerated() const { return is_pv_dec_key_generated_; }
 
@@ -230,6 +244,11 @@ class DecoderLayer {
 
   bool is_qk_key_generated_;      // required for decryption key generation
   bool is_qk_dec_key_generated_;  // required for decryption
+  bool is_qk_add_buffer_generated_;
+  bool is_qk_mult_buffer_generated_;
+  bool is_qk_unshift_buffer_generated_;
+  bool is_qk_shift_q_done_;
+  bool is_qk_shift_k_done_;
 
   bool is_pv_key_generated_;
   bool is_pv_dec_key_generated_;

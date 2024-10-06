@@ -50,7 +50,7 @@ task_description = {
     31: '[QK^T] Quantize K input',
     32: '[QK^T] Shift Q input',
     33: '[QK^T] Shift K input',
-    34: '[QK^T] Dec. Key Generation',
+    34: '[QK^T] Dec. Key Preproc.',
     35: '[QK^T] Encrypt Q input',
     36: '[QK^T] Encrypt K input',
     37: '[QK^T] Move Q input to GPU',
@@ -66,7 +66,7 @@ task_description = {
     47: '[PV] Quantize V input',
     48: '[PV] Shift P input',
     49: '[PV] Shift V input',
-    50: '[PV] Dec. Key Generation',
+    50: '[PV] Dec. Key Preproc.',
     51: '[PV] Encrypt P input',
     52: '[PV] Encrypt V input',
     53: '[PV] Move P input to GPU',
@@ -114,11 +114,18 @@ task_description = {
     95: '[Down proj] Decrypt result',
     96: '[Down proj] Dequantize result',
     97: 'Residual Add 2',
+    98: '[QK^T] Dec. Compute Add Factor',
+    99: '[QK^T] Dec. Compute Mult. Factor',
+    100: '[QK^T] Dec. Compute Unshift Factor',
+    101: '[PV] Dec Compute Add Factor',
+    102: '[PV] Dec Compute Mult Factor',
+    103: '[PV] Dec Compute Unshift Factor',
 }
 
 def GetBookKeeperLinearIndex(layer_index, operation_index, input_index):
   # NOTE(jpyo0803): debugging purpose
-  return layer_index * 300 + input_index * 100 + operation_index
+  # Assume there are 105 operations in a layer  
+  return layer_index * 315 + input_index * 105 + operation_index
 
 class Task:
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
@@ -881,6 +888,7 @@ class Task32(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int8(self.layer_idx, self.task_id, 0)
     
     def run(self):
+        assert self.next_task_ids[2] == 100
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 1), GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[1], 1)]
 
@@ -897,6 +905,7 @@ class Task33(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int8(self.layer_idx, self.task_id, 0)
     
     def run(self):
+        assert self.next_task_ids[2] == 100
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2), GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[1], 1)]
 
@@ -1090,7 +1099,8 @@ class Task41(Task):
 
     def is_ready(self):
         ready = True
-        ready &= self.secllm_cpp_wrapper.QKDecKeyIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.QKDecAddBufferIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.QKDecMultBufferIsAvailable(self.layer_idx)
         ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0)
         return ready
     
@@ -1108,8 +1118,11 @@ class Task42(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
 
     def is_ready(self):
-        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0)
-    
+        ready = True
+        ready &= self.secllm_cpp_wrapper.QKUnshiftBufferIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0)
+        return ready
+
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
@@ -2308,3 +2321,36 @@ class Task97(Task):
         
     def __call__(self, worker_id):
         self.run()
+
+class Task98(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.QKDecKeyIsAvailable(self.layer_idx)
+    
+    def run(self):
+        self.secllm_cpp_wrapper.GenerateDecAddBuffer_QK(self.layer_idx)
+
+class Task99(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.QKDecKeyIsAvailable(self.layer_idx)
+    
+    def run(self):
+        self.secllm_cpp_wrapper.GenerateDecMultBuffer_QK(self.layer_idx)
+
+class Task100(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.QKShiftedQIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.QKShiftedKIsAvailable(self.layer_idx)
+        return ready
+    
+    def run(self):
+        self.secllm_cpp_wrapper.GenerateUnshiftBuffer_QK(self.layer_idx)

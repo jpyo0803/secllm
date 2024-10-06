@@ -5,8 +5,8 @@
 #include <iostream>
 
 #define DEBUG_PRINT 0
-#define CHECK_SANITY 1
-#define INTERNAL_TIME_MEASURE 1
+#define CHECK_SANITY 0
+#define INTERNAL_TIME_MEASURE 0
 
 // Custom assert that always checks, even in release mode
 #define ASSERT_ALWAYS(cond, msg)                                               \

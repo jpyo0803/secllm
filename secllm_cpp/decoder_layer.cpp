@@ -51,8 +51,13 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       culmulative_token_len_(0),
       bsz_(0),
       is_qk_key_generated_(false),
-      is_pv_key_generated_(false),
       is_qk_dec_key_generated_(false),
+      is_qk_add_buffer_generated_(false),
+      is_qk_mult_buffer_generated_(false),
+      is_qk_unshift_buffer_generated_(false),
+      is_qk_shift_q_done_(false),
+      is_qk_shift_k_done_(false),
+      is_pv_key_generated_(false),
       is_pv_dec_key_generated_(false),
       enable_linear_encryption_(enable_linear_encryption),
       enable_atten_encryption_(enable_atten_encryption) {
@@ -232,9 +237,14 @@ void DecoderLayer::Reset() {
   pv_dec_glob_.clear();
 
   is_qk_key_generated_ = false;
-  is_pv_key_generated_ = false;
-
   is_qk_dec_key_generated_ = false;
+  is_qk_add_buffer_generated_ = false;
+  is_qk_mult_buffer_generated_ = false;
+  is_qk_unshift_buffer_generated_ = false;
+  is_qk_shift_q_done_ = false;
+  is_qk_shift_k_done_ = false;
+
+  is_pv_key_generated_ = false;
   is_pv_dec_key_generated_ = false;
 
 #if DEBUG_PRINT == 1
@@ -739,6 +749,10 @@ void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
             << std::endl;
 #endif
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_shift_q_done_ == false, "ShiftQ_QK() is already done!");
+#endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -779,6 +793,8 @@ void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Exit"
             << std::endl;
 #endif
+
+  is_qk_shift_q_done_ = true;
 }
 
 void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
@@ -806,6 +822,10 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Enter"
             << std::endl;
+#endif
+
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_shift_k_done_ == false, "ShiftK_QK() is already done!");
 #endif
 
   auto shape = in->shape();
@@ -849,6 +869,8 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Exit"
             << std::endl;
 #endif
+
+  is_qk_shift_k_done_ = true;
 }
 
 void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
@@ -856,6 +878,10 @@ void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Enter"
             << std::endl;
+#endif
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_unshift_buffer_generated_ == true,
+                "Unshift_QK() is not generated!");
 #endif
 
   auto shape = in->shape();
@@ -879,10 +905,16 @@ void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
   // Perform the vectorized subtraction (unshift operation)
   out_map = in_map.cast<int32_t>() - unshift_buffer_map;
 
+  qk_unshift_buffer.clear();
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Exit"
             << std::endl;
 #endif
+
+  is_qk_unshift_buffer_generated_ = false;
+  is_qk_shift_q_done_ = false;
+  is_qk_shift_k_done_ = false;
 }
 
 void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
@@ -1280,20 +1312,33 @@ void DecoderLayer::GenerateDecryptionKey_QK(
     }
   }
 
-  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ * X_K *
-                culmulative_token_len_;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecryptionKey_QK() Exit" << std::endl;
+#endif
+  is_qk_dec_key_generated_ = true;
+}
+
+void DecoderLayer::GenerateDecAddBuffer_QK() {
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_dec_key_generated_,
+                "QK decryption key is not generated!");
+#endif
+
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ *
+                present_token_len_ * culmulative_token_len_;
   qk_add_dec_key_buffer = std::vector<uint32_t>(len);
-  qk_mult_dec_key_buffer = std::vector<uint32_t>(len);
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
       uint32_t qk_dec_glob_factor = qk_dec_glob_.at(b).at(m);
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         uint32_t qk_dec_row_factor = qk_dec_row_.at(b).at(m).at(k);
         for (int n = 0; n < culmulative_token_len_; ++n) {
-          int64_t index =
-              b * num_attention_heads_ * X_K * culmulative_token_len_ +
-              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ + n;
+          int64_t index = b * num_attention_heads_ * present_token_len_ *
+                              culmulative_token_len_ +
+                          m * present_token_len_ * culmulative_token_len_ +
+                          k * culmulative_token_len_ + n;
           qk_add_dec_key_buffer.at(index) = qk_dec_row_factor +
                                             qk_dec_glob_factor +
                                             qk_dec_col_.at(b).at(m).at(n);
@@ -1301,28 +1346,30 @@ void DecoderLayer::GenerateDecryptionKey_QK(
       }
     }
   }
-#if INTERNAL_TIME_MEASURE == 1
-  auto end_dec_key_gen = std::chrono::steady_clock::now();
-  // print the time difference in ms
-  std::cout << "Decryption Key Generation Time (Add factor): "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   end_dec_key_gen - start_dec_key_gen)
-                   .count()
-            << " ms" << std::endl;
+
+  is_qk_add_buffer_generated_ = true;
+}
+
+void DecoderLayer::GenerateDecMultBuffer_QK() {
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_dec_key_generated_,
+                "QK decryption key is not generated!");
 #endif
 
-#if INTERNAL_TIME_MEASURE == 1
-  auto start_dec_mult_key_gen = std::chrono::steady_clock::now();
-#endif
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ *
+                present_token_len_ * culmulative_token_len_;
+  qk_mult_dec_key_buffer = std::vector<uint32_t>(len);
+
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
       int index_m_for_y = m / num_key_value_groups_;
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         int qk_x_mult_key_index = qk_x_mult_key_.at(b).at(m).at(k).second;
         for (int n = 0; n < culmulative_token_len_; ++n) {
-          int64_t index =
-              b * num_attention_heads_ * X_K * culmulative_token_len_ +
-              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ + n;
+          int64_t index = b * num_attention_heads_ * present_token_len_ *
+                              culmulative_token_len_ +
+                          m * present_token_len_ * culmulative_token_len_ +
+                          k * culmulative_token_len_ + n;
 
           qk_mult_dec_key_buffer.at(index) =
               precomputed_key_inv_.at(qk_x_mult_key_index)
@@ -1332,19 +1379,16 @@ void DecoderLayer::GenerateDecryptionKey_QK(
     }
   }
 
-#if INTERNAL_TIME_MEASURE == 1
-  auto end_dec_mult_key_gen = std::chrono::steady_clock::now();
-  // print the time difference in ms
-  std::cout << "Decryption Key Generation Time (Mult factor): "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   end_dec_mult_key_gen - start_dec_mult_key_gen)
-                   .count()
-            << " ms" << std::endl;
-#endif
+  is_qk_mult_buffer_generated_ = true;
+}
 
-#if INTERNAL_TIME_MEASURE == 1
-  auto start_unshift_gen = std::chrono::steady_clock::now();
+void DecoderLayer::GenerateUnshiftBuffer_QK() {
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_qk_shift_q_done_ && is_qk_shift_k_done_,
+                "QK shift is not done!");
 #endif
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ *
+                present_token_len_ * culmulative_token_len_;
 
   // NOTE(jpyo0803): Filling up unshift buffer can be parallelized
   qk_unshift_buffer = std::vector<int>(len);
@@ -1352,35 +1396,22 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   int hss = head_dim_ * SHIFT_AMT * SHIFT_AMT;
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         int row_unshift_factor = qk_x_row_shift_sum_.at(b).at(m).at(k);
         for (int n = 0; n < culmulative_token_len_; ++n) {
           int col_unshift_factor =
               qk_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n);
-          qk_unshift_buffer.at(
-              b * num_attention_heads_ * X_K * culmulative_token_len_ +
-              m * X_K * culmulative_token_len_ + k * culmulative_token_len_ +
-              n) = (row_unshift_factor + col_unshift_factor) * SHIFT_AMT + hss;
+          qk_unshift_buffer.at(b * num_attention_heads_ * present_token_len_ *
+                                   culmulative_token_len_ +
+                               m * present_token_len_ * culmulative_token_len_ +
+                               k * culmulative_token_len_ + n) =
+              (row_unshift_factor + col_unshift_factor) * SHIFT_AMT + hss;
         }
       }
     }
   }
 
-#if INTERNAL_TIME_MEASURE == 1
-  auto end_unshift_gen = std::chrono::steady_clock::now();
-  // print the time difference in ms
-  std::cout << "Unshift Generation Time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   end_unshift_gen - start_unshift_gen)
-                   .count()
-            << " ms" << std::endl;
-#endif
-
-  is_qk_dec_key_generated_ = true;
-#if DEBUG_PRINT == 1
-  std::cout << "[Decoder Layer " << layer_idx_
-            << "] GenerateDecryptionKey_QK() Exit" << std::endl;
-#endif
+  is_qk_unshift_buffer_generated_ = true;
 }
 
 void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
@@ -1474,8 +1505,8 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
 #endif
 
 #if CHECK_SANITY == 1
-  ASSERT_ALWAYS(is_qk_dec_key_generated_,
-                "QK decryption key is not generated!");
+  ASSERT_ALWAYS(is_qk_add_buffer_generated_ && is_qk_mult_buffer_generated_,
+                "QK decryption buffers are not generated!");
 #endif
 
 #if INTERNAL_TIME_MEASURE == 1
@@ -1509,6 +1540,8 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   // Reset key generation flags
   is_qk_key_generated_ = false;
   is_qk_dec_key_generated_ = false;
+  is_qk_add_buffer_generated_ = false;
+  is_qk_mult_buffer_generated_ = false;
 
 #if INTERNAL_TIME_MEASURE == 1
   auto end = std::chrono::steady_clock::now();

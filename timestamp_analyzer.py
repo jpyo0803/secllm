@@ -35,6 +35,8 @@ def ReadInData():
       start = int(values[-2])
       end = int(values[-1])
       processed_timestamps.append(ProcessedTimestamp(py_or_cpp, layer_idx, worker_id, op, start, end))
+      # For each operation, remove least and most 3 outliers of dt
+      # Remove the outliers for each operation
   return processed_timestamps
 
 def GroupByCategory(data):
@@ -44,10 +46,16 @@ def GroupByCategory(data):
     if d.op not in categories:
       categories[d.op] = []
     categories[d.op].append(d)
+
+  # For each operation, remove least and most 3 outliers of dt
+  for op, values in categories.items():
+    values.sort(key=lambda x: x.dt)
+    values = values[3:-3]
+    categories[op] = values
+
   return categories
 
 def ComputeAverageByCategory(data_by_op):
-  # Compute the average time taken for each category
   avg_time_by_op = {}
   for op, values in data_by_op.items():
     total_time = 0
@@ -74,6 +82,12 @@ def ComputePercentageByCategory(data_by_op, sort_increasing_order=False):
 
   return percentage_by_op
 
+def PrintAverageByCategory(avg_time_by_op):
+  # sort by op
+  sorted_ops = sorted(avg_time_by_op.keys())
+  for op in sorted_ops:
+    print(f'{op}: {avg_time_by_op[op] / 1e6:.2f} ms')
+
 def PrintPercentByCategory(percentage_by_op):
   # sort by op, input's op is not sorted yet
   sorted_ops = sorted(percentage_by_op.keys())
@@ -88,9 +102,8 @@ if __name__ == '__main__':
   data_by_op = GroupByCategory(data)
   
   avg_time_by_op = ComputeAverageByCategory(data_by_op)
-  # for op, avg_time in avg_time_by_op.items():
-  #   print(f'{op}: {avg_time / 1e6:.2f} ms')
-  # assert False
+  PrintAverageByCategory(avg_time_by_op)
+  assert False
 
   percentage_by_op = ComputePercentageByCategory(data_by_op)
   # sort by percentage, so that with the highest percentage is at the bottom

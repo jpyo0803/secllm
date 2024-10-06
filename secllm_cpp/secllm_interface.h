@@ -108,8 +108,10 @@ void Ext_SetAttentionMask(float* mask, int M, int N);
 void Ext_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length);
 
 void Ext_GenerateSecretKey_QK(int layer_idx);
-
 void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
+void Ext_GenerateDecAddBuffer_QK(int layer_idx);
+void Ext_GenerateDecMultBuffer_QK(int layer_idx);
+void Ext_GenerateUnshiftBuffer_QK(int layer_idx);
 
 void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to);
 
@@ -133,8 +135,15 @@ void Ext_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
 void Ext_BookKeeperIsAvailable_Int8(int loc, bool* ret);
 
 void Ext_QKKeyIsAvailable(int layer_idx, bool* ret);
-void Ext_PVKeyIsAvailable(int layer_idx, bool* ret);
 void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret);
+void Ext_QKDecAddBufferIsAvailable(int layer_idx, bool* ret);
+void Ext_QKDecMultBufferIsAvailable(int layer_idx, bool* ret);
+
+void Ext_QKShiftedQIsAvailable(int layer_idx, bool* ret);
+void Ext_QKShiftedKIsAvailable(int layer_idx, bool* ret);
+void Ext_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret);
+
+void Ext_PVKeyIsAvailable(int layer_idx, bool* ret);
 void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret);
 
 void Ext_Close(const char* output_filename);

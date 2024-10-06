@@ -141,6 +141,10 @@ class SecLLM {
                                 std::shared_ptr<Tensor<uint32_t>> x,
                                 std::shared_ptr<Tensor<uint32_t>> y);
 
+  void GenerateDecAddBuffer_QK(int layer_idx);
+  void GenerateDecMultBuffer_QK(int layer_idx);
+  void GenerateUnshiftBuffer_QK(int layer_idx);
+
   void EncryptX_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                    std::shared_ptr<Tensor<uint32_t>> in);
 
@@ -151,8 +155,13 @@ class SecLLM {
                   std::shared_ptr<Tensor<uint32_t>> in);
 
   bool QKKeyIsAvailable(int layer_idx);
-
   bool QKDecKeyIsAvailable(int layer_idx);
+  bool QKDecAddBufferIsAvailable(int layer_idx);
+  bool QKDecMultBufferIsAvailable(int layer_idx);
+
+  bool QKShiftedQIsAvailable(int layer_idx);
+  bool QKShiftedKIsAvailable(int layer_idx);
+  bool QKUnshiftBufferIsAvailable(int layer_idx);
 
   bool PVKeyIsAvailable(int layer_idx);
 
@@ -264,6 +273,9 @@ void Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz,
 
 void Internal_GenerateSecretKey_QK(int layer_idx);
 void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
+void Internal_GenerateDecAddBuffer_QK(int layer_idx);
+void Internal_GenerateDecMultBuffer_QK(int layer_idx);
+void Internal_GenerateUnshiftBuffer_QK(int layer_idx);
 
 void Internal_QuantizeQ_QK(int layer_idx, int from, std::vector<int> locs);
 void Internal_ShiftQ_QK(int layer_idx, int from, std::vector<int> locs);
@@ -323,6 +335,14 @@ void Internal_BookKeeperGetShape_Int8(int loc, int* out);
 
 void Internal_QKKeyIsAvailable(int layer_idx, bool* ret);
 void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret);
+void Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret);
+void Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret);
+
+void Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret);
+void Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret);
+
+void Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret);
+
 void Internal_PVKeyIsAvailable(int layer_idx, bool* ret);
 void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret);
 

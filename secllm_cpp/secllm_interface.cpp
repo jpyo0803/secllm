@@ -12,7 +12,7 @@
 
 namespace {
 std::unique_ptr<jpyo0803::ThreadPool> thread_pool;
-constexpr int kNumThreads = 1;
+constexpr int kNumThreads = 2;
 std::array<std::vector<jpyo0803::TimeStamp>, kNumThreads> time_stamps;
 
 std::array<std::string, 7> proj_type_str = {"Q",    "K",  "V",   "O",
@@ -326,6 +326,37 @@ void Ext_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
   });
 }
 
+void Ext_GenerateDecAddBuffer_QK(int layer_idx) {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Dec. Add Buffer Gen.");
+    ts.Start();
+    Internal_GenerateDecAddBuffer_QK(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
+void Ext_GenerateDecMultBuffer_QK(int layer_idx) {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id,
+                           "[QK^T] Dec. Mult Buffer Gen.");
+    ts.Start();
+    Internal_GenerateDecMultBuffer_QK(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
+void Ext_GenerateUnshiftBuffer_QK(int layer_idx) {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Unshift Buffer Gen.");
+    ts.Start();
+    Internal_GenerateUnshiftBuffer_QK(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
 void Ext_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
@@ -462,13 +493,33 @@ void Ext_QKKeyIsAvailable(int layer_idx, bool* ret) {
 }
 
 // No threading needed
-void Ext_PVKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVKeyIsAvailable(layer_idx, ret);
+void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKDecKeyIsAvailable(layer_idx, ret);
+}
+
+void Ext_QKDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKDecAddBufferIsAvailable(layer_idx, ret);
+}
+
+void Ext_QKDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKDecMultBufferIsAvailable(layer_idx, ret);
+}
+
+void Ext_QKShiftedQIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKShiftedQIsAvailable(layer_idx, ret);
+}
+
+void Ext_QKShiftedKIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKShiftedKIsAvailable(layer_idx, ret);
+}
+
+void Ext_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+  Internal_QKUnshiftBufferIsAvailable(layer_idx, ret);
 }
 
 // No threading needed
-void Ext_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKDecKeyIsAvailable(layer_idx, ret);
+void Ext_PVKeyIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVKeyIsAvailable(layer_idx, ret);
 }
 
 // No threading needed
