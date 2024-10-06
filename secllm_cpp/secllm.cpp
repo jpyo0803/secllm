@@ -346,6 +346,18 @@ void SecLLM::GenerateDecryptionKey_PV(int layer_idx,
   decoder_layers_->at(layer_idx).GenerateDecryptionKey_PV(x, y);
 }
 
+void SecLLM::GenerateDecAddBuffer_PV(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateDecAddBuffer_PV();
+}
+
+void SecLLM::GenerateDecMultBuffer_PV(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateDecMultBuffer_PV();
+}
+
+void SecLLM::GenerateUnshiftBuffer_PV(int layer_idx) {
+  decoder_layers_->at(layer_idx).GenerateUnshiftBuffer_PV();
+}
+
 void SecLLM::EncryptX_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                          std::shared_ptr<Tensor<uint32_t>> in) {
   decoder_layers_->at(layer_idx).EncryptX_PV(out, in);
@@ -395,6 +407,26 @@ bool SecLLM::PVKeyIsAvailable(int layer_idx) {
 
 bool SecLLM::PVDecKeyIsAvailable(int layer_idx) {
   return decoder_layers_->at(layer_idx).IsPVDecKeyGenerated();
+}
+
+bool SecLLM::PVDecAddBufferIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVDecAddBufferGenerated();
+}
+
+bool SecLLM::PVDecMultBufferIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVDecMultBufferGenerated();
+}
+
+bool SecLLM::PVShiftedPIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVShiftPDone();
+}
+
+bool SecLLM::PVShiftedVIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVShiftVDone();
+}
+
+bool SecLLM::PVUnshiftBufferIsAvailable(int layer_idx) {
+  return decoder_layers_->at(layer_idx).IsPVUnshiftBufferGenerated();
 }
 
 }  // namespace jpyo0803
@@ -1134,6 +1166,18 @@ void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_PV(layer_idx, x, y);
 }
 
+void Internal_GenerateDecAddBuffer_PV(int layer_idx) {
+  secllm_ptr->GenerateDecAddBuffer_PV(layer_idx);
+}
+
+void Internal_GenerateDecMultBuffer_PV(int layer_idx) {
+  secllm_ptr->GenerateDecMultBuffer_PV(layer_idx);
+}
+
+void Internal_GenerateUnshiftBuffer_PV(int layer_idx) {
+  secllm_ptr->GenerateUnshiftBuffer_PV(layer_idx);
+}
+
 void Internal_EncryptX_PV(int layer_idx, int from, std::vector<int> locs) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
@@ -1252,4 +1296,24 @@ void Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {
 
 void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVDecKeyIsAvailable(layer_idx);
+}
+
+void Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVDecAddBufferIsAvailable(layer_idx);
+}
+
+void Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVDecMultBufferIsAvailable(layer_idx);
+}
+
+void Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVUnshiftBufferIsAvailable(layer_idx);
+}
+
+void Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVShiftedPIsAvailable(layer_idx);
+}
+
+void Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
+  *ret = secllm_ptr->PVShiftedVIsAvailable(layer_idx);
 }

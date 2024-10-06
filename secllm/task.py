@@ -1423,8 +1423,13 @@ class Task57(Task):
 
     def is_ready(self):
         ready = True
-        ready &= self.secllm_cpp_wrapper.PVDecKeyIsAvailable(self.layer_idx)
+        # print("-------------")
+        ready &= self.secllm_cpp_wrapper.PVDecAddBufferIsAvailable(self.layer_idx)
+        # print(self.secllm_cpp_wrapper.PVDecAddBufferIsAvailable(self.layer_idx))
+        ready &= self.secllm_cpp_wrapper.PVDecMultBufferIsAvailable(self.layer_idx)
+        # print(self.secllm_cpp_wrapper.PVDecMultBufferIsAvailable(self.layer_idx))
         ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0)
+        # print(self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0))
         return ready
 
     def run(self):
@@ -1440,8 +1445,11 @@ class Task58(Task):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
 
     def is_ready(self):
-        return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0)
-
+        ready = True
+        ready &= self.secllm_cpp_wrapper.PVUnshiftBufferIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.BookKeeperIsAvailable_Uint32(self.layer_idx, self.task_id, 0)
+        return ready
+    
     def run(self):
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
@@ -2332,6 +2340,9 @@ class Task98(Task):
     def run(self):
         self.secllm_cpp_wrapper.GenerateDecAddBuffer_QK(self.layer_idx)
 
+    def __call__(self, worker_id):
+        self.run()
+
 class Task99(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
@@ -2341,6 +2352,9 @@ class Task99(Task):
     
     def run(self):
         self.secllm_cpp_wrapper.GenerateDecMultBuffer_QK(self.layer_idx)
+
+    def __call__(self, worker_id):
+        self.run()
 
 class Task100(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
@@ -2354,3 +2368,50 @@ class Task100(Task):
     
     def run(self):
         self.secllm_cpp_wrapper.GenerateUnshiftBuffer_QK(self.layer_idx)
+
+    def __call__(self, worker_id):
+        self.run()
+
+class Task101(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.PVDecKeyIsAvailable(self.layer_idx)
+    
+    def run(self):
+        # assert False
+        self.secllm_cpp_wrapper.GenerateDecAddBuffer_PV(self.layer_idx)
+
+    def __call__(self, worker_id):
+        self.run()
+
+class Task102(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        return self.secllm_cpp_wrapper.PVDecKeyIsAvailable(self.layer_idx)
+    
+    def run(self):
+        # assert False
+        self.secllm_cpp_wrapper.GenerateDecMultBuffer_PV(self.layer_idx)
+
+    def __call__(self, worker_id):
+        self.run()
+
+class Task103(Task):
+    def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
+        super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+
+    def is_ready(self):
+        ready = True
+        ready &= self.secllm_cpp_wrapper.PVShiftedPIsAvailable(self.layer_idx)
+        ready &= self.secllm_cpp_wrapper.PVShiftedVIsAvailable(self.layer_idx)
+        return ready
+    
+    def run(self):
+        self.secllm_cpp_wrapper.GenerateUnshiftBuffer_PV(self.layer_idx)
+    
+    def __call__(self, worker_id):
+        self.run()

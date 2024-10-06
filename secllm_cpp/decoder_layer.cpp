@@ -59,6 +59,11 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       is_qk_shift_k_done_(false),
       is_pv_key_generated_(false),
       is_pv_dec_key_generated_(false),
+      is_pv_add_buffer_generated_(false),
+      is_pv_mult_buffer_generated_(false),
+      is_pv_unshift_buffer_generated_(false),
+      is_pv_shift_p_done_(false),
+      is_pv_shift_v_done_(false),
       enable_linear_encryption_(enable_linear_encryption),
       enable_atten_encryption_(enable_atten_encryption) {
 
@@ -246,6 +251,11 @@ void DecoderLayer::Reset() {
 
   is_pv_key_generated_ = false;
   is_pv_dec_key_generated_ = false;
+  is_pv_add_buffer_generated_ = false;
+  is_pv_mult_buffer_generated_ = false;
+  is_pv_unshift_buffer_generated_ = false;
+  is_pv_shift_p_done_ = false;
+  is_pv_shift_v_done_ = false;
 
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Reset() Exit" << std::endl;
@@ -967,6 +977,10 @@ void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
             << std::endl;
 #endif
 
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_shift_p_done_ == false, "ShiftP_PV() is already done!");
+#endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1007,6 +1021,8 @@ void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Exit"
             << std::endl;
 #endif
+
+  is_pv_shift_p_done_ = true;
 }
 
 void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
@@ -1035,6 +1051,10 @@ void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Enter"
             << std::endl;
+#endif
+
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_shift_v_done_ == false, "ShiftV_PV() is already done!");
 #endif
 
   auto shape = in->shape();
@@ -1078,6 +1098,8 @@ void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Exit"
             << std::endl;
 #endif
+
+  is_pv_shift_v_done_ = true;
 }
 
 void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
@@ -1086,6 +1108,12 @@ void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Enter"
             << std::endl;
 #endif
+
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_unshift_buffer_generated_ == true,
+                "Unshift_PV() is not generated!");
+#endif
+
   auto shape = in->shape();
   int B = shape.at(0);
   int M = shape.at(1);
@@ -1107,10 +1135,16 @@ void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
   // Perform the vectorized subtraction (unshift operation)
   out_map = in_map.cast<int32_t>() - unshift_buffer_map;
 
+  pv_unshift_buffer.clear();
+
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Exit"
             << std::endl;
 #endif
+
+  is_pv_unshift_buffer_generated_ = false;
+  is_pv_shift_p_done_ = false;
+  is_pv_shift_v_done_ = false;
 }
 
 void DecoderLayer::Dequantize_PV(std::shared_ptr<Tensor<float>> out,
@@ -1160,12 +1194,8 @@ void DecoderLayer::GenerateSecretKey_QK() {
 
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_key_generated_ == false, "QK key is already generated!");
+  ASSERT_ALWAYS(bsz_ > 0, "Batch size is not set!");
 #endif
-
-  if (bsz_ == 0) {
-    std::cout << "Batch size is not set!" << std::endl;
-    exit(-1);
-  }
 
   // qk_x_mult_key: [bsz, num_attention_heads, q_len], and DO NOT ACCUMULATE, expected dim: [1, 32, 2048]
   // qk_y_mult_key: [bsz, num_key_value_heads, q_len], and ACCUMULATE, expected dim: [1, 8, 2048]
@@ -1750,20 +1780,33 @@ void DecoderLayer::GenerateDecryptionKey_PV(
   // Y: [bsz, num_key_value_heads, q_len, head_dim]
 
   // d_row[b][m][k] = x_mult[b][m][k] * sum_n(y_add[b][m/4][n] * x[b][m][k][n]), expected dim: [1, 32, 2048]
+  is_pv_dec_key_generated_ = true;
+  // it is generated
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecryptionKey_PV() Exit" << std::endl;
+#endif
+}
 
-  int64_t len =
-      static_cast<int64_t>(bsz_) * num_attention_heads_ * X_K * head_dim_;
+void DecoderLayer::GenerateDecAddBuffer_PV() {
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_dec_key_generated_,
+                "PV decryption key is not generated!");
+#endif
 
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ *
+                present_token_len_ * head_dim_;
   pv_add_dec_key_buffer = std::vector<uint32_t>(len);
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
       uint32_t pv_dec_glob_factor = pv_dec_glob_.at(b).at(m);
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         uint32_t pv_dec_row_factor = pv_dec_row_.at(b).at(m).at(k);
         for (int n = 0; n < head_dim_; ++n) {
-          int64_t index = b * num_attention_heads_ * X_K * head_dim_ +
-                          m * X_K * head_dim_ + k * head_dim_ + n;
+          int64_t index =
+              b * num_attention_heads_ * present_token_len_ * head_dim_ +
+              m * present_token_len_ * head_dim_ + k * head_dim_ + n;
           pv_add_dec_key_buffer.at(index) = pv_dec_row_factor +
                                             pv_dec_glob_factor +
                                             pv_dec_col_.at(b).at(m).at(n);
@@ -1772,15 +1815,28 @@ void DecoderLayer::GenerateDecryptionKey_PV(
     }
   }
 
+  is_pv_add_buffer_generated_ = true;
+}
+
+void DecoderLayer::GenerateDecMultBuffer_PV() {
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_dec_key_generated_,
+                "PV decryption key is not generated!");
+#endif
+
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ *
+                present_token_len_ * head_dim_;
   pv_mult_dec_key_buffer = std::vector<uint32_t>(len);
+
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
       int index_m_for_y = m / num_key_value_groups_;
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         int pv_x_mult_key_index = pv_x_mult_key_.at(b).at(m).at(k).second;
         for (int n = 0; n < head_dim_; ++n) {
-          int64_t index = b * num_attention_heads_ * X_K * head_dim_ +
-                          m * X_K * head_dim_ + k * head_dim_ + n;
+          int64_t index =
+              b * num_attention_heads_ * present_token_len_ * head_dim_ +
+              m * present_token_len_ * head_dim_ + k * head_dim_ + n;
           pv_mult_dec_key_buffer.at(index) =
               precomputed_key_inv_.at(pv_x_mult_key_index)
                   .at(pv_y_mult_key_.at(b).at(index_m_for_y).at(n).second);
@@ -1789,30 +1845,39 @@ void DecoderLayer::GenerateDecryptionKey_PV(
     }
   }
 
+  is_pv_mult_buffer_generated_ = true;
+}
+
+void DecoderLayer::GenerateUnshiftBuffer_PV() {
+#if CHECK_SANITY == 1
+  ASSERT_ALWAYS(is_pv_shift_p_done_ && is_pv_shift_v_done_,
+                "PV shift is not done!");
+#endif
+
+  int64_t len = static_cast<int64_t>(bsz_) * num_attention_heads_ *
+                present_token_len_ * head_dim_;
+
+  // Filling up unshift buffer can be parallelized
   pv_unshift_buffer = std::vector<int>(len);
 
   int hss = culmulative_token_len_ * SHIFT_AMT * SHIFT_AMT;
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         int row_unshift_factor = pv_x_row_shift_sum_.at(b).at(m).at(k);
         for (int n = 0; n < head_dim_; ++n) {
           int col_unshift_factor =
               pv_y_col_shift_sum_.at(b).at(m / num_key_value_groups_).at(n);
-          pv_unshift_buffer.at(b * num_attention_heads_ * X_K * head_dim_ +
-                               m * X_K * head_dim_ + k * head_dim_ + n) =
+          pv_unshift_buffer.at(
+              b * num_attention_heads_ * present_token_len_ * head_dim_ +
+              m * present_token_len_ * head_dim_ + k * head_dim_ + n) =
               (row_unshift_factor + col_unshift_factor) * SHIFT_AMT + hss;
         }
       }
     }
   }
 
-  is_pv_dec_key_generated_ = true;
-
-#if DEBUG_PRINT == 1
-  std::cout << "[Decoder Layer " << layer_idx_
-            << "] GenerateDecryptionKey_PV() Exit" << std::endl;
-#endif
+  is_pv_unshift_buffer_generated_ = true;
 }
 
 void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
@@ -1901,8 +1966,8 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
 #endif
 
 #if CHECK_SANITY == 1
-  ASSERT_ALWAYS(is_pv_dec_key_generated_,
-                "PV decryption key is not generated!");
+  ASSERT_ALWAYS(is_pv_add_buffer_generated_ && is_pv_mult_buffer_generated_,
+                "PV decryption buffers are not generated!");
 #endif
   auto shape = in->shape();
   int B = shape.at(0);
@@ -1931,6 +1996,8 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
   // Now we are done using it, actually generated means 'it has been updated' so that it is proper to use
   is_pv_dec_key_generated_ = false;
   is_pv_key_generated_ = false;
+  is_pv_add_buffer_generated_ = false;
+  is_pv_mult_buffer_generated_ = false;
 
 #if DEBUG_PRINT == 1
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Exit"

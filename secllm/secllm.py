@@ -4,7 +4,7 @@ from secllm.task_scheduler import TaskScheduler
 from secllm.thread_pool import ThreadPool
 from secllm.time_collector import TimeCollector
 
-NUM_WORKERS = 16
+NUM_WORKERS = 1
 
 class SecLLM:
   def __new__(cls, model_info):

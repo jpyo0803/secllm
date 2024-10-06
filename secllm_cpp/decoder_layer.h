@@ -119,6 +119,10 @@ class DecoderLayer {
   void GenerateDecryptionKey_PV(std::shared_ptr<Tensor<uint32_t>> x,
                                 std::shared_ptr<Tensor<uint32_t>> y);
 
+  void GenerateDecAddBuffer_PV();
+  void GenerateDecMultBuffer_PV();
+  void GenerateUnshiftBuffer_PV();
+
   void EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
                    std::shared_ptr<Tensor<uint32_t>> in);
 
@@ -146,6 +150,17 @@ class DecoderLayer {
 
   bool IsPVKeyGenerated() const { return is_pv_key_generated_; }
   bool IsPVDecKeyGenerated() const { return is_pv_dec_key_generated_; }
+
+  bool IsPVDecAddBufferGenerated() const { return is_pv_add_buffer_generated_; }
+  bool IsPVDecMultBufferGenerated() const {
+    return is_pv_mult_buffer_generated_;
+  }
+  bool IsPVUnshiftBufferGenerated() const {
+    return is_pv_unshift_buffer_generated_;
+  }
+
+  bool IsPVShiftPDone() const { return is_pv_shift_p_done_; }
+  bool IsPVShiftVDone() const { return is_pv_shift_v_done_; }
 
  private:
   int layer_idx_;
@@ -252,6 +267,11 @@ class DecoderLayer {
 
   bool is_pv_key_generated_;
   bool is_pv_dec_key_generated_;
+  bool is_pv_add_buffer_generated_;
+  bool is_pv_mult_buffer_generated_;
+  bool is_pv_unshift_buffer_generated_;
+  bool is_pv_shift_p_done_;
+  bool is_pv_shift_v_done_;
 
   bool enable_linear_encryption_;
   bool enable_atten_encryption_;

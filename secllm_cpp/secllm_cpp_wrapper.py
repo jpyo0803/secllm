@@ -547,6 +547,18 @@ class SecLLMCppWrapper:
   @classmethod
   def GenerateDecryptionKey_PV(cls, layer_idx, src_x : int, src_y: int):
     cls.lib.Ext_GenerateDecryptionKey_PV(layer_idx, src_x, src_y)
+ 
+  @classmethod
+  def GenerateDecAddBuffer_PV(cls, layer_idx):
+    cls.lib.Ext_GenerateDecAddBuffer_PV(layer_idx)
+
+  @classmethod
+  def GenerateDecMultBuffer_PV(cls, layer_idx):
+    cls.lib.Ext_GenerateDecMultBuffer_PV(layer_idx)
+
+  @classmethod
+  def GenerateUnshiftBuffer_PV(cls, layer_idx):
+    cls.lib.Ext_GenerateUnshiftBuffer_PV(layer_idx)
 
   @classmethod
   def EncryptX_PV(cls, layer_idx, src, dst : list[int]):
@@ -615,6 +627,36 @@ class SecLLMCppWrapper:
   def PVDecKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
     cls.lib.Ext_PVDecKeyIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def PVDecAddBufferIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVDecAddBufferIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def PVDecMultBufferIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVDecMultBufferIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def PVShiftedPIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVShiftedPIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def PVShiftedVIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVShiftedVIsAvailable(layer_idx, byref(ret))
+    return ret.value
+  
+  @classmethod
+  def PVUnshiftBufferIsAvailable(cls, layer_idx):
+    ret = c_bool(-1)
+    cls.lib.Ext_PVUnshiftBufferIsAvailable(layer_idx, byref(ret))
     return ret.value
 
   @classmethod

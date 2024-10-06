@@ -154,6 +154,10 @@ class SecLLM {
   void Decrypt_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                   std::shared_ptr<Tensor<uint32_t>> in);
 
+  void GenerateDecAddBuffer_PV(int layer_idx);
+  void GenerateDecMultBuffer_PV(int layer_idx);
+  void GenerateUnshiftBuffer_PV(int layer_idx);
+
   bool QKKeyIsAvailable(int layer_idx);
   bool QKDecKeyIsAvailable(int layer_idx);
   bool QKDecAddBufferIsAvailable(int layer_idx);
@@ -164,8 +168,13 @@ class SecLLM {
   bool QKUnshiftBufferIsAvailable(int layer_idx);
 
   bool PVKeyIsAvailable(int layer_idx);
-
   bool PVDecKeyIsAvailable(int layer_idx);
+  bool PVDecAddBufferIsAvailable(int layer_idx);
+  bool PVDecMultBufferIsAvailable(int layer_idx);
+
+  bool PVShiftedPIsAvailable(int layer_idx);
+  bool PVShiftedVIsAvailable(int layer_idx);
+  bool PVUnshiftBufferIsAvailable(int layer_idx);
 
  private:
   int num_hidden_layers_ = -1;
@@ -289,6 +298,9 @@ void Internal_Dequantize_QK(int layer_idx, int from, std::vector<int> locs);
 
 void Internal_GenerateSecretKey_PV(int layer_idx);
 void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y);
+void Internal_GenerateDecAddBuffer_PV(int layer_idx);
+void Internal_GenerateDecMultBuffer_PV(int layer_idx);
+void Internal_GenerateUnshiftBuffer_PV(int layer_idx);
 
 void Internal_QuantizeP_PV(int layer_idx, int from, std::vector<int> locs);
 void Internal_ShiftP_PV(int layer_idx, int from, std::vector<int> locs);
@@ -345,5 +357,12 @@ void Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret);
 
 void Internal_PVKeyIsAvailable(int layer_idx, bool* ret);
 void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret);
+void Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret);
+void Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret);
+
+void Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret);
+void Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret);
+
+void Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret);
 
 #endif  // SECLLM_SECLLM_H

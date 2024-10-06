@@ -120,8 +120,10 @@ void Ext_EncryptY_QK(int layer_idx, int from, int to_len, int* to);
 void Ext_Decrypt_QK(int layer_idx, int from, int to_len, int* to);
 
 void Ext_GenerateSecretKey_PV(int layer_idx);
-
 void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y);
+void Ext_GenerateDecAddBuffer_PV(int layer_idx);
+void Ext_GenerateDecMultBuffer_PV(int layer_idx);
+void Ext_GenerateUnshiftBuffer_PV(int layer_idx);
 
 void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to);
 
@@ -145,6 +147,13 @@ void Ext_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret);
 
 void Ext_PVKeyIsAvailable(int layer_idx, bool* ret);
 void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret);
+
+void Ext_PVDecAddBufferIsAvailable(int layer_idx, bool* ret);
+void Ext_PVDecMultBufferIsAvailable(int layer_idx, bool* ret);
+
+void Ext_PVShiftedPIsAvailable(int layer_idx, bool* ret);
+void Ext_PVShiftedVIsAvailable(int layer_idx, bool* ret);
+void Ext_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret);
 
 void Ext_Close(const char* output_filename);
 }

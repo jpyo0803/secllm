@@ -413,6 +413,36 @@ void Ext_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
   });
 }
 
+void Ext_GenerateDecAddBuffer_PV(int layer_idx) {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Dec. Add Buffer Gen.");
+    ts.Start();
+    Internal_GenerateDecAddBuffer_PV(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
+void Ext_GenerateDecMultBuffer_PV(int layer_idx) {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Dec. Mult Buffer Gen.");
+    ts.Start();
+    Internal_GenerateDecMultBuffer_PV(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
+void Ext_GenerateUnshiftBuffer_PV(int layer_idx) {
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Unshift Buffer Gen.");
+    ts.Start();
+    Internal_GenerateUnshiftBuffer_PV(layer_idx);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
 void Ext_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
   std::vector<int> locs(to, to + to_len);
 
@@ -525,6 +555,26 @@ void Ext_PVKeyIsAvailable(int layer_idx, bool* ret) {
 // No threading needed
 void Ext_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
   Internal_PVDecKeyIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVDecAddBufferIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVDecMultBufferIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVShiftedPIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVShiftedVIsAvailable(layer_idx, ret);
+}
+
+void Ext_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+  Internal_PVUnshiftBufferIsAvailable(layer_idx, ret);
 }
 
 uint32_t Ext_GenerateCPRNG() {
