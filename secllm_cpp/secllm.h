@@ -183,6 +183,11 @@ class SecLLM {
   bool PVShiftedVIsAvailable(int layer_idx);
   bool PVUnshiftBufferIsAvailable(int layer_idx);
 
+  std::shared_ptr<Tensor<float>> BookKeeperLoadWithoutReset_Float(int loc);
+  std::shared_ptr<Tensor<int32_t>> BookKeeperLoadWithoutReset_Int32(int loc);
+  std::shared_ptr<Tensor<uint32_t>> BookKeeperLoadWithoutReset_Uint32(int loc);
+  std::shared_ptr<Tensor<int8_t>> BookKeeperLoadWithoutReset_Int8(int loc);
+
  private:
   int num_hidden_layers_ = -1;
 
@@ -376,5 +381,10 @@ void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
                             std::vector<int> locs);
 void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
                             std::vector<int> locs);
+
+void Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out);
+void Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out);
+void Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out);
+void Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out);
 
 #endif  // SECLLM_SECLLM_H

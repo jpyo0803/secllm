@@ -10,6 +10,8 @@ from transformers.models.llama.modeling_llama import (
     repeat_kv,
 )
 
+import sys
+
 import cupy
 from secllm.time_collector import TimeStamp
 
@@ -916,6 +918,7 @@ class Task30(Task):
 
         self.secllm_cpp_wrapper.QuantizeQ_QK(self.layer_idx, src, dst)
 
+
     def __call__(self, worker_id):
         self.run()
 
@@ -932,6 +935,7 @@ class Task31(Task):
 
         self.secllm_cpp_wrapper.QuantizeK_QK(self.layer_idx, src, dst)
 
+
     def __call__(self, worker_id):
         self.run()
 
@@ -943,6 +947,10 @@ class Task32(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int8(self.layer_idx, self.task_id, 0)
     
     def run(self):
+        if self.model.verify_result == True:
+            assert self.model.q_buffer_verify is None
+            self.model.q_buffer_verify = self.secllm_cpp_wrapper.BookKeeperLoadWithoutReset_Int8(self.layer_idx, self.task_id, 0)
+
         assert self.next_task_ids[2] == 100
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 1), GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[1], 1)]
@@ -950,7 +958,10 @@ class Task32(Task):
         self.secllm_cpp_wrapper.ShiftQ_QK(self.layer_idx, src, dst)
 
     def __call__(self, worker_id):
-        self.run()
+        try:
+            self.run()
+        except Exception as e:
+            print(e)
 
 class Task33(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
@@ -960,6 +971,10 @@ class Task33(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int8(self.layer_idx, self.task_id, 0)
     
     def run(self):
+        if self.model.verify_result == True:
+            assert self.model.k_buffer_verify is None
+            self.model.k_buffer_verify = self.secllm_cpp_wrapper.BookKeeperLoadWithoutReset_Int8(self.layer_idx, self.task_id, 0)
+        
         assert self.next_task_ids[2] == 100
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2), GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[1], 1)]
@@ -967,7 +982,10 @@ class Task33(Task):
         self.secllm_cpp_wrapper.ShiftK_QK(self.layer_idx, src, dst)
 
     def __call__(self, worker_id):
-        self.run()
+        try:
+            self.run()
+        except Exception as e:
+            print(e)
 
 class Task34(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
@@ -1229,13 +1247,36 @@ class Task43(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
     
     def run(self):
+        # Verification must be done here to ensure unshifted data vailability
+        if self.model.verify_result == True:
+            actual_result = self.secllm_cpp_wrapper.BookKeeperLoadWithoutReset_Int32(self.layer_idx, self.task_id, 0)
+            q_verify = self.model.q_buffer_verify
+            k_verify = self.model.k_buffer_verify
+            self.model.q_buffer_verify = None
+            self.model.k_buffer_verify = None
+            k_verify = self.model.dynamic_cache_verify.update_key(k_verify, self.layer_idx)
+            k_verify = repeat_kv(k_verify, self.model.layers[self.layer_idx].num_key_value_groups)
+
+            q_verify = q_verify.to('cuda:0').to(torch.int32)
+            k_verify = k_verify.to('cuda:0').to(torch.int32)
+            q_verify_cupy = cupy.from_dlpack(q_verify)
+            k_verify_T_cupy = cupy.from_dlpack(k_verify.transpose(-2, -1))  
+            result_cupy = cupy.matmul(q_verify_cupy, k_verify_T_cupy)
+            result = torch.from_dlpack(result_cupy).to('cpu')
+            assert torch.equal(actual_result, result)
+            print(f"Layer {self.layer_idx}, QK Matmul Verification Passed")
+
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
 
         self.secllm_cpp_wrapper.Dequantize_QK(self.layer_idx, src, dst)
 
     def __call__(self, worker_id):
-        self.run()
+        try:
+            self.run()
+        except Exception as e:
+            print(e)
+            sys.exit(1)
 
 class Task44(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
@@ -1304,6 +1345,10 @@ class Task48(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int8(self.layer_idx, self.task_id, 0)
 
     def run(self):
+        if self.model.verify_result == True:
+            assert self.model.p_buffer_verify is None
+            self.model.p_buffer_verify = self.secllm_cpp_wrapper.BookKeeperLoadWithoutReset_Int8(self.layer_idx, self.task_id, 0)
+
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 1), GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[1], 1)]
         self.secllm_cpp_wrapper.ShiftP_PV(self.layer_idx, src, dst)
@@ -1319,6 +1364,10 @@ class Task49(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int8(self.layer_idx, self.task_id, 0)
 
     def run(self):
+        if self.model.verify_result == True:
+            assert self.model.v_buffer_verify is None
+            self.model.v_buffer_verify = self.secllm_cpp_wrapper.BookKeeperLoadWithoutReset_Int8(self.layer_idx, self.task_id, 0)
+
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2), GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[1], 1)]
         self.secllm_cpp_wrapper.ShiftV_PV(self.layer_idx, src, dst)
@@ -1585,6 +1634,24 @@ class Task59(Task):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
 
     def run(self):
+        if self.model.verify_result == True:
+            actual_result = self.secllm_cpp_wrapper.BookKeeperLoadWithoutReset_Int32(self.layer_idx, self.task_id, 0)
+            p_verify = self.model.p_buffer_verify
+            v_verify = self.model.v_buffer_verify
+            self.model.p_buffer_verify = None
+            self.model.v_buffer_verify = None
+            v_verify = self.model.dynamic_cache_verify.update_value(v_verify, self.layer_idx)
+            v_verify = repeat_kv(v_verify, self.model.layers[self.layer_idx].num_key_value_groups)
+
+            p_verify = p_verify.to('cuda:0').to(torch.int32)
+            v_verify = v_verify.to('cuda:0').to(torch.int32)
+            p_verify_cupy = cupy.from_dlpack(p_verify)
+            v_verify_cupy = cupy.from_dlpack(v_verify)
+            result_cupy = cupy.matmul(p_verify_cupy, v_verify_cupy)
+            result = torch.from_dlpack(result_cupy).to('cpu')
+            assert torch.equal(actual_result, result)
+            print(f"Layer {self.layer_idx}, PV Matmul Verification Passed")
+
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
         self.secllm_cpp_wrapper.Dequantize_PV(self.layer_idx, src, dst)

@@ -10,8 +10,8 @@ if module_path not in sys.path:
 
 from secllm.topological_sort import TopologicalSort
 
-# import secllm.task as secllm_task
-import secllm.task_naive as secllm_task
+import secllm.task as secllm_task
+# import secllm.task_naive as secllm_task
 
 class TaskScheduler:
     def __init__(self, graph, secllm_cpp_wrapper, model_info, thread_pool, time_collector):

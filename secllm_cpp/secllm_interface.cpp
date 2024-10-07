@@ -730,6 +730,22 @@ void Ext_Matmul_CPU_PV(int layer_idx, int p_from, int v_from, int to_len,
   });
 }
 
+void Ext_BookKeeperLoadWithoutReset_Float(int loc, float* out) {
+  Internal_BookKeeperLoadWithoutReset_Float(loc, out);
+}
+
+void Ext_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out) {
+  Internal_BookKeeperLoadWithoutReset_Int32(loc, out);
+}
+
+void Ext_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out) {
+  Internal_BookKeeperLoadWithoutReset_Uint32(loc, out);
+}
+
+void Ext_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out) {
+  Internal_BookKeeperLoadWithoutReset_Int8(loc, out);
+}
+
 void Ext_Close(const char* output_filename) {
   // shutdown the thread pool
   thread_pool->shutdown();

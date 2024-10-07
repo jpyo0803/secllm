@@ -670,6 +670,38 @@ class SecLLMCppWrapper:
     return ret.value
 
   @classmethod
+  def BookKeeperLoadWithoutReset_Float(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    shape = cls.__GetShape_Float(loc)
+    out = torch.empty(shape, dtype=torch.float32)
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Float(loc, cast(out.data_ptr(), POINTER(c_float)))
+    return out
+
+  @classmethod
+  def BookKeeperLoadWithoutReset_Int32(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    shape = cls.__GetShape_Int32(loc)
+    out = torch.empty(shape, dtype=torch.int32)
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Int32(loc, cast(out.data_ptr(), POINTER(c_int)))
+    return out
+  
+  @classmethod
+  def BookKeeperLoadWithoutReset_Uint32(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    shape = cls.__GetShape_Uint32(loc)
+    out = torch.empty(shape, dtype=torch.uint32)
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Uint32(loc, cast(out.data_ptr(), POINTER(c_uint32)))
+    return out
+  
+  @classmethod
+  def BookKeeperLoadWithoutReset_Int8(cls, layer_index, operation_index, input_index):
+    loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
+    shape = cls.__GetShape_Int8(loc)
+    out = torch.empty(shape, dtype=torch.int8)
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Int8(loc, cast(out.data_ptr(), POINTER(c_int8)))
+    return out
+
+  @classmethod
   def Reset(cls):
     print("Reset internal states")
     cls.lib.Ext_Reset()

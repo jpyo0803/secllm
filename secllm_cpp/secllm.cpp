@@ -169,6 +169,26 @@ void SecLLM::BookKeeperGetShape_Int8(int loc, int* out) {
   }
 }
 
+std::shared_ptr<Tensor<float>> SecLLM::BookKeeperLoadWithoutReset_Float(
+    int loc) {
+  return book_keeper_float_->RetrieveWithoutReset(loc);
+}
+
+std::shared_ptr<Tensor<int32_t>> SecLLM::BookKeeperLoadWithoutReset_Int32(
+    int loc) {
+  return book_keeper_int32_->RetrieveWithoutReset(loc);
+}
+
+std::shared_ptr<Tensor<uint32_t>> SecLLM::BookKeeperLoadWithoutReset_Uint32(
+    int loc) {
+  return book_keeper_uint32_->RetrieveWithoutReset(loc);
+}
+
+std::shared_ptr<Tensor<int8_t>> SecLLM::BookKeeperLoadWithoutReset_Int8(
+    int loc) {
+  return book_keeper_int8_->RetrieveWithoutReset(loc);
+}
+
 void SecLLM::SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
                                 ProjectionType type) {
   decoder_layers_->at(layer_idx).SetEncKeyAndDecKey(enc_key_pool, dec_key,
@@ -1354,4 +1374,24 @@ void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
       secllm_ptr->Matmul_CPU_PV(layer_idx, p_tensor, v_tensor);
 
   secllm_ptr->BookKeeperStore_Int32(locs, out);
+}
+
+void Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out) {
+  auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Float(loc);
+  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+}
+
+void Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out) {
+  auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Int32(loc);
+  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+}
+
+void Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out) {
+  auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Uint32(loc);
+  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+}
+
+void Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out) {
+  auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Int8(loc);
+  std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
 }

@@ -4,7 +4,12 @@ from secllm.task_scheduler import TaskScheduler
 from secllm.thread_pool import ThreadPool
 from secllm.time_collector import TimeCollector
 
+# Configurations
 NUM_WORKERS = 1
+VERIFY_RESULT = True
+
+if VERIFY_RESULT:
+  from models.custom_dynamic_cache import DynamicCache
 
 class SecLLM:
   def __new__(cls, model_info):
@@ -19,15 +24,24 @@ class SecLLM:
 
       # Load list from file from 'dependency_graph.txt'
       cls._graph = {}
-      # with open('dependency_graph.txt', 'r') as f:
-      with open('dependency_graph_naive.txt', 'r') as f:
+      with open('dependency_graph.txt', 'r') as f:
+      # with open('dependency_graph_naive.txt', 'r') as f:
         for line in f:
           key, value = line.strip().split(':')
           cls._graph[int(key)] = eval(value)
 
       model_info.tensor_buffer = [None for _ in range(32 * 330)]
 
+      # Configuration 
       cls._model_info = model_info
+      cls._model_info.verify_result = VERIFY_RESULT
+      if cls._model_info.verify_result:
+        cls._model_info.dynamic_cache_verify = DynamicCache()
+        cls._model_info.q_buffer_verify = None
+        cls._model_info.k_buffer_verify = None
+        cls._model_info.p_buffer_verify = None
+        cls._model_info.v_buffer_verify = None
+
       
       cls._time_collector = TimeCollector(NUM_WORKERS)
       cls._thread_pool = ThreadPool(NUM_WORKERS)

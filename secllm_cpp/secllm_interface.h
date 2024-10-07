@@ -160,6 +160,11 @@ void Ext_Matmul_CPU_QK(int layer_idx, int q_from, int k_from, int to_len,
 void Ext_Matmul_CPU_PV(int layer_idx, int p_from, int v_from, int to_len,
                        int* to);
 
+void Ext_BookKeeperLoadWithoutReset_Float(int loc, float* out);
+void Ext_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out);
+void Ext_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out);
+void Ext_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out);
+
 void Ext_Close(const char* output_filename);
 }
 
