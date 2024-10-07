@@ -15,8 +15,8 @@ from transformers import AutoTokenizer
     Configurations
 '''
 
-input_token_length = 128
-output_token_length = 128
+input_token_length = 64
+output_token_length = 64
 
 remote_model_id = 'meta-llama/Meta-Llama-3-8B'
 local_model_id = 'jpyo0803/secllm'
@@ -25,26 +25,28 @@ tokenizer = AutoTokenizer.from_pretrained(remote_model_id)
 tokenizer.pad_token = '?'
 
 model = UnwoundSqLlamaForCausalLM.from_pretrained(local_model_id, torch_dtype=torch.float16, device_map='cpu', attn_implementation='eager')
+model.my_post_init()
 
 text = "Hello, what is the 3+7?"
 
-inputs = tokenizer(
-  text,
-  return_tensors="pt",
-  max_length=input_token_length,
-  padding="max_length",
-  truncation=True
-).to(model.device)
+# inputs = tokenizer(
+#   text,
+#   return_tensors="pt",
+#   max_length=input_token_length,
+#   padding="max_length",
+#   truncation=True
+# ).to(model.device)
 
-assert inputs["input_ids"].shape[1] == input_token_length, f"Input token length is not {input_token_length}"
-print("Input token length: ", inputs["input_ids"].shape[1])
-print("Target output token length: ", output_token_length)
+inputs = tokenizer(text, return_tensors="pt").to(model.device)
+# assert inputs["input_ids"].shape[1] == input_token_length, f"Input token length is not {input_token_length}"
+# print("Input token length: ", inputs["input_ids"].shape[1])
+# print("Target output token length: ", output_token_length)
 
 from memory_monitor import MemoryMonitor
 
 memory_monitor = MemoryMonitor(0.1)
 
-outputs = model.generate(inputs["input_ids"], max_length=input_token_length + output_token_length)
+outputs = model.generate(inputs["input_ids"])
 generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 memory_monitor.stop()

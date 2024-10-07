@@ -1299,7 +1299,7 @@ void DecoderLayer::GenerateDecryptionKey_QK(
         bsz_, std::vector<uint32_t>(num_attention_heads_, 0));
     for (int b = 0; b < bsz_; ++b) {
       for (int m = 0; m < num_attention_heads_; ++m) {
-        for (int n = 0; n < X_N; ++n) {
+        for (int n = 0; n < head_dim_; ++n) {
           qk_dec_glob_.at(b).at(m) +=
               qk_x_add_key_.at(b).at(m).at(n) *
               qk_y_add_key_.at(b).at(m / num_key_value_groups_).at(n);
@@ -1319,25 +1319,26 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   auto start_dec_key_gen = std::chrono::steady_clock::now();
 #endif
 
+  int offset = culmulative_token_len_ - present_token_len_;
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         uint32_t d_row_sum = 0;
         uint32_t d_col_sum = 0;
-        for (int n = 0; n < X_N; ++n) {
+        for (int n = 0; n < head_dim_; ++n) {
           d_row_sum +=
               qk_y_add_key_.at(b).at(m / num_key_value_groups_).at(n) *
-              x->data().at(b * X_M * X_K * X_N + m * X_K * X_N + k * X_N + n);
+              x->data().at(b * num_attention_heads_ * present_token_len_ * head_dim_ + m * present_token_len_ * head_dim_ + k * head_dim_ + n);
           d_col_sum += qk_x_add_key_.at(b).at(m).at(n) *
-                       y->data().at(b * Y_M * Y_K * Y_N +
-                                    (m / num_key_value_groups_) * Y_K * Y_N +
-                                    k * Y_N + n);
+                       y->data().at(b * num_key_value_heads_ * present_token_len_ * head_dim_ +
+                                    (m / num_key_value_groups_) * present_token_len_ * head_dim_ +
+                                    k * head_dim_ + n);
         }
         qk_dec_row_.at(b).at(m).push_back(
             d_row_sum * qk_x_mult_key_.at(b).at(m).at(k).first);
         qk_dec_col_.at(b).at(m).push_back(
             d_col_sum *
-            qk_y_mult_key_.at(b).at(m / num_key_value_groups_).at(k).first);
+            qk_y_mult_key_.at(b).at(m / num_key_value_groups_).at(offset + k).first);
       }
     }
   }
@@ -1588,6 +1589,7 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
   // Perform the decryption operation using Eigen
   out_map = (in_map - add_key_map).array() * mult_key_map;
+  // out_map = in_map;
 
   qk_add_dec_key_buffer.clear();
   qk_mult_dec_key_buffer.clear();
@@ -1926,10 +1928,10 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
         uint32_t pv_x_mult_key_factor = pv_x_mult_key_.at(b).at(m).at(k).first;
         for (int n = 0; n < N; ++n) {
           int64_t index = b * M * K * N + m * K * N + k * N + n;
-          out->data().at(index) = in->data().at(index) * pv_x_mult_key_factor +
-                                  pv_x_add_key_.at(b).at(m).at(n);
-          // out->data().at(b * M * K * N + m * K * N + k * N + n) =
-          //     in->data().at(b * M * K * N + m * K * N + k * N + n);
+          // out->data().at(index) = in->data().at(index) * pv_x_mult_key_factor +
+          //                         pv_x_add_key_.at(b).at(m).at(n);
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+              in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
       }
     }
@@ -1966,12 +1968,12 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
             pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
         int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
-          out->data().at(index_without_n + pv_permuted_index_.at(n)) =
-              in->data().at(index_without_n + n) *
-                  pv_y_mult_key_.at(b).at(m).at(n).first +
-              pv_y_add_key_factor;
-          // out->data().at(b * M * K * N + m * K * N + k * N + n) =
-          //     in->data().at(b * M * K * N + m * K * N + k * N + n);
+        //   out->data().at(index_without_n + pv_permuted_index_.at(n)) =
+        //       in->data().at(index_without_n + n) *
+        //           pv_y_mult_key_.at(b).at(m).at(n).first +
+        //       pv_y_add_key_factor;
+          out->data().at(b * M * K * N + m * K * N + k * N + n) =
+              in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
       }
     }
@@ -2006,10 +2008,12 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
         int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
           int64_t inorder_index = index_without_n + n;
+          // out->data().at(inorder_index) =
+          //     (in->data().at(index_without_n + pv_permuted_index_.at(n)) -
+          //      pv_add_dec_key_buffer.at(inorder_index)) *
+          //     pv_mult_dec_key_buffer.at(inorder_index);
           out->data().at(inorder_index) =
-              (in->data().at(index_without_n + pv_permuted_index_.at(n)) -
-               pv_add_dec_key_buffer.at(inorder_index)) *
-              pv_mult_dec_key_buffer.at(inorder_index);
+              in->data().at(inorder_index);
         }
       }
     }
