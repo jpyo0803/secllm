@@ -1666,27 +1666,17 @@ void DecoderLayer::GenerateSecretKey_PV() {
         bsz_, std::vector<std::vector<uint32_t>>(num_attention_heads_));
     pv_y_add_key_ = std::vector<std::vector<std::vector<uint32_t>>>(
         bsz_, std::vector<std::vector<uint32_t>>(num_key_value_heads_));
+  } 
 
-    // Generate Add keys
-    for (int b = 0; b < bsz_; ++b) {
-      for (int m = 0; m < num_attention_heads_; ++m) {
-        for (int n = 0; n < present_token_len_; ++n) {
-          pv_x_add_key_.at(b).at(m).push_back(GenerateAddKey());
-        }
-      }
-      for (int m = 0; m < num_key_value_heads_; ++m) {
-        for (int n = 0; n < present_token_len_; ++n) {
-          pv_y_add_key_.at(b).at(m).push_back(GenerateAddKey());
-        }
-      }
-    }
-  } else {
-    for (int b = 0; b < bsz_; ++b) {
-      for (int m = 0; m < num_attention_heads_; ++m) {
+  // Generate Add keys
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_attention_heads_; ++m) {
+      for (int n = 0; n < present_token_len_; ++n) {
         pv_x_add_key_.at(b).at(m).push_back(GenerateAddKey());
       }
-
-      for (int m = 0; m < num_key_value_heads_; ++m) {
+    }
+    for (int m = 0; m < num_key_value_heads_; ++m) {
+      for (int n = 0; n < present_token_len_; ++n) {
         pv_y_add_key_.at(b).at(m).push_back(GenerateAddKey());
       }
     }
@@ -1755,13 +1745,13 @@ void DecoderLayer::GenerateDecryptionKey_PV(
         bsz_, std::vector<uint32_t>(num_attention_heads_, 0));
   }
 
-  int past_token_len = culmulative_token_len_ - present_token_len_;
+  int offset = culmulative_token_len_ - present_token_len_;
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
       uint32_t d_glob_sum = 0;
-      for (int k = 0; k < X_K; ++k) {
-        int corrected_k = past_token_len + k;
+      for (int k = 0; k < present_token_len_; ++k) {
+        int corrected_k = offset + k;
         d_glob_sum +=
             pv_x_add_key_.at(b).at(m).at(corrected_k) *
             pv_y_add_key_.at(b).at(m / num_key_value_groups_).at(corrected_k);
@@ -1772,28 +1762,30 @@ void DecoderLayer::GenerateDecryptionKey_PV(
 
   for (int b = 0; b < bsz_; ++b) {
     for (int m = 0; m < num_attention_heads_; ++m) {
-      for (int k = 0; k < X_K; ++k) {
+      for (int k = 0; k < present_token_len_; ++k) {
         uint32_t d_row_sum = 0;
-        for (int n = 0; n < X_N; ++n) {
+        for (int n = 0; n < culmulative_token_len_; ++n) {
           d_row_sum +=
               pv_y_add_key_.at(b).at(m / num_key_value_groups_).at(n) *
-              x->data().at(b * X_M * X_K * X_N + m * X_K * X_N + k * X_N + n);
+              x->data().at(b * num_attention_heads_ * present_token_len_ * culmulative_token_len_ 
+                            + m * present_token_len_ * culmulative_token_len_ + k * culmulative_token_len_ + n);
         }
         pv_dec_row_.at(b).at(m).push_back(
             d_row_sum * pv_x_mult_key_.at(b).at(m).at(k).first);
       }
 
-      std::vector<uint32_t> d_col_sum(Y_N, 0);
-      for (int k = 0; k < Y_K; ++k) {
-        for (int n = 0; n < Y_N; ++n) {
+      int offset = culmulative_token_len_ - present_token_len_;
+      std::vector<uint32_t> d_col_sum(head_dim_, 0);
+      for (int k = 0; k < present_token_len_; ++k) {
+        for (int n = 0; n < head_dim_; ++n) {
           d_col_sum.at(n) +=
-              pv_x_add_key_.at(b).at(m).at(k) *
-              y->data().at(b * Y_M * Y_K * Y_N +
-                           (m / num_key_value_groups_) * Y_K * Y_N + k * Y_N +
+              pv_x_add_key_.at(b).at(m).at(offset + k) *
+              y->data().at(b * num_key_value_heads_ * present_token_len_ * head_dim_ +
+                           (m / num_key_value_groups_) * present_token_len_ * head_dim_ + k * head_dim_ +
                            n);
         }
       }
-      for (int n = 0; n < Y_N; ++n) {
+      for (int n = 0; n < head_dim_; ++n) {
         pv_dec_col_.at(b).at(m).at(n) +=
             d_col_sum.at(n) *
             pv_y_mult_key_.at(b).at(m / num_key_value_groups_).at(n).first;
@@ -1928,10 +1920,10 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
         uint32_t pv_x_mult_key_factor = pv_x_mult_key_.at(b).at(m).at(k).first;
         for (int n = 0; n < N; ++n) {
           int64_t index = b * M * K * N + m * K * N + k * N + n;
-          // out->data().at(index) = in->data().at(index) * pv_x_mult_key_factor +
-          //                         pv_x_add_key_.at(b).at(m).at(n);
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              in->data().at(b * M * K * N + m * K * N + k * N + n);
+          out->data().at(index) = in->data().at(index) * pv_x_mult_key_factor +
+                                  pv_x_add_key_.at(b).at(m).at(n);
+          // out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          //     in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
       }
     }
@@ -1968,12 +1960,12 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
             pv_y_add_key_.at(b).at(m).at(k_dim - K + k);
         int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
-        //   out->data().at(index_without_n + pv_permuted_index_.at(n)) =
-        //       in->data().at(index_without_n + n) *
-        //           pv_y_mult_key_.at(b).at(m).at(n).first +
-        //       pv_y_add_key_factor;
-          out->data().at(b * M * K * N + m * K * N + k * N + n) =
-              in->data().at(b * M * K * N + m * K * N + k * N + n);
+          out->data().at(index_without_n + pv_permuted_index_.at(n)) =
+              in->data().at(index_without_n + n) *
+                  pv_y_mult_key_.at(b).at(m).at(n).first +
+              pv_y_add_key_factor;
+          // out->data().at(b * M * K * N + m * K * N + k * N + n) =
+          //     in->data().at(b * M * K * N + m * K * N + k * N + n);
         }
       }
     }
@@ -2008,12 +2000,12 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
         int64_t index_without_n = b * M * K * N + m * K * N + k * N;
         for (int n = 0; n < N; ++n) {
           int64_t inorder_index = index_without_n + n;
-          // out->data().at(inorder_index) =
-          //     (in->data().at(index_without_n + pv_permuted_index_.at(n)) -
-          //      pv_add_dec_key_buffer.at(inorder_index)) *
-          //     pv_mult_dec_key_buffer.at(inorder_index);
           out->data().at(inorder_index) =
-              in->data().at(inorder_index);
+              (in->data().at(index_without_n + pv_permuted_index_.at(n)) -
+               pv_add_dec_key_buffer.at(inorder_index)) *
+              pv_mult_dec_key_buffer.at(inorder_index);
+          // out->data().at(inorder_index) =
+          //     in->data().at(inorder_index);
         }
       }
     }
