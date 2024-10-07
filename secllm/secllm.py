@@ -19,7 +19,8 @@ class SecLLM:
 
       # Load list from file from 'dependency_graph.txt'
       cls._graph = {}
-      with open('dependency_graph.txt', 'r') as f:
+      # with open('dependency_graph.txt', 'r') as f:
+      with open('dependency_graph_naive.txt', 'r') as f:
         for line in f:
           key, value = line.strip().split(':')
           cls._graph[int(key)] = eval(value)

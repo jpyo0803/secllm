@@ -17,7 +17,7 @@ class TestCppWrapper:
       cls.__init = True
 
   @classmethod
-  def Matmul_CPU_Eigen(cls, x : torch.tensor, y : torch.tensor):
+  def Matmul_CPU_Eigen(cls, x : torch.tensor, y : torch.tensor, transpose : bool):
     # assert x.dim() == 4
     # assert y.dim() == 4
     # assert x.dtype == torch.int8
@@ -32,7 +32,7 @@ class TestCppWrapper:
     # assert X_M == Y_M
 
     out = torch.empty(X_B, X_M, X_K, Y_K, dtype=torch.int32)
-    cls.lib.Test_Matmul_Eigen(cast(out.data_ptr(), POINTER(c_int32)), cast(x.data_ptr(), POINTER(c_int8)), cast(y.data_ptr(), POINTER(c_int8)), c_int(X_B * X_M), c_int(X_K), c_int(Y_K), c_int(X_N))
+    cls.lib.Test_Matmul_Eigen(cast(out.data_ptr(), POINTER(c_int32)), cast(x.data_ptr(), POINTER(c_int8)), cast(y.data_ptr(), POINTER(c_int8)), c_int(X_B * X_M), c_int(X_K), c_int(X_N), c_int(Y_K), c_int(Y_N), c_bool(transpose))
     return out
   
   @classmethod
@@ -56,3 +56,17 @@ class TestCppWrapper:
   @classmethod
   def GetTimeStamp_Monotonic(cls):
     cls.lib.Test_GetTimeStamp_Monotonic()
+
+  @classmethod
+  def RepeatKV(cls, x : torch.tensor, repeats : int):
+    # assert x.dim() == 4
+    # assert x.dtype == torch.int8
+    # assert x.is_contiguous()
+
+    X_B, X_M, X_K, X_N = x.size()
+
+# void Test_RepeatKV(int8_t* out, int8_t* hidden_states, int batch, int num_key_value_heads, int seqlen, int head_dim, int n_rep);
+    out = torch.empty(X_B, X_M * repeats, X_K, X_N, dtype=torch.int8)
+    cls.lib.Test_RepeatKV(cast(out.data_ptr(), POINTER(c_int8)), cast(x.data_ptr(), POINTER(c_int8)), c_int(X_B), c_int(X_M), c_int(X_K), c_int(X_N), c_int(repeats))
+    return out
+  

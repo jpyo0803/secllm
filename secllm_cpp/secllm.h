@@ -154,6 +154,13 @@ class SecLLM {
   void Decrypt_PV(int layer_idx, std::shared_ptr<Tensor<uint32_t>> out,
                   std::shared_ptr<Tensor<uint32_t>> in);
 
+  std::shared_ptr<Tensor<int32_t>> Matmul_CPU_QK(
+      int layer_idx, std::shared_ptr<Tensor<int8_t>> q,
+      std::shared_ptr<Tensor<int8_t>> k);
+  std::shared_ptr<Tensor<int32_t>> Matmul_CPU_PV(
+      int layer_idx, std::shared_ptr<Tensor<int8_t>> p,
+      std::shared_ptr<Tensor<int8_t>> v);
+
   void GenerateDecAddBuffer_PV(int layer_idx);
   void GenerateDecMultBuffer_PV(int layer_idx);
   void GenerateUnshiftBuffer_PV(int layer_idx);
@@ -364,5 +371,10 @@ void Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret);
 void Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret);
 
 void Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret);
+
+void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
+                            std::vector<int> locs);
+void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
+                            std::vector<int> locs);
 
 #endif  // SECLLM_SECLLM_H

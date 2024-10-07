@@ -66,13 +66,18 @@ uint32_t GenerateAddKey();
 
 uint64_t RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod);
 
-void Matmul_Eigen(int32_t* out, int8_t* x, int8_t* y, int B, int M, int K,
-                  int N);
+void Matmul_Eigen(int32_t* out, int8_t* x, int8_t* y, int B, int X_M, int X_N,
+                  int Y_M, int Y_N, bool need_transpose);
 
 void Matmul_Naive(int32_t* out, int8_t* x, int8_t* y, int B, int M, int K,
-                  int N);
+                  int N, bool transpose_y);
 
 void GetTimeStamp_Monotonic();
+
+std::vector<int8_t> RepeatKV(
+    const std::vector<std::vector<std::vector<std::vector<int8_t>>>>&
+        hidden_states,
+    int batch, int num_key_value_heads, int seqlen, int head_dim, int n_rep);
 
 }  // namespace jpyo0803
 

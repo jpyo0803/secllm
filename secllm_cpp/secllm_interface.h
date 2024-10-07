@@ -155,6 +155,11 @@ void Ext_PVShiftedPIsAvailable(int layer_idx, bool* ret);
 void Ext_PVShiftedVIsAvailable(int layer_idx, bool* ret);
 void Ext_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret);
 
+void Ext_Matmul_CPU_QK(int layer_idx, int q_from, int k_from, int to_len,
+                       int* to);
+void Ext_Matmul_CPU_PV(int layer_idx, int p_from, int v_from, int to_len,
+                       int* to);
+
 void Ext_Close(const char* output_filename);
 }
 

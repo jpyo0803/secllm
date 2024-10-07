@@ -135,6 +135,12 @@ class DecoderLayer {
   void RMSNorm(std::shared_ptr<Tensor<float>> out,
                std::shared_ptr<Tensor<float>> in, int type);
 
+  std::shared_ptr<Tensor<int32_t>> Matmul_CPU_QK(
+      std::shared_ptr<Tensor<int8_t>> q, std::shared_ptr<Tensor<int8_t>> k);
+
+  std::shared_ptr<Tensor<int32_t>> Matmul_CPU_PV(
+      std::shared_ptr<Tensor<int8_t>> p, std::shared_ptr<Tensor<int8_t>> v);
+
   // This is not actually thread-safe but it is okay, task scheduler can run it next cycle
   bool IsQKKeyGenerated() const { return is_qk_key_generated_; }
   bool IsQKDecKeyGenerated() const { return is_qk_dec_key_generated_; }
@@ -290,6 +296,9 @@ class DecoderLayer {
     enable_linear_encryption & !enable_atten_encryption -> Motivation, do BMM in CPU side
     !enable_linear_encryption & !enable_atten_encryption -> Baseline
   */
+
+  std::vector<std::vector<std::vector<std::vector<int8_t>>>> k_cache_;  // 4D
+  std::vector<std::vector<std::vector<std::vector<int8_t>>>> v_cache_;  // 4D
 };
 
 }  // namespace jpyo0803

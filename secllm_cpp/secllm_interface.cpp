@@ -705,6 +705,31 @@ void Ext_BookKeeperGetShape_Int8(int loc, int* out) {
   Internal_BookKeeperGetShape_Int8(loc, out);
 }
 
+void Ext_Matmul_CPU_QK(int layer_idx, int q_from, int k_from, int to_len,
+                       int* to) {
+  std::vector<int> locs(to, to + to_len);
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[QK^T] Matmul CPU");
+    ts.Start();
+    Internal_Matmul_CPU_QK(layer_idx, q_from, k_from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
+void Ext_Matmul_CPU_PV(int layer_idx, int p_from, int v_from, int to_len,
+                       int* to) {
+  std::vector<int> locs(to, to + to_len);
+
+  thread_pool->enqueue_task([=](int thread_id) {
+    jpyo0803::TimeStamp ts(layer_idx, thread_id, "[PV] Matmul CPU");
+    ts.Start();
+    Internal_Matmul_CPU_PV(layer_idx, p_from, v_from, locs);
+    ts.End();
+    time_stamps[thread_id].push_back(ts);
+  });
+}
+
 void Ext_Close(const char* output_filename) {
   // shutdown the thread pool
   thread_pool->shutdown();

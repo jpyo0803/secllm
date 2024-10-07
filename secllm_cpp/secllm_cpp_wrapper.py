@@ -576,6 +576,16 @@ class SecLLMCppWrapper:
     cls.lib.Ext_Decrypt_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
+  def Matmul_CPU_QK(cls, layer_idx, q_src, k_src, dst : list[int]):
+    dst = torch.tensor(dst, dtype=torch.int32)
+    cls.lib.Ext_Matmul_CPU_QK(layer_idx, q_src, k_src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+  
+  @classmethod
+  def Matmul_CPU_PV(cls, layer_idx, p_src, v_src, dst : list[int]):
+    dst = torch.tensor(dst, dtype=torch.int32)
+    cls.lib.Ext_Matmul_CPU_PV(layer_idx, p_src, v_src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+
+  @classmethod
   def QKKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
     cls.lib.Ext_QKKeyIsAvailable(layer_idx, byref(ret))

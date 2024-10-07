@@ -31,6 +31,27 @@ std::vector<float> max_abs_per_token(const std::vector<float>& t, size_t B,
 
   return max_vals;
 }
+
+std::vector<int8_t> Flatten4Dto1D(
+    const std::vector<std::vector<std::vector<std::vector<int8_t>>>>& input,
+    int batch, int num_heads, int seqlen, int head_dim) {
+  std::vector<int8_t> flattened(batch * num_heads * seqlen * head_dim);
+  int idx = 0;
+
+  // Flattening the 4D vector
+  for (int b = 0; b < batch; ++b) {
+    for (int h = 0; h < num_heads; ++h) {
+      for (int s = 0; s < seqlen; ++s) {
+        for (int d = 0; d < head_dim; ++d) {
+          flattened[idx++] = input[b][h][s][d];
+        }
+      }
+    }
+  }
+
+  return flattened;
+}
+
 }  // namespace
 
 void jpyo0803::QuantizeActivationPerTensor(std::vector<int8_t>& out,
@@ -440,30 +461,46 @@ uint64_t jpyo0803::RepeatedSqr(uint64_t base, uint64_t exp, uint64_t mod) {
   return result;
 }
 
-void jpyo0803::Matmul_Eigen(int32_t* out, int8_t* x, int8_t* y, int B, int M,
-                            int N, int K) {
-  // Notice the dim K is the shared dim
-  // a: [B, M, K]
-  // b: [B, N, K]
+void jpyo0803::Matmul_Eigen(int32_t* out, int8_t* x, int8_t* y, int B, int X_M,
+                            int X_N, int Y_M, int Y_N, bool need_transpose) {
+  // B is the batch size, x and y shares
+  // x: [B, X_M, X_N]
+  // y: [B, Y_M, Y_N]
+
+  // if need_transpose is true, then X_N == Y_N
+  // if need_transpose is false, then X_N == Y_M
 
   for (int b = 0; b < B; ++b) {
-    // Map raw data to Eigen matrices
-    Eigen::Map<Matrix<int8_t, Dynamic, Dynamic, RowMajor>> mat_x(x + b * M * K,
-                                                                 M, K);
-    Eigen::Map<Matrix<int8_t, Dynamic, Dynamic, RowMajor>> mat_y(y + b * N * K,
-                                                                 N, K);
+    // Map x and y as Eigen matrices
+    Eigen::Map<const Eigen::Matrix<int8_t, Eigen::Dynamic, Eigen::Dynamic,
+                                   Eigen::RowMajor>>
+        x_map(&x[b * X_M * X_N], X_M, X_N);
 
-    // Compute the matrix product
-    Matrix<int32_t, Dynamic, Dynamic, RowMajor> result =
-        (mat_x.cast<int32_t>() * mat_y.transpose().cast<int32_t>());
+    Eigen::Map<const Eigen::Matrix<int8_t, Eigen::Dynamic, Eigen::Dynamic,
+                                   Eigen::RowMajor>>
+        y_map(&y[b * Y_M * Y_N], Y_M, Y_N);
 
-    // Copy result back to output array
-    std::memcpy(out + b * M * N, result.data(), M * N * sizeof(int32_t));
+    // Ensure the dimensions of `out` are correct before assigning
+    Eigen::Matrix<int32_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+        result(X_M, Y_N);
+
+    if (need_transpose) {
+      // Perform matrix multiplication with y_transposed if need_transpose is true
+      result.noalias() =
+          x_map.cast<int32_t>() * y_map.transpose().cast<int32_t>();
+    } else {
+      // Perform regular matrix multiplication
+      result.noalias() = x_map.cast<int32_t>() * y_map.cast<int32_t>();
+    }
+
+    // Copy the result into the output array
+    std::memcpy(&out[b * X_M * Y_N], result.data(),
+                X_M * Y_N * sizeof(int32_t));
   }
 }
 
 void jpyo0803::Matmul_Naive(int32_t* out, int8_t* x, int8_t* y, int B, int M,
-                            int N, int K) {
+                            int N, int K, bool transpose_y) {
   // Notice the dim K is the shared dim
   // a: [B, M, K]
   // b: [B, N, K]
@@ -473,13 +510,63 @@ void jpyo0803::Matmul_Naive(int32_t* out, int8_t* x, int8_t* y, int B, int M,
       for (int n = 0; n < N; ++n) {
         int32_t sum = 0;
         for (int k = 0; k < K; ++k) {
-          sum += static_cast<int32_t>(x[b * M * K + m * K + k]) *
-                 static_cast<int32_t>(y[b * N * K + n * K + k]);
+          int8_t x_val = x[b * M * K + m * K + k];
+          int8_t y_val;
+
+          if (transpose_y) {
+            // Access y as [B, K, N]
+            y_val = y[b * K * N + k * N + n];
+          } else {
+            // Access y as [B, N, K]
+            y_val = y[b * N * K + n * K + k];
+          }
+
+          sum += static_cast<int32_t>(x_val) * static_cast<int32_t>(y_val);
         }
         out[b * M * N + m * N + n] = sum;
       }
     }
   }
+}
+
+std::vector<int8_t> jpyo0803::RepeatKV(
+    const std::vector<std::vector<std::vector<std::vector<int8_t>>>>&
+        hidden_states,
+    int batch, int num_key_value_heads, int seqlen, int head_dim, int n_rep) {
+  // If n_rep is 1, return the input as a flattened 1D vector
+  if (n_rep == 1) {
+    return Flatten4Dto1D(hidden_states, batch, num_key_value_heads, seqlen,
+                         head_dim);
+  }
+
+  // The new dimension size for num_attention_heads
+  int num_attention_heads = num_key_value_heads * n_rep;
+
+  // Create a 4D vector to hold the repeated hidden states
+  std::vector<std::vector<std::vector<std::vector<int8_t>>>>
+      repeated_hidden_states(
+          batch,
+          std::vector<std::vector<std::vector<int8_t>>>(
+              num_attention_heads, std::vector<std::vector<int8_t>>(
+                                       seqlen, std::vector<int8_t>(head_dim))));
+
+  // Perform the repeat operation
+  for (int b = 0; b < batch; ++b) {
+    for (int kvh = 0; kvh < num_key_value_heads; ++kvh) {
+      for (int rep = 0; rep < n_rep; ++rep) {
+        for (int s = 0; s < seqlen; ++s) {
+          for (int h = 0; h < head_dim; ++h) {
+            repeated_hidden_states[b][kvh * n_rep + rep][s][h] =
+                hidden_states[b][kvh][s][h];
+          }
+        }
+      }
+    }
+  }
+
+  // Flatten the 4D vector and return it
+  return Flatten4Dto1D(repeated_hidden_states, batch, num_attention_heads,
+                       seqlen, head_dim);
 }
 
 void jpyo0803::GetTimeStamp_Monotonic() {

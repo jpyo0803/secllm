@@ -284,6 +284,18 @@ void SecLLM::Dequantize_PV(int layer_idx, std::shared_ptr<Tensor<float>> out,
   decoder_layers_->at(layer_idx).Dequantize_PV(out, in);
 }
 
+std::shared_ptr<Tensor<int32_t>> SecLLM::Matmul_CPU_QK(
+    int layer_idx, std::shared_ptr<Tensor<int8_t>> q,
+    std::shared_ptr<Tensor<int8_t>> k) {
+  return decoder_layers_->at(layer_idx).Matmul_CPU_QK(q, k);
+}
+
+std::shared_ptr<Tensor<int32_t>> SecLLM::Matmul_CPU_PV(
+    int layer_idx, std::shared_ptr<Tensor<int8_t>> p,
+    std::shared_ptr<Tensor<int8_t>> v) {
+  return decoder_layers_->at(layer_idx).Matmul_CPU_PV(p, v);
+}
+
 void SecLLM::SetAttentionMask(float* mask, int M, int N) {
 
   attn_mask_ = std::vector<std::vector<float>>(M, std::vector<float>(N));
@@ -1316,4 +1328,30 @@ void Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
 
 void Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVShiftedVIsAvailable(layer_idx);
+}
+
+void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
+                            std::vector<int> locs) {
+  std::shared_ptr<jpyo0803::Tensor<int8_t>> q_tensor =
+      secllm_ptr->BookKeeperLoad_Int8(q_from);
+  std::shared_ptr<jpyo0803::Tensor<int8_t>> k_tensor =
+      secllm_ptr->BookKeeperLoad_Int8(k_from);
+
+  std::shared_ptr<jpyo0803::Tensor<int32_t>> out =
+      secllm_ptr->Matmul_CPU_QK(layer_idx, q_tensor, k_tensor);
+
+  secllm_ptr->BookKeeperStore_Int32(locs, out);
+}
+
+void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
+                            std::vector<int> locs) {
+  std::shared_ptr<jpyo0803::Tensor<int8_t>> p_tensor =
+      secllm_ptr->BookKeeperLoad_Int8(p_from);
+  std::shared_ptr<jpyo0803::Tensor<int8_t>> v_tensor =
+      secllm_ptr->BookKeeperLoad_Int8(v_from);
+
+  std::shared_ptr<jpyo0803::Tensor<int32_t>> out =
+      secllm_ptr->Matmul_CPU_PV(layer_idx, p_tensor, v_tensor);
+
+  secllm_ptr->BookKeeperStore_Int32(locs, out);
 }

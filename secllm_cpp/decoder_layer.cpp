@@ -2030,4 +2030,115 @@ void DecoderLayer::RMSNorm(std::shared_ptr<Tensor<float>> out,
 #endif
 }
 
+std::shared_ptr<Tensor<int32_t>> DecoderLayer::Matmul_CPU_QK(
+    std::shared_ptr<Tensor<int8_t>> q, std::shared_ptr<Tensor<int8_t>> k) {
+  // in1 and in2 are only the present token
+  // update internal k cache and do matmul
+
+  // K cache dimension after update: [bsz, num_key_value_heads, cumulative_token_len, head_dim]
+  // = [bsz, num_key_value_heads, K, head_dim]
+
+  // Update K cache
+
+  if (k_cache_.empty()) {
+    k_cache_ = std::vector<std::vector<std::vector<std::vector<int8_t>>>>(
+        bsz_,
+        std::vector<std::vector<std::vector<int8_t>>>(num_key_value_heads_));
+  }
+
+  const auto& k_data = k->data();
+
+  int offset = culmulative_token_len_ - present_token_len_;
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_key_value_heads_; ++m) {
+      for (int k = 0; k < present_token_len_; ++k) {
+        k_cache_.at(b).at(m).push_back(std::vector<int8_t>());
+        for (int n = 0; n < head_dim_; ++n) {
+          k_cache_.at(b)
+              .at(m)
+              .at(offset + k)
+              .push_back(k_data.at(
+                  b * num_key_value_heads_ * present_token_len_ * head_dim_ +
+                  m * present_token_len_ * head_dim_ + k * head_dim_ + n));
+        }
+      }
+    }
+  }
+
+  // Repeat K cache
+  auto repeated_k =
+      RepeatKV(k_cache_, bsz_, num_key_value_heads_, culmulative_token_len_,
+               head_dim_, num_key_value_groups_);
+
+  // Matmul
+  auto q_shape = q->shape();
+  int B = q_shape.at(0);
+  int M = q_shape.at(1);
+  int K = q_shape.at(2);
+  int N = q_shape.at(3);
+
+  auto out = std::make_shared<Tensor<int32_t>>(
+      std::vector<int>{B, M, present_token_len_, culmulative_token_len_});
+
+  // Notice the dim K is the shared dim
+  // a: [B, M, K]
+  // b: [B, N, K]
+  Matmul_Naive(out->data().data(), q->data().data(), repeated_k.data(), B * M,
+               K, culmulative_token_len_, head_dim_, false);
+
+  return out;
+}
+
+std::shared_ptr<Tensor<int32_t>> DecoderLayer::Matmul_CPU_PV(
+    std::shared_ptr<Tensor<int8_t>> p, std::shared_ptr<Tensor<int8_t>> v) {
+
+  if (v_cache_.empty()) {
+    v_cache_ = std::vector<std::vector<std::vector<std::vector<int8_t>>>>(
+        bsz_,
+        std::vector<std::vector<std::vector<int8_t>>>(num_key_value_heads_));
+  }
+
+  // Update V cache
+  const auto& v_data = v->data();
+  int offset = culmulative_token_len_ - present_token_len_;
+  for (int b = 0; b < bsz_; ++b) {
+    for (int m = 0; m < num_key_value_heads_; ++m) {
+      for (int k = 0; k < present_token_len_; ++k) {
+        v_cache_.at(b).at(m).push_back(std::vector<int8_t>());
+        for (int n = 0; n < head_dim_; ++n) {
+          v_cache_.at(b)
+              .at(m)
+              .at(offset + k)
+              .push_back(v_data.at(
+                  b * num_key_value_heads_ * present_token_len_ * head_dim_ +
+                  m * present_token_len_ * head_dim_ + k * head_dim_ + n));
+        }
+      }
+    }
+  }
+
+  // Repeat V cache
+  auto repeated_v =
+      RepeatKV(v_cache_, bsz_, num_key_value_heads_, culmulative_token_len_,
+               head_dim_, num_key_value_groups_);
+
+  // Matmul
+  auto p_shape = p->shape();
+  int B = p_shape.at(0);
+  int M = p_shape.at(1);
+  int K = p_shape.at(2);
+  int N = p_shape.at(3);
+
+  auto out = std::make_shared<Tensor<int32_t>>(
+      std::vector<int>{B, M, present_token_len_, head_dim_});
+
+  // Notice the dim K is the shared dim
+  // a: [B, M, K]
+  // b: [B, N, K]
+
+  Matmul_Naive(out->data().data(), p->data().data(), repeated_v.data(), B * M,
+               K, head_dim_, culmulative_token_len_, true);
+  return out;
+}
+
 }  // namespace jpyo0803
