@@ -846,7 +846,7 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
   if (qk_y_col_shift_sum_.empty()) {
     qk_y_col_shift_sum_ = std::vector<std::vector<std::vector<int>>>(
-        B, std::vector<std::vector<int>>(M, std::vector<int>(K, 0)));
+        B, std::vector<std::vector<int>>(M));
   }
 
   // Iterate over B, M, and K to compute the column sums over N using Eigen
@@ -858,7 +858,7 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
             &in->data()[b * M * K * N + m * K * N + k * N], N);
 
         // Sum the row after casting to int
-        qk_y_col_shift_sum_[b][m][k] = col_in_map.cast<int>().sum();
+        qk_y_col_shift_sum_.at(b).at(m).push_back(col_in_map.cast<int>().sum());
       }
     }
   }
@@ -1350,6 +1350,11 @@ void DecoderLayer::GenerateDecryptionKey_QK(
 }
 
 void DecoderLayer::GenerateDecAddBuffer_QK() {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecAddBuffer_QK() Enter" << std::endl;
+#endif
+
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_dec_key_generated_,
                 "QK decryption key is not generated!");
@@ -1378,9 +1383,17 @@ void DecoderLayer::GenerateDecAddBuffer_QK() {
   }
 
   is_qk_add_buffer_generated_ = true;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecAddBuffer_QK() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::GenerateDecMultBuffer_QK() {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecMultBuffer_QK() Enter" << std::endl;
+#endif
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_dec_key_generated_,
                 "QK decryption key is not generated!");
@@ -1410,9 +1423,17 @@ void DecoderLayer::GenerateDecMultBuffer_QK() {
   }
 
   is_qk_mult_buffer_generated_ = true;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateDecMultBuffer_QK() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::GenerateUnshiftBuffer_QK() {
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateUnshiftBuffer_QK() Enter" << std::endl;
+#endif
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(is_qk_shift_q_done_ && is_qk_shift_k_done_,
                 "QK shift is not done!");
@@ -1442,6 +1463,10 @@ void DecoderLayer::GenerateUnshiftBuffer_QK() {
   }
 
   is_qk_unshift_buffer_generated_ = true;
+#if DEBUG_PRINT == 1
+  std::cout << "[Decoder Layer " << layer_idx_
+            << "] GenerateUnshiftBuffer_QK() Exit" << std::endl;
+#endif
 }
 
 void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
