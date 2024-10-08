@@ -28,7 +28,7 @@ class ThreadPool:
         while not self.stop:
             try:
                 task = self.tasks.get(timeout=1)  # Timeout to check if stop is True
-                # task.print_info()
+                task.print_info()
                 task(worker_id)  # Execute the task
                 self.tasks.task_done()
             except Exception as e:

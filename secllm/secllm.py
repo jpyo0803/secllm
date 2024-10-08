@@ -6,7 +6,7 @@ from secllm.time_collector import TimeCollector
 
 # Configurations
 NUM_WORKERS = 1
-VERIFY_RESULT = True
+VERIFY_RESULT = False
 
 if VERIFY_RESULT:
   from models.custom_dynamic_cache import DynamicCache
@@ -24,8 +24,9 @@ class SecLLM:
 
       # Load list from file from 'dependency_graph.txt'
       cls._graph = {}
-      with open('dependency_graph.txt', 'r') as f:
+      # with open('dependency_graph.txt', 'r') as f:
       # with open('dependency_graph_naive.txt', 'r') as f:
+      with open('dependency_graph_unsecure.txt', 'r') as f:
         for line in f:
           key, value = line.strip().split(':')
           cls._graph[int(key)] = eval(value)
