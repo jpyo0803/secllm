@@ -2710,6 +2710,7 @@ class Task103(Task):
 class Task104(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return True
@@ -2722,13 +2723,14 @@ class Task104(Task):
 
         k_cache = None
         if is_k_cache_available:
-            k_cache = dynamic_cache.key_cache[self.layer_idx]
-            if MEASURE_TIME_WITH_NVTX == True:
-                nvtx.range_push(self.to_string_info())
-            k_cache = k_cache.to('cuda:0')
-            torch.cuda.synchronize()
-            if MEASURE_TIME_WITH_NVTX == True:
-                nvtx.range_pop()
+            with torch.cuda.stream(self.stream):
+                if MEASURE_TIME_WITH_NVTX == True:
+                    nvtx.range_push(self.to_string_info())
+                k_cache = dynamic_cache.key_cache[self.layer_idx].to('cuda:0', non_blocking=True)
+                if MEASURE_TIME_WITH_NVTX == True:
+                    nvtx.range_pop()
+            
+            self.stream.synchronize()
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2)    
         self.model.tensor_buffer[dst] = (k_cache, True)
@@ -2745,6 +2747,7 @@ class Task104(Task):
 class Task105(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return True
@@ -2757,13 +2760,15 @@ class Task105(Task):
 
         v_cache = None
         if is_v_cache_available:
-            v_cache = dynamic_cache.value_cache[self.layer_idx]
-            if MEASURE_TIME_WITH_NVTX == True:
-                nvtx.range_push(self.to_string_info())
-            v_cache = v_cache.to('cuda:0')
-            torch.cuda.synchronize()
-            if MEASURE_TIME_WITH_NVTX == True:
-                nvtx.range_pop()
+            with torch.cuda.stream(self.stream):
+                if MEASURE_TIME_WITH_NVTX == True:
+                    nvtx.range_push(self.to_string_info())
+                v_cache = dynamic_cache.value_cache[self.layer_idx].to('cuda:0', non_blocking=True)
+                torch.cuda.synchronize()
+                if MEASURE_TIME_WITH_NVTX == True:
+                    nvtx.range_pop()
+                    
+            self.stream.synchronize()
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 2)
         self.model.tensor_buffer[dst] = (v_cache, True)
