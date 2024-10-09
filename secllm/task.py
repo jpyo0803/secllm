@@ -523,14 +523,15 @@ class Task16(Task):
         weight = self.model.layers[self.layer_idx].q_proj_weight_buffer
         self.model.layers[self.layer_idx].q_proj_weight_buffer = None
 
+        act = act.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
+
         with self.stream:
-            act = act.to(torch.int32)
-            weight = weight.to(torch.int32)
             assert act.dtype == torch.int32
             assert weight.dtype == torch.int32
 
             act_cupy = cupy.from_dlpack(act)
-            weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+            weight_T_cupy = cupy.from_dlpack(weight)
 
             if MEASURE_TIME_WITH_NVTX == True:
                 nvtx.range_push(f"Layer idx: {self.layer_idx}, Q proj Matmul")
@@ -581,16 +582,16 @@ class Task17(Task):
         weight = self.model.layers[self.layer_idx].k_proj_weight_buffer
         self.model.layers[self.layer_idx].k_proj_weight_buffer = None
 
+        act = act.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
         # At this point, act and weight are on GPU
         with self.stream:
-            act = act.to(torch.int32)
-            weight = weight.to(torch.int32)
 
             assert act.dtype == torch.int32
             assert weight.dtype == torch.int32
 
             act_cupy = cupy.from_dlpack(act)
-            weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+            weight_T_cupy = cupy.from_dlpack(weight)
 
             if MEASURE_TIME_WITH_NVTX == True:
                 nvtx.range_push(self.to_string_info())
@@ -644,14 +645,14 @@ class Task18(Task):
 
         # At this point, act and weight are on GPU
         act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
 
         assert act.dtype == torch.int32
         assert weight.dtype == torch.int32
 
         with self.stream:
             act_cupy = cupy.from_dlpack(act)
-            weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+            weight_T_cupy = cupy.from_dlpack(weight)
 
             if MEASURE_TIME_WITH_NVTX == True:
                 nvtx.range_push(self.to_string_info())
@@ -1572,7 +1573,7 @@ class Task55(Task):
         v_gpu = repeat_kv(v_gpu, self.model.layers[self.layer_idx].num_key_value_groups)
 
         with self.stream:
-            
+
             p_cupy = cupy.from_dlpack(p)
             v_cupy = cupy.from_dlpack(v_gpu)
         
@@ -1798,6 +1799,7 @@ class Task63(Task):
 class Task64(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = cupy.cuda.Stream(non_blocking=True)
 
     def is_ready(self):
         ready = True
@@ -1820,20 +1822,25 @@ class Task64(Task):
         self.model.layers[self.layer_idx].o_proj_weight_buffer = None
 
         act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
 
         assert act.dtype == torch.int32
         assert weight.dtype == torch.int32
 
-        act_cupy = cupy.from_dlpack(act)
-        weight_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+        with self.stream:
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result_cupy = cupy.matmul(act_cupy, weight_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+            act_cupy = cupy.from_dlpack(act)
+            weight_cupy = cupy.from_dlpack(weight)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+
+            result_cupy = cupy.matmul(act_cupy, weight_cupy)
+            
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
 
         result = torch.from_dlpack(result_cupy)
 
@@ -1846,23 +1853,28 @@ class Task64(Task):
     def __call__(self, worker_id):
         ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
         ts.Start()
-        self.run()
+        try:
+            self.run()
+        except Exception as e:
+            print(e)
         ts.End()
         self.time_collector.Insert(worker_id, ts)
 
 class Task65(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
     
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
 
     def run(self):
         loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
+
         with torch.cuda.stream(self.stream):
             if MEASURE_TIME_WITH_NVTX == True:
                 nvtx.range_push(self.to_string_info())
+
             tensor_copy_cpu = self.model.tensor_buffer[loc].to('cpu', non_blocking=True)
             if MEASURE_TIME_WITH_NVTX == True:
                 nvtx.range_pop()
@@ -1981,7 +1993,7 @@ class Task71(Task):
 class Task72(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return True
@@ -2008,7 +2020,7 @@ class Task72(Task):
 class Task73(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return True
@@ -2104,7 +2116,7 @@ class Task77(Task):
 class Task78(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
@@ -2134,7 +2146,7 @@ class Task78(Task):
 class Task79(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
@@ -2164,6 +2176,7 @@ class Task79(Task):
 class Task80(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = cupy.cuda.Stream(non_blocking=True)
 
     def is_ready(self):
         ready = True
@@ -2186,20 +2199,25 @@ class Task80(Task):
         self.model.layers[self.layer_idx].gate_proj_weight_buffer = None
 
         act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
 
         assert act.dtype == torch.int32
         assert weight.dtype == torch.int32
 
-        act_cupy = cupy.from_dlpack(act)
-        weight_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+        with self.stream:
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result_cupy = cupy.matmul(act_cupy, weight_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+            act_cupy = cupy.from_dlpack(act)
+            weight_cupy = cupy.from_dlpack(weight)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+
+            result_cupy = cupy.matmul(act_cupy, weight_cupy)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
 
         result = torch.from_dlpack(result_cupy)
 
@@ -2219,6 +2237,7 @@ class Task80(Task):
 class Task81(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = cupy.cuda.Stream(non_blocking=True)
 
     def is_ready(self):
         ready = True
@@ -2241,20 +2260,25 @@ class Task81(Task):
         self.model.layers[self.layer_idx].up_proj_weight_buffer = None
 
         act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
 
         assert act.dtype == torch.int32
         assert weight.dtype == torch.int32
 
-        act_cupy = cupy.from_dlpack(act)
-        weight_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+        with self.stream:
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result_cupy = cupy.matmul(act_cupy, weight_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+            act_cupy = cupy.from_dlpack(act)
+            weight_cupy = cupy.from_dlpack(weight)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+
+            result_cupy = cupy.matmul(act_cupy, weight_cupy)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
 
         result = torch.from_dlpack(result_cupy)
 
@@ -2274,7 +2298,7 @@ class Task81(Task):
 class Task82(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
@@ -2306,7 +2330,7 @@ class Task82(Task):
 class Task83(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-        self.stream = torch.cuda.Stream('cuda:0')
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
@@ -2515,6 +2539,7 @@ class Task92(Task):
 class Task93(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = cupy.cuda.Stream(non_blocking=True)
 
     def is_ready(self):
         ready = True
@@ -2537,20 +2562,25 @@ class Task93(Task):
         self.model.layers[self.layer_idx].down_proj_weight_buffer = None
 
         act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+        weight = weight.to(torch.int32).transpose(-2, -1)
 
         assert act.dtype == torch.int32
         assert weight.dtype == torch.int32
 
-        act_cupy = cupy.from_dlpack(act)
-        weight_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+        with self.stream:
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result_cupy = cupy.matmul(act_cupy, weight_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+            act_cupy = cupy.from_dlpack(act)
+            weight_cupy = cupy.from_dlpack(weight)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+
+            result_cupy = cupy.matmul(act_cupy, weight_cupy)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
 
         result = torch.from_dlpack(result_cupy)
 
