@@ -516,42 +516,39 @@ class Task16(Task):
     def run(self):
         act_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         assert self.model.tensor_buffer[act_loc] is not None
-
         act = self.model.tensor_buffer[act_loc]
         self.model.tensor_buffer[act_loc] = None
-
         act_shape = act.shape
         act = act.view(-1, act_shape[-1])
-
         weight = self.model.layers[self.layer_idx].q_proj_weight_buffer
         self.model.layers[self.layer_idx].q_proj_weight_buffer = None
 
+        with self.stream:
+            act = act.to(torch.int32)
+            weight = weight.to(torch.int32)
+            assert act.dtype == torch.int32
+            assert weight.dtype == torch.int32
+
+            act_cupy = cupy.from_dlpack(act)
+            weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(f"Layer idx: {self.layer_idx}, Q proj Matmul")
+                
+            result_cupy = cupy.matmul(act_cupy, weight_T_cupy)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
         # At this point, act and weight are on GPU
-
-        act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
-
-        assert act.dtype == torch.int32
-        assert weight.dtype == torch.int32
-
-        act_cupy = cupy.from_dlpack(act)
-        weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
-
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(f"Layer idx: {self.layer_idx}, Q proj Matmul")
-            
-        result_cupy = cupy.matmul(act_cupy, weight_T_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
-
         result = torch.from_dlpack(result_cupy)
 
         result = result.view(*act_shape[:-1], -1)
 
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 0)
         self.model.tensor_buffer[dst] = result
-        # threading.Thread(target=async_task).start()
 
     def __call__(self, worker_id):
         ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
@@ -563,6 +560,7 @@ class Task16(Task):
 class Task17(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = cupy.cuda.Stream(non_blocking=True)
 
     def is_ready(self):
         ready = True
@@ -571,7 +569,6 @@ class Task17(Task):
         return ready
 
     def run(self):
-        # def async_task():
         act_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
         assert self.model.tensor_buffer[act_loc] is not None
 
@@ -585,22 +582,25 @@ class Task17(Task):
         self.model.layers[self.layer_idx].k_proj_weight_buffer = None
 
         # At this point, act and weight are on GPU
+        with self.stream:
+            act = act.to(torch.int32)
+            weight = weight.to(torch.int32)
 
-        act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+            assert act.dtype == torch.int32
+            assert weight.dtype == torch.int32
 
-        assert act.dtype == torch.int32
-        assert weight.dtype == torch.int32
+            act_cupy = cupy.from_dlpack(act)
+            weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
 
-        act_cupy = cupy.from_dlpack(act)
-        weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result_cupy = cupy.matmul(act_cupy, weight_T_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+            result_cupy = cupy.matmul(act_cupy, weight_T_cupy)
+
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
 
         result = torch.from_dlpack(result_cupy)
 
@@ -620,6 +620,7 @@ class Task17(Task):
 class Task18(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = cupy.cuda.Stream(non_blocking=True)
 
     def is_ready(self):
         ready = True
@@ -642,22 +643,25 @@ class Task18(Task):
         self.model.layers[self.layer_idx].v_proj_weight_buffer = None
 
         # At this point, act and weight are on GPU
+        with self.stream:
+            act = act.to(torch.int32)
+            weight = weight.to(torch.int32)
 
-        act = act.to(torch.int32)
-        weight = weight.to(torch.int32)
+            assert act.dtype == torch.int32
+            assert weight.dtype == torch.int32
 
-        assert act.dtype == torch.int32
-        assert weight.dtype == torch.int32
+            act_cupy = cupy.from_dlpack(act)
+            weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
 
-        act_cupy = cupy.from_dlpack(act)
-        weight_T_cupy = cupy.from_dlpack(weight.transpose(-2, -1))
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result_cupy = cupy.matmul(act_cupy, weight_T_cupy)
-        cupy.cuda.Stream.null.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+            result_cupy = cupy.matmul(act_cupy, weight_T_cupy)
+            
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
 
         result = torch.from_dlpack(result_cupy)
 
@@ -2779,7 +2783,6 @@ class Task105(Task):
                 if MEASURE_TIME_WITH_NVTX == True:
                     nvtx.range_push(self.to_string_info())
                 v_cache = dynamic_cache.value_cache[self.layer_idx].to('cuda:0', non_blocking=True)
-                torch.cuda.synchronize()
                 if MEASURE_TIME_WITH_NVTX == True:
                     nvtx.range_pop()
 
