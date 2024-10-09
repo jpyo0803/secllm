@@ -1676,19 +1676,21 @@ class Task59(Task):
 class Task60(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return True
 
     def run(self):
-        # def async_task():
-        self.model.layers[self.layer_idx].o_proj_weight_buffer = self.model.layers[self.layer_idx].o_proj.weight
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        self.model.layers[self.layer_idx].o_proj_weight_buffer = self.model.layers[self.layer_idx].o_proj_weight_buffer.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            self.model.layers[self.layer_idx].o_proj_weight_buffer = self.model.layers[self.layer_idx].o_proj.weight
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            self.model.layers[self.layer_idx].o_proj_weight_buffer = self.model.layers[self.layer_idx].o_proj_weight_buffer.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+        
+        self.stream.synchronize()
         assert self.model.layers[self.layer_idx].o_proj_weight_buffer.dtype == torch.int8
         # threading.Thread(target=async_task).start()
 
@@ -1736,19 +1738,22 @@ class Task62(Task):
 class Task63(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
 
     def run(self):
-        # def async_task():
-        act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        act = act.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            act = act.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 0)
         self.model.tensor_buffer[dst] = act
         # threading.Thread(target=async_task).start()
@@ -1818,23 +1823,24 @@ class Task64(Task):
 class Task65(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
-
+        self.stream = torch.cuda.Stream('cuda:0')
+    
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
 
     def run(self):
-        # def async_task():
-        result_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
-        result = self.model.tensor_buffer[result_loc]
-        self.model.tensor_buffer[result_loc] = None
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result = result.to('cpu')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
-        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, result)
-        # threading.Thread(target=async_task).start()
+        loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
+        with torch.cuda.stream(self.stream):
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            tensor_copy_cpu = self.model.tensor_buffer[loc].to('cpu', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
+        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, tensor_copy_cpu)
+        self.model.tensor_buffer[loc] = None
 
     def __call__(self, worker_id):
         ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
@@ -1945,21 +1951,22 @@ class Task71(Task):
 class Task72(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream('cuda:0')
 
     def is_ready(self):
         return True
 
     def run(self):
-        # def async_task():
-        self.model.layers[self.layer_idx].gate_proj_weight_buffer = self.model.layers[self.layer_idx].gate_proj.weight
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        self.model.layers[self.layer_idx].gate_proj_weight_buffer = self.model.layers[self.layer_idx].gate_proj_weight_buffer.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            self.model.layers[self.layer_idx].gate_proj_weight_buffer = self.model.layers[self.layer_idx].gate_proj.weight
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            self.model.layers[self.layer_idx].gate_proj_weight_buffer = self.model.layers[self.layer_idx].gate_proj_weight_buffer.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
         assert self.model.layers[self.layer_idx].gate_proj_weight_buffer.dtype == torch.int8
-        # threading.Thread(target=async_task).start()
 
     def __call__(self, worker_id):
         ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
@@ -1971,19 +1978,21 @@ class Task72(Task):
 class Task73(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream('cuda:0')
 
     def is_ready(self):
         return True
 
     def run(self):
-        # def async_task():
-        self.model.layers[self.layer_idx].up_proj_weight_buffer = self.model.layers[self.layer_idx].up_proj.weight
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        self.model.layers[self.layer_idx].up_proj_weight_buffer = self.model.layers[self.layer_idx].up_proj_weight_buffer.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            self.model.layers[self.layer_idx].up_proj_weight_buffer = self.model.layers[self.layer_idx].up_proj.weight
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            self.model.layers[self.layer_idx].up_proj_weight_buffer = self.model.layers[self.layer_idx].up_proj_weight_buffer.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
         assert self.model.layers[self.layer_idx].up_proj_weight_buffer.dtype == torch.int8
         # threading.Thread(target=async_task).start()
 
@@ -2065,19 +2074,22 @@ class Task77(Task):
 class Task78(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream('cuda:0')
 
     def is_ready(self):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
 
     def run(self):
-        # def async_task():
-        act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        act = act.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            act = act.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 0)
         self.model.tensor_buffer[dst] = act
         # threading.Thread(target=async_task).start()
@@ -2092,19 +2104,22 @@ class Task78(Task):
 class Task79(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream('cuda:0')
 
     def is_ready(self):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
 
     def run(self):
-        # def async_task():
-        act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        act = act.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            act = act.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 0)
         self.model.tensor_buffer[dst] = act
         # threading.Thread(target=async_task).start()
@@ -2229,22 +2244,26 @@ class Task81(Task):
 class Task82(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream('cuda:0')
 
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
 
     def run(self):
-        # def async_task():
-        result_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
-        result = self.model.tensor_buffer[result_loc]
-        self.model.tensor_buffer[result_loc] = None
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result = result.to('cpu')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
-        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, result)
+        loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
+
+        with torch.cuda.stream(self.stream):
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            tensor_copy_cpu = self.model.tensor_buffer[loc].to('cpu', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
+        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, tensor_copy_cpu)
+        self.model.tensor_buffer[loc] = None
+    
         # threading.Thread(target=async_task).start()
 
     def __call__(self, worker_id):
@@ -2257,23 +2276,25 @@ class Task82(Task):
 class Task83(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream('cuda:0')
 
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
 
     def run(self):
-        # def async_task():
-        result_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
-        result = self.model.tensor_buffer[result_loc]
-        self.model.tensor_buffer[result_loc] = None
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result = result.to('cpu')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
-        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, result)
-        # threading.Thread(target=async_task).start()
+        loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
+
+        with torch.cuda.stream(self.stream):
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            tensor_copy_cpu = self.model.tensor_buffer[loc].to('cpu', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
+        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, tensor_copy_cpu)
+        self.model.tensor_buffer[loc] = None
 
     def __call__(self, worker_id):
         ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
@@ -2372,19 +2393,21 @@ class Task88(Task):
 class Task89(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return True
 
     def run(self):
-        # def async_task():
-        self.model.layers[self.layer_idx].down_proj_weight_buffer = self.model.layers[self.layer_idx].down_proj.weight
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        self.model.layers[self.layer_idx].down_proj_weight_buffer = self.model.layers[self.layer_idx].down_proj_weight_buffer.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            self.model.layers[self.layer_idx].down_proj_weight_buffer = self.model.layers[self.layer_idx].down_proj.weight
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            self.model.layers[self.layer_idx].down_proj_weight_buffer = self.model.layers[self.layer_idx].down_proj_weight_buffer.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
         assert self.model.layers[self.layer_idx].down_proj_weight_buffer.dtype == torch.int8
         # threading.Thread(target=async_task).start()
 
@@ -2432,19 +2455,22 @@ class Task91(Task):
 class Task92(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.secllm_cpp_wrapper.BookKeeperIsAvailable_Int32(self.layer_idx, self.task_id, 0)
 
     def run(self):
-        # def async_task():
-        act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        act = act.to('cuda:0')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
+        with torch.cuda.stream(self.stream):
+            act = self.secllm_cpp_wrapper.BookKeeperLoad_Int32(self.layer_idx, self.task_id, 0)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            act = act.to('cuda:0', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
+
+        self.stream.synchronize()
+
         dst = GetBookKeeperLinearIndex(self.layer_idx, self.next_task_ids[0], 0)
         self.model.tensor_buffer[dst] = act
         # threading.Thread(target=async_task).start()
@@ -2514,24 +2540,24 @@ class Task93(Task):
 class Task94(Task):
     def __init__(self, name: str, layer_idx : int, task_id : int, next_task_ids: list[int], secllm_cpp_wrapper, model, time_collector):
         super().__init__(name, layer_idx, task_id, next_task_ids, secllm_cpp_wrapper, model, time_collector)
+        self.stream = torch.cuda.Stream(torch.device('cuda:0'))
 
     def is_ready(self):
         return self.model.tensor_buffer[GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)] is not None
 
     def run(self):
-        # def async_task():
-        result_loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
-        result = self.model.tensor_buffer[result_loc]
-        self.model.tensor_buffer[result_loc] = None
+        loc = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0)
+        with torch.cuda.stream(self.stream):
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_push(self.to_string_info())
+            tensor_copy_cpu = self.model.tensor_buffer[loc].to('cpu', non_blocking=True)
+            if MEASURE_TIME_WITH_NVTX == True:
+                nvtx.range_pop()
 
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_push(self.to_string_info())
-        result = result.to('cpu')
-        torch.cuda.synchronize()
-        if MEASURE_TIME_WITH_NVTX == True:
-            nvtx.range_pop()
-        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, result)
-        # threading.Thread(target=async_task).start()
+        self.stream.synchronize()
+
+        self.secllm_cpp_wrapper.BookKeeperStore_Int32(self.layer_idx, self.next_task_ids[0], 0, tensor_copy_cpu)
+        self.model.tensor_buffer[loc] = None
 
     def __call__(self, worker_id):
         ts = TimeStamp(self.layer_idx, worker_id, self.task_description)
