@@ -5,7 +5,7 @@ from secllm.thread_pool import ThreadPool
 from secllm.time_collector import TimeCollector
 
 # Configurations
-NUM_WORKERS = 1
+NUM_WORKERS = 4
 VERIFY_RESULT = False
 
 if VERIFY_RESULT:
