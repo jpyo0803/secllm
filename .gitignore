@@ -12,3 +12,5 @@ datasets/*.zst
 
 hf_token
 test/
+
+.DS_Store
