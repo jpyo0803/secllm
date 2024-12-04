@@ -6,5 +6,5 @@ setuptools==75.4.0
 tokenizers==0.19.1
 torch==2.3.0
 transformers==4.42.4
-mkl-devel==2025.0.1
+# mkl-devel==2025.0.1
 GPUtil==1.4.0

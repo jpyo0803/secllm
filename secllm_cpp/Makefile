@@ -1,9 +1,7 @@
 CC = g++
 # CXXFLAGS = -fPIC -Wall -O2
-CXXFLAGS = -fPIC -Wall -O3 -march=native -ffast-math -DEIGEN_USE_MKL_ALL -I/home/jpyo0803/secllm/include  # Include path to mkl.h
-LDFLAGS = -shared /home/jpyo0803/secllm/lib/libmkl_intel_lp64.so.2 \
-/home/jpyo0803/secllm/lib/libmkl_core.so.2 \
-/home/jpyo0803/secllm/lib/libmkl_sequential.so.2 -lm -ldl  # Direct full path to MKL .so files
+CXXFLAGS = -fPIC -Wall -O3 -march=native -ffast-math -I/home/jpyo0803/secllm/include  # Include path to mkl.h
+LDFLAGS = -shared
 
 SRCS = secllm.cpp aes_stream.cpp func_utils.cpp decoder_layer.cpp secllm_interface.cpp thread_pool.cpp
 OBJS = $(SRCS:.cpp=.o)
