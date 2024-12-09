@@ -38,6 +38,10 @@
 
 #include <sstream>
 
+#if SGX_ENABLE == 1
+#include <sgx_trts.h>
+#endif
+
 #if defined(EIGEN_HAS_GPU_FP16) || defined(EIGEN_HAS_ARM64_FP16_SCALAR_ARITHMETIC)
 // When compiling with GPU support, the "__half_raw" base class as well as
 // some other routines are defined in the GPU compiler header files
@@ -776,7 +780,13 @@ struct random_default_impl<half, false, false>
 {
   static inline half run(const half& x, const half& y)
   {
-    return x + (y-x) * half(float(std::rand()) / float(RAND_MAX));
+    int rand_int;
+#if SGX_ENABLE == 1
+    sgx_read_rand((unsigned char*)&rand_int, sizeof(rand_int));
+#else
+    rand_int = std::rand();
+#endif
+    return x + (y-x) * half(float(rand_int) / float(RAND_MAX));
   }
   static inline half run()
   {

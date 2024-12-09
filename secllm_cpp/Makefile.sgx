@@ -1,0 +1,294 @@
+######## SGX SDK Settings ########
+
+# means, assign value only if it is not already assigned
+SGX_ENABLE ?= 1
+
+SGX_SDK ?= /opt/intel/sgxsdk
+SGX_MODE ?= HW
+SGX_ARCH ?= x64
+SGX_DEBUG ?= 0
+SGX_PRERELEASE ?= 1
+
+# Common
+Common_C_Files := 
+Common_Cpp_Files := 
+Common_Inc_Dirs := 
+Common_C_Flags := 
+Common_Cpp_Flags :=
+Common_Link_Flags := 
+
+# Untrusted
+Untrusted_C_Files := 
+Untrusted_Cpp_Files := App/enclave_bridge.cpp ./secllm_interface.cpp ./thread_pool.cpp
+Untrusted_Inc_Dirs := -I. -IApp -I$(SGX_SDK)/include
+Untrusted_C_Flags := 
+Untrusted_Cpp_Flags := 
+Untrusted_Link_Flags := 
+
+# Trusted
+Trusted_C_Files :=
+Trusted_Cpp_Files := aes_stream.cpp decoder_layer.cpp func_utils.cpp secllm_sgx.cpp 
+Trusted_Inc_Dirs := -I. -I/usr/lib/gcc/x86_64-linux-gnu/11/include -IEigen 
+Trusted_C_Flags := -fvisibility=hidden -fpie -ffunction-sections -fdata-sections  -DSGX_ENABLE=1
+Trusted_Cpp_Flags := -march=native -maes
+Trusted_Link_Flags := 
+
+CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
+$(info The value of CC is: $(CC))
+
+ifeq ($(CC_BELOW_4_9), 1)
+	Trusted_C_Flags += -fstack-protector
+else
+	Trusted_C_Flags += -fstack-protector-strong
+endif
+
+# determine target architecture, either 32 bit or 64 bit
+ifeq ($(shell getconf LONG_BIT), 32)
+	SGX_ARCH := x86
+else ifeq ($(findstring -m32, $(CXXFLAGS)), -m32)
+	SGX_ARCH := x86
+endif
+
+# set paths according to the target architecture
+ifeq ($(SGX_ARCH), x86)
+	SGX_COMMON_CFLAGS := -m32
+	SGX_LIBRARY_PATH := $(SGX_SDK)/lib
+	SGX_ENCLAVE_SIGNER := $(SGX_SDK)/bin/x86/sgx_sign
+	SGX_EDGER8R := $(SGX_SDK)/bin/x86/sgx_edger8r
+else
+	SGX_COMMON_CFLAGS := -m64
+	SGX_LIBRARY_PATH := $(SGX_SDK)/lib64
+	SGX_ENCLAVE_SIGNER := $(SGX_SDK)/bin/x64/sgx_sign
+	SGX_EDGER8R := $(SGX_SDK)/bin/x64/sgx_edger8r
+endif
+
+ifeq ($(SGX_DEBUG), 1)
+ifeq ($(SGX_PRERELEASE), 1)
+$(error Cannot set SGX_DEBUG and SGX_PRERELEASE at the same time!!)
+endif
+endif
+
+# set optimization level
+ifeq ($(SGX_DEBUG), 1)
+        SGX_COMMON_CFLAGS += -O3 -g
+else
+        SGX_COMMON_CFLAGS += -O3
+endif
+
+######## App Settings ########
+
+# set whether it is simulation or hardware mode
+# urts = untrusted runtime system
+ifneq ($(SGX_MODE), HW)
+	Urts_Library_Name := sgx_urts_sim
+else
+	Urts_Library_Name := sgx_urts
+endif
+
+Untrusted_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(Untrusted_Inc_Dirs)
+
+# Three configuration modes - Debug, prerelease, release
+#   Debug - Macro DEBUG enabled.
+#   Prerelease - Macro NDEBUG and EDEBUG enabled.
+#   Release - Macro NDEBUG enabled.
+ifeq ($(SGX_DEBUG), 1)
+        Untrusted_C_Flags += -DDEBUG -UNDEBUG -UEDEBUG
+else ifeq ($(SGX_PRERELEASE), 1)
+        Untrusted_C_Flags += -DNDEBUG -DEDEBUG -UDEBUG
+else
+        Untrusted_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
+endif
+
+Untrusted_Cpp_Flags := $(Untrusted_C_Flags) -std=c++17 -shared
+Untrusted_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name)
+
+ifneq ($(SGX_MODE), HW)
+	Untrusted_Link_Flags += -lsgx_uae_service_sim
+else
+	Untrusted_Link_Flags += -lsgx_uae_service
+endif
+
+Untrusted_CC_Objects := $(Untrusted_CC_Files:.cc=.so)
+Untrusted_Cpp_Objects := $(Untrusted_Cpp_Files:.cpp=.so)
+Untrusted_Name := untrusted_app
+
+######## Enclave Settings ########
+
+ifneq ($(SGX_MODE), HW)
+	Trts_Library_Name := sgx_trts_sim
+	Service_Library_Name := sgx_tservice_sim
+else
+	Trts_Library_Name := sgx_trts
+	Service_Library_Name := sgx_tservice
+endif
+Crypto_Library_Name := sgx_tcrypto
+
+Trusted_Cpp_Files := Enclave/Enclave.cpp $(Trusted_Cpp_Files)
+
+Trusted_Inc_Dirs :=  -I$(SGX_SDK)/include $(Common_Inc_Dirs) -IEnclave -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
+
+# ifeq ($(SGX_ENABLE), 0)
+# Enclave_Include_Paths += -I/usr/include
+# endif
+
+
+Trusted_C_Flags := $(SGX_COMMON_CFLAGS) $(Trusted_C_Flags) 
+
+Trusted_C_Flags += $(Trusted_Inc_Dirs)
+# Trusted_Cpp_Flags := $(Trusted_C_Flags) -std=c++17 -nostdinc++
+Trusted_Cpp_Flags := $(Trusted_C_Flags) -std=c++17
+Trusted_Cpp_Flags += -march=native -maes
+
+# To generate a proper enclave, it is recommended to follow below guideline to link the trusted libraries:
+#    1. Link sgx_trts with the `--whole-archive' and `--no-whole-archive' options,
+#       so that the whole content of trts is included in the enclave.
+#    2. For other libraries, you just need to pull the required symbols.
+#       Use `--start-group' and `--end-group' to link these libraries.
+# Do NOT move the libraries linked with `--start-group' and `--end-group' within `--whole-archive' and `--no-whole-archive' options.
+# Otherwise, you may get some undesirable errors.
+Trusted_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
+	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
+	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
+	-Wl,--defsym,__ImageBase=0 -Wl,--gc-sections   \
+	-Wl,--version-script=Enclave/Enclave.lds
+
+Trusted_Cpp_Objects := $(Trusted_Cpp_Files:.cpp=.o) 
+
+Trusted_Name := enclave.so
+Signed_Trusted_Name := enclave.signed.so
+Trusted_Config_File := Enclave/Enclave.config.xml
+
+ifeq ($(SGX_MODE), HW)
+ifeq ($(SGX_DEBUG), 1)
+	Build_Mode = HW_DEBUG
+else ifeq ($(SGX_PRERELEASE), 1)
+	Build_Mode = HW_PRERELEASE
+else
+	Build_Mode = HW_RELEASE
+endif
+else
+ifeq ($(SGX_DEBUG), 1)
+	Build_Mode = SIM_DEBUG
+else ifeq ($(SGX_PRERELEASE), 1)
+	Build_Mode = SIM_PRERELEASE
+else
+	Build_Mode = SIM_RELEASE
+endif
+endif
+
+.PHONY: all run 
+
+ifeq ($(Build_Mode), HW_RELEASE)
+all: .config_$(Build_Mode)_$(SGX_ARCH) $(Untrusted_Name) $(Trusted_Name) 
+	@echo "The project has been built in release hardware mode."
+	@echo "Please sign the $(Trusted_Name) first with your signing key before you run the $(App_Name) to launch and access the enclave."
+	@echo "To sign the enclave use the command:"
+	@echo "   $(SGX_ENCLAVE_SIGNER) sign -key <your key> -enclave $(Trusted_Name) -out <$(Signed_Trusted_Name)> -config $(Trusted_Config_File)"
+	@echo "You can also sign the enclave using an external signing tool."
+	@echo "To build the project in simulation mode set SGX_MODE=SIM. To build the project in prerelease mode set SGX_PRERELEASE=1 and SGX_MODE=HW."
+else
+all: .config_$(Build_Mode)_$(SGX_ARCH) $(App_Name) $(Signed_Trusted_Name)
+ifeq ($(Build_Mode), HW_DEBUG)
+	@echo "The project has been built in debug hardware mode."
+else ifeq ($(Build_Mode), SIM_DEBUG)
+	@echo "The project has been built in debug simulation mode."
+else ifeq ($(Build_Mode), HW_PRERELEASE)
+	@echo "The project has been built in pre-release hardware mode."
+else ifeq ($(Build_Mode), SIM_PRERELEASE)
+	@echo "The project has been built in pre-release simulation mode."
+else
+	@echo "The project has been built in release simulation mode."
+endif
+endif
+
+run: all
+######## App Objects ########
+
+# Generate proxy calls to ecall and ocall
+App/Enclave_u.c: $(SGX_EDGER8R) Enclave/Enclave.edl
+	@echo "Running 1 " $@
+	cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include 
+	@echo "GEN  =>  $@"
+	@echo "\n"
+
+# Compile untrusted app
+App/Enclave_u.o: App/Enclave_u.c
+	@echo "Running 2 " $@
+	$(CC) $(Untrusted_C_Flags) -c $< -o $@
+	@echo "CC   <=  $<"
+	@echo "\n"
+
+# Compile bridge
+App/enclave_bridge.so: App/enclave_bridge.cpp App/Enclave_u.o
+	@echo "Running 3 " $@
+	$(CXX) $(Untrusted_Cpp_Flags) App/enclave_bridge.cpp -o $@ App/Enclave_u.o $(Untrusted_Link_Flags)
+	@echo "CXX  <=  $<"
+	@echo "\n"
+
+App/%.so: App/%.cc App/Enclave_u.o
+	@echo "Running 4 " $@
+	@echo "App_Cpp_Flags: " $(Untrusted_Cpp_Flags)
+	$(CXX) $(Untrusted_Cpp_Flags) $< -o $@ App/Enclave_u.o $(Untrusted_Link_Flags)
+	@echo "CXX  <=  $<"
+	@echo "\n"
+
+$(Untrusted_Name): App/Enclave_u.o App/enclave_bridge.so #$(Untrusted_Cpp_Objects) $(Untrusted_CC_Objects)
+	@echo "Running 5 " $@
+	$(CXX) $^ -o $@ $(Untrusted_Link_Flags)
+	@echo "LINK =>  $@"
+	@echo "\n"
+
+.config_$(Build_Mode)_$(SGX_ARCH):
+	#rm -f .config_* $(Untrusted_Cpp_Objects) $(Untrusted_CC_Objects)
+	rm -f .config_* App/enclave_bridge.so 
+	@touch .config_$(Build_Mode)_$(SGX_ARCH)
+	@echo "\n"
+
+######## Enclave Objects ########
+
+Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl
+	@echo "Running 6 " $@
+	cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+	@echo "GEN  =>  $@"
+	@echo "\n"
+
+Enclave/Enclave_t.o: Enclave/Enclave_t.c
+	@echo "Running 7 " $@
+	$(CC) $(Trusted_C_Flags) -c $< -o $@
+	@echo "CC   <=  $<"
+	@echo "\n"
+
+%.o: %.cpp
+	@echo "Running 8-2 " $@
+	$(CXX) $(Trusted_Cpp_Flags) -c $< -o $@
+	@echo "CXX  <=  $<"
+	@echo "\n"
+
+Enclave/%.o: Enclave/%.cpp
+	@echo "Running 8 " $@
+	@echo "FLAGS: " $(Trusted_Cpp_Flags)
+	@echo "COMMAND: $(CXX) $(Trusted_Cpp_Flags) -c $< -o $@"
+	@echo "before"
+	$(CXX)  $(Trusted_Cpp_Flags) -c $< -o $@
+	@echo "after"
+	@echo "\n"
+
+$(Trusted_Name): Enclave/Enclave_t.o $(Trusted_Cpp_Objects)
+	@echo "Running 9 " $@
+	$(CXX) $^ -o $@ $(Trusted_Link_Flags)
+	@echo "\n"
+
+$(Signed_Trusted_Name): $(Trusted_Name)
+	@echo "Running 10 " $@
+	$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private.pem -enclave $(Trusted_Name) -out $@ -config $(Trusted_Config_File)
+	@echo "SIGN =>  $@"
+	@echo "\n"
+
+.PHONY: clean
+
+clean:
+	rm -f .config_* $(Trusted_Name) $(Signed_Trusted_Name) $(Untrusted_Cpp_Objects) $(Untrusted_CC_Objects) App/Enclave_u.* 
+	#echo $(Trusted_Cpp_Objects)
+	rm -f $(Trusted_Cpp_Objects) Enclave/Enclave_t.*

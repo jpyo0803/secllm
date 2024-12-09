@@ -23,6 +23,10 @@ limitations under the License.
     return F32ToBf16(METHOD<PACKET_F>(Bf16ToF32(_x)));              \
   }
 
+#if SGX_ENABLE == 1
+#include <sgx_trts.h>
+#endif
+
 namespace Eigen {
 
 struct bfloat16;
@@ -606,7 +610,14 @@ struct random_default_impl<bfloat16, false, false>
 {
   static inline bfloat16 run(const bfloat16& x, const bfloat16& y)
   {
-    return x + (y-x) * bfloat16(float(std::rand()) / float(RAND_MAX));
+    int rand_int;
+#if SGX_ENABLE == 1
+    sgx_read_rand((unsigned char*)&rand_int, sizeof(rand_int));
+#else
+    rand_int = std::rand();
+#endif
+
+    return x + (y-x) * bfloat16(float(rand_int) / float(RAND_MAX));
   }
   static inline bfloat16 run()
   {

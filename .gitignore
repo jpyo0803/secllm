@@ -14,3 +14,7 @@ hf_token
 test/
 
 .DS_Store
+
+**/.config_HW_PRERELEASE_x64
+**/Enclave_u.*
+**/Enclave_t.*

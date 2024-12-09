@@ -17,6 +17,10 @@
 #define EIGEN_LOG2E 1.442695040888963407359924681001892137426645954152985934135449406931109219L
 #define EIGEN_LN2   0.693147180559945309417232121458176568075500134360255254120680009493393621L
 
+#if SGX_ENABLE == 1
+#include <sgx_trts.h>
+#endif
+
 namespace Eigen {
 
 // On WINCE, std::abs is defined for int only, so let's defined our own overloads:
@@ -826,7 +830,14 @@ struct random_default_impl<Scalar, false, false>
 {
   static inline Scalar run(const Scalar& x, const Scalar& y)
   {
-    return x + (y-x) * Scalar(std::rand()) / Scalar(RAND_MAX);
+    int rand_int;
+#if SGX_ENABLE == 1
+    sgx_read_rand((unsigned char*)&rand_int, sizeof(rand_int));
+#else
+    rand_int = std::rand();
+#endif
+
+    return x + (y-x) * Scalar(rand_int) / Scalar(RAND_MAX);
   }
   static inline Scalar run()
   {
@@ -906,7 +917,13 @@ struct random_default_impl<Scalar, false, true>
     else                   multiplier = 1 + range / (rand_max + 1);
     // Rejection sampling.
     do {
-      offset = (unsigned(std::rand()) * multiplier) / divisor;
+      int rand_int;
+#if SGX_ENABLE == 1
+      sgx_read_rand((unsigned char*)&rand_int, sizeof(rand_int));
+#else
+      rand_int = std::rand();
+#endif
+      offset = (unsigned(rand_int) * multiplier) / divisor;
     } while (offset > range);
     return Scalar(ScalarX(x) + offset);
   }
@@ -921,7 +938,15 @@ struct random_default_impl<Scalar, false, true>
            shift = EIGEN_PLAIN_ENUM_MAX(0, int(rand_bits) - int(scalar_bits)),
            offset = NumTraits<Scalar>::IsSigned ? (1 << (EIGEN_PLAIN_ENUM_MIN(rand_bits,scalar_bits)-1)) : 0
     };
-    return Scalar((std::rand() >> shift) - offset);
+
+    int rand_int;
+#if SGX_ENABLE == 1
+  sgx_read_rand((unsigned char*)&rand_int, sizeof(rand_int));
+#else
+    rand_int = std::rand();
+#endif
+
+    return Scalar((rand_int >> shift) - offset);
 #endif
   }
 };

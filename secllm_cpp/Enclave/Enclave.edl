@@ -1,0 +1,25 @@
+/* Enclave.edl - Top EDL file. */
+
+enclave {
+
+    trusted {
+
+    public void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
+                           int max_position_embeddings, int num_attention_heads,
+                           int num_hidden_layers, int num_key_value_heads,
+                           int enc_key_pool_size);
+        
+    };
+
+    /*
+     * ocall_print_string - invokes OCALL to display string buffer inside the enclave.
+     *  [in]: copy the string buffer to App outside.
+     *  [string]: specifies 'str' is a NULL terminated buffer.
+     */
+    untrusted {
+        void ocall_print_string([in, string] const char *str);
+        void ocall_start_clock();
+        double ocall_get_time();
+        void ocall_end_clock([in, string] const char *str);
+    };
+};

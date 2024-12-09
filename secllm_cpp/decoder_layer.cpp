@@ -67,8 +67,9 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       enable_linear_encryption_(enable_linear_encryption),
       enable_atten_encryption_(enable_atten_encryption) {
 
+#if SGX_ENABLE == 0
   std::cout << "Decoder Layer " << layer_idx_ << " is created." << std::endl;
-
+#endif
   q_enc_key_pool_ = std::vector<std::vector<int>>(
       enc_key_pool_size_, std::vector<int>(hidden_size_));
   k_enc_key_pool_ = std::vector<std::vector<int>>(
@@ -128,8 +129,10 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
       uint64_t test = (uint64_t)precomputed_key_inv_[i][j] * ab % MODULO;
       ASSERT_ALWAYS(test == 1, "Key inverse is not correct!");
       if (test != 1) {
+#if SGX_ENABLE == 0
         std::cout << "Key inverse is not correct!" << std::endl;
         exit(-1);
+#endif
       }
 #endif
     }
@@ -208,7 +211,7 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
 }
 
 void DecoderLayer::Reset() {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Reset() Enter"
             << std::endl;
 #endif
@@ -257,14 +260,14 @@ void DecoderLayer::Reset() {
   is_pv_shift_p_done_ = false;
   is_pv_shift_v_done_ = false;
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Reset() Exit" << std::endl;
 #endif
 }
 
 void DecoderLayer::SetLinearWeightScales(float* weight_scales, int len,
                                          ProjectionType type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] SetLinearWeightScales() Enter" << std::endl;
 #endif
@@ -290,19 +293,21 @@ void DecoderLayer::SetLinearWeightScales(float* weight_scales, int len,
     case ProjectionType::kDown:
       down_weight_scales_.assign(weight_scales, weight_scales + len);
       break;
+#if SGX_ENABLE == 0
     default:
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
+#endif
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] SetLinearWeightScales() Exit" << std::endl;
 #endif
 }
 
 void DecoderLayer::SetRMSNormWeight(float* weight, float eps, int type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] SetRMSNormWeight() Enter"
             << std::endl;
 #endif
@@ -314,11 +319,13 @@ void DecoderLayer::SetRMSNormWeight(float* weight, float eps, int type) {
     post_attention_layernorm_weights_.assign(weight, weight + hidden_size_);
     post_attention_layernorm_eps_ = eps;
   } else {
+#if SGX_ENABLE == 0
     std::cout << "Invalid RMSNorm Type!" << std::endl;
     exit(-1);
+#endif
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] SetRMSNormWeight() Exit"
             << std::endl;
 #endif
@@ -327,7 +334,7 @@ void DecoderLayer::SetRMSNormWeight(float* weight, float eps, int type) {
 void DecoderLayer::SetEncKeyAndDecKey(
     int* src_enc_key_pool, std::vector<std::vector<int>>& dst_enc_key_pool,
     int* src_dec_key, std::vector<std::vector<int>>& dst_dec_key) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] Inner SetEncKeyAndDecKey() Enter" << std::endl;
 #endif
@@ -344,7 +351,7 @@ void DecoderLayer::SetEncKeyAndDecKey(
     }
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] Inner SetEncKeyAndDecKey() Exit" << std::endl;
 #endif
@@ -352,7 +359,7 @@ void DecoderLayer::SetEncKeyAndDecKey(
 
 void DecoderLayer::SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
                                       ProjectionType type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] Outer SetEncKeyAndDecKey() Enter" << std::endl;
 #endif
@@ -385,11 +392,13 @@ void DecoderLayer::SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
       SetEncKeyAndDecKey(src_enc_key_pool, down_enc_key_pool_, src_dec_key,
                          down_dec_key_);
       break;
+#if SGX_ENABLE == 0
     default:
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
+#endif
   }
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] Outer SetEncKeyAndDecKey() Exit" << std::endl;
 #endif
@@ -398,7 +407,7 @@ void DecoderLayer::SetEncKeyAndDecKey(int* src_enc_key_pool, int* src_dec_key,
 void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
                                             std::shared_ptr<Tensor<float>> in,
                                             ProjectionType type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] QuantizeLinearActivation() Enter" << std::endl;
 #endif
@@ -434,12 +443,14 @@ void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
     case ProjectionType::kDown:
       down_act_scales_ = std::move(max_vals);
       break;
+#if SGX_ENABLE == 0
     default:
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
+#endif
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] QuantizeLinearActivation() Exit" << std::endl;
 #endif
@@ -448,7 +459,7 @@ void DecoderLayer::QuantizeLinearActivation(std::shared_ptr<Tensor<int8_t>> out,
 void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                                            std::shared_ptr<Tensor<int8_t>> in,
                                            ProjectionType type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] EncryptLinearActivation() Enter" << std::endl;
 #endif
@@ -491,16 +502,18 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
       enc_key_pool = &down_enc_key_pool_;
       sampled_enc_key_index = &sampled_down_enc_key_index_;
       break;
+#if SGX_ENABLE == 0
     default:
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
+#endif
   }
 
 #if CHECK_SANITY == 1
   ASSERT_ALWAYS(sampled_enc_key_index->empty(),
                 "sampled_enc_key_index is not empty!");
 #endif
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto start = std::chrono::steady_clock::now();
 #endif
 
@@ -543,7 +556,7 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
     }
   }
 
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto end = std::chrono::steady_clock::now();
   auto diff = end - start;
   std::cout << static_cast<int>(type) << ", EncryptLinearActivation Time: "
@@ -551,7 +564,7 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
             << std::endl;
 #endif
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] EncryptLinearActivation() Exit" << std::endl;
 #endif
@@ -560,7 +573,7 @@ void DecoderLayer::EncryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
 void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                                            std::shared_ptr<Tensor<int32_t>> in,
                                            ProjectionType type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] DecryptLinearActivation() Enter" << std::endl;
 #endif
@@ -603,9 +616,11 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
       dec_key = &down_dec_key_;
       sampled_enc_key_index = &sampled_down_enc_key_index_;
       break;
+#if SGX_ENABLE == 0
     default:
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
+#endif
   }
 
 #if CHECK_SANITY == 1
@@ -613,7 +628,7 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
                 "sampled_enc_key_index size is not correct!");
 #endif
 
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto start = std::chrono::steady_clock::now();
 #endif
 
@@ -637,7 +652,7 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
     }
   }
 
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto end = std::chrono::steady_clock::now();
   auto diff = end - start;
   std::cout << static_cast<int>(type) << ", DecryptLinearActivation Time: "
@@ -647,7 +662,7 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
 
   sampled_enc_key_index->clear();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] DecryptLinearActivation() Exit" << std::endl;
 #endif
@@ -656,7 +671,7 @@ void DecoderLayer::DecryptLinearActivation(std::shared_ptr<Tensor<int32_t>> out,
 void DecoderLayer::DequantizeLinearActivation(
     std::shared_ptr<Tensor<float>> out, std::shared_ptr<Tensor<int32_t>> in,
     ProjectionType type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] DequantizeLinearActivation() Enter" << std::endl;
 #endif
@@ -697,9 +712,11 @@ void DecoderLayer::DequantizeLinearActivation(
       weight_scales = &down_weight_scales_;
       act_scales = &down_act_scales_;
       break;
+#if SGX_ENABLE == 0
     default:
       std::cout << "Invalid Projection Type!" << std::endl;
       exit(-1);
+#endif
   }
 
   DequantizeActivationWPerChannelAPerChannel(
@@ -710,7 +727,7 @@ void DecoderLayer::DequantizeLinearActivation(
     out->Transpose(1, 2);
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] DequantizeLinearActivation() Exit" << std::endl;
 #endif
@@ -719,14 +736,14 @@ void DecoderLayer::DequantizeLinearActivation(
 void DecoderLayer::SetQKVOutputScales(float q_output_scale,
                                       float k_output_scale,
                                       float v_output_scale) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] SetQKVOutputScales() Enter"
             << std::endl;
 #endif
   q_output_scale_ = q_output_scale;
   k_output_scale_ = k_output_scale;
   v_output_scale_ = v_output_scale;
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] SetQKVOutputScales() Exit"
             << std::endl;
 #endif
@@ -734,7 +751,7 @@ void DecoderLayer::SetQKVOutputScales(float q_output_scale,
 
 void DecoderLayer::QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeQ_QK() Enter"
             << std::endl;
 #endif
@@ -746,7 +763,7 @@ void DecoderLayer::QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, q_output_scale_);
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeQ_QK() Exit"
             << std::endl;
 #endif
@@ -754,7 +771,7 @@ void DecoderLayer::QuantizeQ_QK(std::shared_ptr<Tensor<int8_t>> out,
 
 void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Enter"
             << std::endl;
 #endif
@@ -799,7 +816,7 @@ void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
   // Explicitly cast the int8_t values to int before adding SHIFT_AMT, then cast to uint32_t
   out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftQ_QK() Exit"
             << std::endl;
 #endif
@@ -809,7 +826,7 @@ void DecoderLayer::ShiftQ_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeK_QK() Enter"
             << std::endl;
 #endif
@@ -821,7 +838,7 @@ void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, k_output_scale_);
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeK_QK() Exit"
             << std::endl;
 #endif
@@ -829,7 +846,7 @@ void DecoderLayer::QuantizeK_QK(std::shared_ptr<Tensor<int8_t>> out,
 
 void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Enter"
             << std::endl;
 #endif
@@ -875,7 +892,7 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
   // Explicitly cast the int8_t values to int before adding SHIFT_AMT, then cast to uint32_t
   out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftK_QK() Exit"
             << std::endl;
 #endif
@@ -885,7 +902,7 @@ void DecoderLayer::ShiftK_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Enter"
             << std::endl;
 #endif
@@ -917,7 +934,7 @@ void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
 
   qk_unshift_buffer.clear();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_QK() Exit"
             << std::endl;
 #endif
@@ -929,7 +946,7 @@ void DecoderLayer::Unshift_QK(std::shared_ptr<Tensor<int32_t>> out,
 
 void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
                                  std::shared_ptr<Tensor<int32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_QK() Enter"
             << std::endl;
 #endif
@@ -944,7 +961,7 @@ void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
   float scale =
       q_output_scale_ * k_output_scale_ / sqrtf(head_dim_);  // Correct
   DequantizeActivationPerTensor(out->data(), in->data(), len, scale);
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_QK() Exit"
             << std::endl;
 #endif
@@ -952,7 +969,7 @@ void DecoderLayer::Dequantize_QK(std::shared_ptr<Tensor<float>> out,
 
 void DecoderLayer::QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeP_PV() Enter"
             << std::endl;
 #endif
@@ -964,7 +981,7 @@ void DecoderLayer::QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, 1.0 / 127);
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeP_PV() Exit"
             << std::endl;
 #endif
@@ -972,7 +989,7 @@ void DecoderLayer::QuantizeP_PV(std::shared_ptr<Tensor<int8_t>> out,
 
 void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Enter"
             << std::endl;
 #endif
@@ -1017,7 +1034,7 @@ void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
   // Shift the values and cast to uint32_t
   out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftP_PV() Exit"
             << std::endl;
 #endif
@@ -1027,7 +1044,7 @@ void DecoderLayer::ShiftP_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
                                 std::shared_ptr<Tensor<float>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeV_PV() Enter"
             << std::endl;
 #endif
@@ -1039,8 +1056,7 @@ void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
 
   int64_t len = static_cast<int64_t>(B) * M * K * N;
   QuantizeActivationPerTensor(out->data(), in->data(), len, v_output_scale_);
-#if DEBUG_PRINT == 1
-
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] QuantizeV_PV() Exit"
             << std::endl;
 #endif
@@ -1048,7 +1064,7 @@ void DecoderLayer::QuantizeV_PV(std::shared_ptr<Tensor<int8_t>> out,
 
 void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
                              std::shared_ptr<Tensor<int8_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Enter"
             << std::endl;
 #endif
@@ -1094,7 +1110,7 @@ void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
   // Shift the values and cast to uint32_t
   out_map = (in_map.cast<int>() + SHIFT_AMT).cast<uint32_t>();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] ShiftV_PV() Exit"
             << std::endl;
 #endif
@@ -1104,7 +1120,7 @@ void DecoderLayer::ShiftV_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Enter"
             << std::endl;
 #endif
@@ -1137,7 +1153,7 @@ void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
 
   pv_unshift_buffer.clear();
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Unshift_PV() Exit"
             << std::endl;
 #endif
@@ -1149,7 +1165,7 @@ void DecoderLayer::Unshift_PV(std::shared_ptr<Tensor<int32_t>> out,
 
 void DecoderLayer::Dequantize_PV(std::shared_ptr<Tensor<float>> out,
                                  std::shared_ptr<Tensor<int32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_PV() Enter"
             << std::endl;
 #endif
@@ -1166,28 +1182,28 @@ void DecoderLayer::Dequantize_PV(std::shared_ptr<Tensor<float>> out,
 
   out->Transpose(1, 2);
   out->Reshape({B, K, M * N});
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Dequantize_PV() Exit"
             << std::endl;
 #endif
 }
 
 void DecoderLayer::SetBatchSizeAndTokenLength(int bsz, int token_len) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] SetBatchSizeAndTokenLength() Enter" << std::endl;
 #endif
   bsz_ = bsz;
   present_token_len_ = token_len;
   culmulative_token_len_ += token_len;
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] SetBatchSizeAndTokenLength() Exit" << std::endl;
 #endif
 }
 
 void DecoderLayer::GenerateSecretKey_QK() {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateSecretKey_QK() Enter" << std::endl;
 #endif
@@ -1249,7 +1265,7 @@ void DecoderLayer::GenerateSecretKey_QK() {
   }
 
   is_qk_key_generated_ = true;
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateSecretKey_QK() Exit" << std::endl;
 #endif
@@ -1257,7 +1273,7 @@ void DecoderLayer::GenerateSecretKey_QK() {
 
 void DecoderLayer::GenerateDecryptionKey_QK(
     std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecryptionKey_QK() Enter" << std::endl;
 #endif
@@ -1315,7 +1331,7 @@ void DecoderLayer::GenerateDecryptionKey_QK(
   // d_col[b][m][k] = y_mult[b][m/4][k] * sum_n(x_add[b][m][n] * y[b][m/4][k][n]), notice m/4 = 0 : num_key_value_heads, expected dim: [1, 32, 2048]
   // d_glob[b][m] = sum_n(x_add[b][m][n] * y_add[b][m/4][n]), expected dim: [1, 32]
 
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto start_dec_key_gen = std::chrono::steady_clock::now();
 #endif
 
@@ -1343,7 +1359,7 @@ void DecoderLayer::GenerateDecryptionKey_QK(
     }
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecryptionKey_QK() Exit" << std::endl;
 #endif
@@ -1351,7 +1367,7 @@ void DecoderLayer::GenerateDecryptionKey_QK(
 }
 
 void DecoderLayer::GenerateDecAddBuffer_QK() {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecAddBuffer_QK() Enter" << std::endl;
 #endif
@@ -1384,14 +1400,14 @@ void DecoderLayer::GenerateDecAddBuffer_QK() {
   }
 
   is_qk_add_buffer_generated_ = true;
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecAddBuffer_QK() Exit" << std::endl;
 #endif
 }
 
 void DecoderLayer::GenerateDecMultBuffer_QK() {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecMultBuffer_QK() Enter" << std::endl;
 #endif
@@ -1424,14 +1440,14 @@ void DecoderLayer::GenerateDecMultBuffer_QK() {
   }
 
   is_qk_mult_buffer_generated_ = true;
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecMultBuffer_QK() Exit" << std::endl;
 #endif
 }
 
 void DecoderLayer::GenerateUnshiftBuffer_QK() {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateUnshiftBuffer_QK() Enter" << std::endl;
 #endif
@@ -1464,7 +1480,7 @@ void DecoderLayer::GenerateUnshiftBuffer_QK() {
   }
 
   is_qk_unshift_buffer_generated_ = true;
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateUnshiftBuffer_QK() Exit" << std::endl;
 #endif
@@ -1472,7 +1488,7 @@ void DecoderLayer::GenerateUnshiftBuffer_QK() {
 
 void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_QK() Enter"
             << std::endl;
 #endif
@@ -1505,7 +1521,7 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
       }
     }
   }
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_QK() Exit"
             << std::endl;
 #endif
@@ -1513,7 +1529,7 @@ void DecoderLayer::EncryptX_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_QK() Enter"
             << std::endl;
 #endif
@@ -1547,7 +1563,7 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
     }
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_QK() Exit"
             << std::endl;
 #endif
@@ -1555,7 +1571,7 @@ void DecoderLayer::EncryptY_QK(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_QK() Enter"
             << std::endl;
 #endif
@@ -1565,7 +1581,7 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
                 "QK decryption buffers are not generated!");
 #endif
 
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto start = std::chrono::steady_clock::now();
 #endif
 
@@ -1600,7 +1616,7 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
   is_qk_add_buffer_generated_ = false;
   is_qk_mult_buffer_generated_ = false;
 
-#if INTERNAL_TIME_MEASURE == 1
+#if INTERNAL_TIME_MEASURE == 1 && SGX_ENABLE == 0
   auto end = std::chrono::steady_clock::now();
   auto diff = end - start;
   std::cout << "Decrypt_QK: "
@@ -1608,14 +1624,14 @@ void DecoderLayer::Decrypt_QK(std::shared_ptr<Tensor<uint32_t>> out,
             << std::endl;
 #endif
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_QK() Exit"
             << std::endl;
 #endif
 }
 
 void DecoderLayer::GenerateSecretKey_PV() {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateSecretKey_PV() Enter" << std::endl;
 #endif
@@ -1694,7 +1710,7 @@ void DecoderLayer::GenerateSecretKey_PV() {
 
   is_pv_key_generated_ = true;
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateSecretKey_PV() Exit" << std::endl;
 #endif
@@ -1702,7 +1718,7 @@ void DecoderLayer::GenerateSecretKey_PV() {
 
 void DecoderLayer::GenerateDecryptionKey_PV(
     std::shared_ptr<Tensor<uint32_t>> x, std::shared_ptr<Tensor<uint32_t>> y) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecryptionKey_PV() Enter" << std::endl;
 #endif
@@ -1801,7 +1817,7 @@ void DecoderLayer::GenerateDecryptionKey_PV(
   // d_row[b][m][k] = x_mult[b][m][k] * sum_n(y_add[b][m/4][n] * x[b][m][k][n]), expected dim: [1, 32, 2048]
   is_pv_dec_key_generated_ = true;
   // it is generated
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_
             << "] GenerateDecryptionKey_PV() Exit" << std::endl;
 #endif
@@ -1901,7 +1917,7 @@ void DecoderLayer::GenerateUnshiftBuffer_PV() {
 
 void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_PV() Enter"
             << std::endl;
 #endif
@@ -1929,7 +1945,7 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
     }
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptX_PV() Exit"
             << std::endl;
 #endif
@@ -1937,7 +1953,7 @@ void DecoderLayer::EncryptX_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
                                std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_PV() Enter"
             << std::endl;
 #endif
@@ -1971,7 +1987,7 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
     }
   }
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] EncryptY_PV() Exit"
             << std::endl;
 #endif
@@ -1979,7 +1995,7 @@ void DecoderLayer::EncryptY_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
                               std::shared_ptr<Tensor<uint32_t>> in) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Enter"
             << std::endl;
 #endif
@@ -2020,7 +2036,7 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
   is_pv_add_buffer_generated_ = false;
   is_pv_mult_buffer_generated_ = false;
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] Decrypt_PV() Exit"
             << std::endl;
 #endif
@@ -2028,7 +2044,7 @@ void DecoderLayer::Decrypt_PV(std::shared_ptr<Tensor<uint32_t>> out,
 
 void DecoderLayer::RMSNorm(std::shared_ptr<Tensor<float>> out,
                            std::shared_ptr<Tensor<float>> in, int type) {
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] RMSNorm() Enter"
             << std::endl;
 #endif
@@ -2045,7 +2061,7 @@ void DecoderLayer::RMSNorm(std::shared_ptr<Tensor<float>> out,
 
   RMSNorm_Func(out->data().data(), in->data().data(), weight, B, M, N, eps);
 
-#if DEBUG_PRINT == 1
+#if DEBUG_PRINT == 1 && SGX_ENABLE == 0
   std::cout << "[Decoder Layer " << layer_idx_ << "] RMSNorm() Exit"
             << std::endl;
 #endif

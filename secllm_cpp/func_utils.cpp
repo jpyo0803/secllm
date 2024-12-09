@@ -570,7 +570,9 @@ std::vector<int8_t> jpyo0803::RepeatKV(
 }
 
 void jpyo0803::GetTimeStamp_Monotonic() {
+#if SGX_ENABLE == 0
   auto start = std::chrono::steady_clock::now();
   std::cout << "Current time: " << start.time_since_epoch().count() / 1e9
             << std::endl;
+#endif
 }

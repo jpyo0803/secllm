@@ -2,7 +2,10 @@
 #define SECLLM_TENSOR_H
 
 #include <iomanip>  // For setting precision
+
+#if SGX_ENABLE == 0
 #include <iostream>
+#endif
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -50,20 +53,25 @@ class Tensor {
   T& operator[](int idx) { return data_[idx]; }
 
   void PrintDebugInfo() const {
+#if SGX_ENABLE == 0
     PrintShape();
     PrintAsTorchStyle();
     PrintCharacteristics();
     std::cout << "Mean: " << GetMean() << std::endl;
     std::cout << "PosDepSum: " << PosDepSum() << std::endl;
+#endif
   }
 
   void PrintDebugInfoBreak() const {
+#if SGX_ENABLE == 0
     PrintDebugInfo();
     exit(-1);
+#endif
   }
 
   // New print function
   void PrintAsTorchStyle(int precision = 4, int threshold = 50) const {
+#if SGX_ENABLE == 0
     std::cout << "tensor(";
     if (data_.size() > threshold) {
       PrintMultiDimTorchStyle(0, {}, true,
@@ -73,9 +81,11 @@ class Tensor {
                               precision);  // No truncation if below threshold
     }
     std::cout << ")" << std::endl;
+#endif
   }
 
   void PrintData() const {
+#if SGX_ENABLE == 0
     std::cout << "data: [";
     for (int i = 0; i < data_.size(); ++i) {
       std::cout << data_[i];
@@ -84,9 +94,11 @@ class Tensor {
       }
     }
     std::cout << "]" << std::endl;
+#endif
   }
 
   void PrintShape() const {
+#if SGX_ENABLE == 0
     std::cout << "shape: [";
     for (int i = 0; i < shape_.size(); ++i) {
       std::cout << shape_[i];
@@ -95,6 +107,7 @@ class Tensor {
       }
     }
     std::cout << "]" << std::endl;
+#endif
   }
 
   double GetMean() const {
@@ -114,6 +127,7 @@ class Tensor {
   }
 
   void PrintCharacteristics() const {
+#if SGX_ENABLE == 0
     int dim = shape_.size();
     if (dim > 4) {
       std::cout << "Dim > 4 is not supported." << std::endl;
@@ -158,6 +172,7 @@ class Tensor {
                   << "] = " << data_[shape_[0] - 1] << std::endl;
       }
     }
+#endif
   }
 
   // Member function to transpose the tensor
@@ -224,6 +239,7 @@ class Tensor {
   // Main print function handling each dimension
   void PrintMultiDimTorchStyle(int dim, std::vector<int> indices, bool truncate,
                                int precision) const {
+#if SGX_ENABLE == 0
     if (dim == shape_.size() - 1) {  // Last dimension (base case)
       std::cout << "[";
       int limit = (truncate && shape_[dim] > 3)
@@ -287,6 +303,7 @@ class Tensor {
       }
       std::cout << "]";
     }
+#endif
   }
 
   // Helper function to calculate strides for a given shape
