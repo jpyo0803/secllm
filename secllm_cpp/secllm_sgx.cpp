@@ -1,4 +1,4 @@
-#include "secllm.h"
+#include "secllm_sgx.h"
 
 #include <cmath>
 #include <iostream>
@@ -9,7 +9,6 @@
 #include "aes_stream.h"
 
 #include "func_utils.h"
-#include "secllm.h"
 
 #include "Eigen/Dense"
 #include "macro.h"
@@ -471,7 +470,7 @@ void Internal_PrintTest(int a, int b) {
 #endif
 }
 
-void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
+void Core_Internal_CreateSecLLM(int hidden_size, int intermediate_size,
                            int max_position_embeddings, int num_attention_heads,
                            int num_hidden_layers, int num_key_value_heads,
                            int enc_key_pool_size) {
@@ -1427,4 +1426,18 @@ void Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out) {
 void Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out) {
   auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Int8(loc);
   std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
+}
+
+extern "C" {
+
+void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
+                           int max_position_embeddings, int num_attention_heads,
+                           int num_hidden_layers, int num_key_value_heads,
+                           int enc_key_pool_size) {
+  Core_Internal_CreateSecLLM(hidden_size, intermediate_size,
+                             max_position_embeddings, num_attention_heads,
+                             num_hidden_layers, num_key_value_heads,
+                             enc_key_pool_size);
+}
+
 }
