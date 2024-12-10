@@ -628,17 +628,17 @@ void Ext_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
   Internal_PVUnshiftBufferIsAvailable(layer_idx, ret);
 }
 
-uint32_t Ext_GenerateCPRNG() {
-  return Internal_GenerateCPRNG();
-}
+// uint32_t Ext_GenerateCPRNG() {
+//   return Internal_GenerateCPRNG();
+// }
 
-uint32_t Ext_GenerateMultKey() {
-  return Internal_GenerateMultKey();
-}
+// uint32_t Ext_GenerateMultKey() {
+//   return Internal_GenerateMultKey();
+// }
 
-uint32_t Ext_GenerateAddKey() {
-  return Internal_GenerateAddKey();
-}
+// uint32_t Ext_GenerateAddKey() {
+//   return Internal_GenerateAddKey();
+// }
 
 void Ext_Reset() {
   Internal_Reset();

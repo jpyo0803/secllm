@@ -28,11 +28,11 @@ void Ext_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
                               const float* const position_ids,
                               int position_ids_M, float* cos, float* sin);
 
-uint32_t Ext_GenerateCPRNG();
+// uint32_t Ext_GenerateCPRNG();
 
-uint32_t Ext_GenerateMultKey();
+// uint32_t Ext_GenerateMultKey();
 
-uint32_t Ext_GenerateAddKey();
+// uint32_t Ext_GenerateAddKey();
 
 void Ext_Reset();
 

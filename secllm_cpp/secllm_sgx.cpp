@@ -464,7 +464,7 @@ bool SecLLM::PVUnshiftBufferIsAvailable(int layer_idx) {
 
 }  // namespace jpyo0803
 
-void Internal_PrintTest(int a, int b) {
+void Core_Internal_PrintTest(int a, int b) {
 #if SGX_ENABLE == 0
   std::cout << "Hello from C++: " << a << " / " << b << std::endl;
 #endif
@@ -482,11 +482,11 @@ void Core_Internal_CreateSecLLM(int hidden_size, int intermediate_size,
   }
 }
 
-void Internal_Softmax_InPlace(float* x, int B, int M, int N, int K) {
+void Core_Internal_Softmax_InPlace(float* x, int B, int M, int N, int K) {
   jpyo0803::Softmax_InPlace(x, B, M, N, K);
 }
 
-void Internal_Softmax(int from, int to_len, int* to) {
+void Core_Internal_Softmax(int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
   auto shape = retrieved_data->shape();
@@ -510,12 +510,12 @@ void Internal_Softmax(int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M,
+void Core_Internal_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M,
                              int N) {
   jpyo0803::SwiGLU_InPlace(gate_in, up_in, B, M, N);
 }
 
-void Internal_SwiGLU(int from1, int from2, int to_len, int* to) {
+void Core_Internal_SwiGLU(int from1, int from2, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
       secllm_ptr->BookKeeperLoad_Float(from1);
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
@@ -536,12 +536,12 @@ void Internal_SwiGLU(int from1, int from2, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
+void Core_Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
                               int N, float eps) {
   jpyo0803::RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
-void Internal_RMSNorm(int layer_idx, int from, int to_len, int* to,
+void Core_Internal_RMSNorm(int layer_idx, int from, int to_len, int* to,
                       int type) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
@@ -560,11 +560,11 @@ void Internal_RMSNorm(int layer_idx, int from, int to_len, int* to,
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
+void Core_Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
   jpyo0803::ElementWiseAdd_InPlace(x, y, B, M, N);
 }
 
-void Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
+void Core_Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data1 =
       secllm_ptr->BookKeeperLoad_Float(from1);
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data2 =
@@ -585,37 +585,37 @@ void Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
+void Core_Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
                                 const float* const cos, const float* const sin,
                                 int B, int Q_M, int K_M, int N, int K) {
   jpyo0803::ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
 }
 
-void Internal_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
+void Core_Internal_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
                                    const float* const position_ids,
                                    int position_ids_M, float* cos, float* sin) {
   jpyo0803::LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids,
                                  position_ids_M, cos, sin);
 }
 
-uint32_t Internal_GenerateCPRNG() {
+uint32_t Core_Internal_GenerateCPRNG() {
   return jpyo0803::GenerateCPRNG();
 }
 
-uint32_t Internal_GenerateMultKey() {
+uint32_t Core_Internal_GenerateMultKey() {
   return jpyo0803::GenerateMultKey();
 }
 
-uint32_t Internal_GenerateAddKey() {
+uint32_t Core_Internal_GenerateAddKey() {
   return jpyo0803::GenerateAddKey();
 }
 
-void Internal_Reset() {
+void Core_Internal_Reset() {
   secllm_ptr->Reset();
 }
 
 // TODO(jpyo0803): Where is its declaration?
-void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
+void Core_Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
                                     int* shape) {
   // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
@@ -641,7 +641,7 @@ void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
   secllm_ptr->BookKeeperStore_Float({loc}, data_ptr);
 }
 
-void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
+void Core_Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
                                     int* shape) {
   // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
@@ -667,7 +667,7 @@ void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
   secllm_ptr->BookKeeperStore_Int32({loc}, data_ptr);
 }
 
-void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
+void Core_Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
                                      int* shape) {
   // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
@@ -695,7 +695,7 @@ void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
   secllm_ptr->BookKeeperStore_Uint32({loc}, data_ptr);
 }
 
-void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
+void Core_Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
                                    int* shape) {
   // Convert shape array to std::vector for shape management
   std::vector<int> shape_vec(shape, shape + shape_len);
@@ -723,7 +723,7 @@ void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
   secllm_ptr->BookKeeperStore_Int8({loc}, data_ptr);
 }
 
-void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
+void Core_Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
                                    int* shape) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(loc);
@@ -751,7 +751,7 @@ void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
                                         num_elements);
 }
 
-void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
+void Core_Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
                                    int* shape) {
   std::shared_ptr<jpyo0803::Tensor<int32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int32(loc);
@@ -779,7 +779,7 @@ void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
                                         num_elements);
 }
 
-void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
+void Core_Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
                                     int* shape) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(loc);
@@ -807,7 +807,7 @@ void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
           retrieved_data->data().data(), num_elements);
 }
 
-void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
+void Core_Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
                                   int* shape) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int8(loc);
@@ -835,7 +835,7 @@ void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
           retrieved_data->data().data(), num_elements);
 }
 
-void Internal_ReplicateTensor_Float(int from, int* to, int to_len) {
+void Core_Internal_ReplicateTensor_Float(int from, int* to, int to_len) {
   std::vector<int> locs(to, to + to_len);
 
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
@@ -844,7 +844,7 @@ void Internal_ReplicateTensor_Float(int from, int* to, int to_len) {
   secllm_ptr->BookKeeperStore_Float(locs, retrieved_data);
 }
 
-void Internal_ReplicateTensor_Int32(int from, int* to, int to_len) {
+void Core_Internal_ReplicateTensor_Int32(int from, int* to, int to_len) {
   std::vector<int> locs(to, to + to_len);
 
   std::shared_ptr<jpyo0803::Tensor<int32_t>> retrieved_data =
@@ -853,7 +853,7 @@ void Internal_ReplicateTensor_Int32(int from, int* to, int to_len) {
   secllm_ptr->BookKeeperStore_Int32(locs, retrieved_data);
 }
 
-void Internal_ReplicateTensor_Uint32(int from, int* to, int to_len) {
+void Core_Internal_ReplicateTensor_Uint32(int from, int* to, int to_len) {
   std::vector<int> locs(to, to + to_len);
 
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
@@ -862,7 +862,7 @@ void Internal_ReplicateTensor_Uint32(int from, int* to, int to_len) {
   secllm_ptr->BookKeeperStore_Uint32(locs, retrieved_data);
 }
 
-void Internal_ReplicateTensor_Int8(int from, int* to, int to_len) {
+void Core_Internal_ReplicateTensor_Int8(int from, int* to, int to_len) {
   std::vector<int> locs(to, to + to_len);
 
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
@@ -871,7 +871,7 @@ void Internal_ReplicateTensor_Int8(int from, int* to, int to_len) {
   secllm_ptr->BookKeeperStore_Int8(locs, retrieved_data);
 }
 
-void Internal_GetCprngTensor(int* out, int shape_len, int* shape) {
+void Core_Internal_GetCprngTensor(int* out, int shape_len, int* shape) {
   int num_elements =
       std::accumulate(shape, shape + shape_len, 1, std::multiplies<int>());
 
@@ -880,25 +880,25 @@ void Internal_GetCprngTensor(int* out, int shape_len, int* shape) {
   }
 }
 
-void Internal_SetEncKeyAndDecKey(int layer_idx, int* src_enc_key_pool,
+void Core_Internal_SetEncKeyAndDecKey(int layer_idx, int* src_enc_key_pool,
                                  int* src_dec_key,
                                  jpyo0803::ProjectionType type) {
   secllm_ptr->SetEncKeyAndDecKey(layer_idx, src_enc_key_pool, src_dec_key,
                                  type);
 }
 
-void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
+void Core_Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                     jpyo0803::ProjectionType type) {
   // weight scales's dim == 1
   secllm_ptr->SetLinearWeightScales(layer_idx, scales, len, type);
 }
 
-void Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps,
+void Core_Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps,
                                int type) {
   secllm_ptr->SetRMSNormWeight(layer_idx, weight, eps, type);
 }
 
-void Internal_QuantizeLinearActivation(int layer_idx, int from,
+void Core_Internal_QuantizeLinearActivation(int layer_idx, int from,
                                        int to_len, int* to,
                                        jpyo0803::ProjectionType type) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
@@ -913,7 +913,7 @@ void Internal_QuantizeLinearActivation(int layer_idx, int from,
   secllm_ptr->BookKeeperStore_Int8(locs, out);
 }
 
-void Internal_EncryptLinearActivation(int layer_idx, int from,
+void Core_Internal_EncryptLinearActivation(int layer_idx, int from,
                                       int to_len, int* to,
                                       jpyo0803::ProjectionType type) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
@@ -928,7 +928,7 @@ void Internal_EncryptLinearActivation(int layer_idx, int from,
   secllm_ptr->BookKeeperStore_Int32(locs, out);
 }
 
-void Internal_DecryptLinearActivation(int layer_idx, int from,
+void Core_Internal_DecryptLinearActivation(int layer_idx, int from,
                                       int to_len, int* to,
                                       jpyo0803::ProjectionType type) {
   std::shared_ptr<jpyo0803::Tensor<int32_t>> enc_tensor =
@@ -943,7 +943,7 @@ void Internal_DecryptLinearActivation(int layer_idx, int from,
   secllm_ptr->BookKeeperStore_Int32(locs, out);
 }
 
-void Internal_DequantizeLinearActivation(int layer_idx, int from,
+void Core_Internal_DequantizeLinearActivation(int layer_idx, int from,
                                          int to_len, int* to,
                                          jpyo0803::ProjectionType type) {
   std::shared_ptr<jpyo0803::Tensor<int32_t>> retrieved_data =
@@ -958,13 +958,13 @@ void Internal_DequantizeLinearActivation(int layer_idx, int from,
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
+void Core_Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
                                  float k_output_scale, float v_output_scale) {
   secllm_ptr->SetQKVOutputScales(layer_idx, q_output_scale, k_output_scale,
                                  v_output_scale);
 }
 
-void Internal_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
 
@@ -977,7 +977,7 @@ void Internal_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Int8(locs, out);
 }
 
-void Internal_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int8(from);
 
@@ -990,7 +990,7 @@ void Internal_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
 
@@ -1003,7 +1003,7 @@ void Internal_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Int8(locs, out);
 }
 
-void Internal_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int8(from);
 
@@ -1016,7 +1016,7 @@ void Internal_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1029,7 +1029,7 @@ void Internal_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Int32(locs, out);
 }
 
-void Internal_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int32(from);
 
@@ -1061,7 +1061,7 @@ void Internal_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
 
@@ -1074,7 +1074,7 @@ void Internal_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Int8(locs, out);
 }
 
-void Internal_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int8(from);
 
@@ -1087,7 +1087,7 @@ void Internal_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
 
@@ -1100,7 +1100,7 @@ void Internal_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Int8(locs, out);
 }
 
-void Internal_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int8(from);
 
@@ -1113,7 +1113,7 @@ void Internal_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1126,7 +1126,7 @@ void Internal_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Int32(locs, out);
 }
 
-void Internal_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Int32(from);
 
@@ -1139,20 +1139,20 @@ void Internal_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Float(locs, out);
 }
 
-void Internal_SetAttentionMask(float* mask, int M, int N) {
+void Core_Internal_SetAttentionMask(float* mask, int M, int N) {
   secllm_ptr->SetAttentionMask(mask, M, N);
 }
 
-void Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz,
+void Core_Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz,
                                          int token_length) {
   secllm_ptr->SetBatchSizeAndTokenLength(layer_idx, bsz, token_length);
 }
 
-void Internal_GenerateSecretKey_QK(int layer_idx) {
+void Core_Internal_GenerateSecretKey_QK(int layer_idx) {
   secllm_ptr->GenerateSecretKey_QK(layer_idx);
 }
 
-void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
+void Core_Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> x =
       secllm_ptr->BookKeeperLoad_Uint32(from_x);
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> y =
@@ -1161,19 +1161,19 @@ void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_QK(layer_idx, x, y);
 }
 
-void Internal_GenerateDecAddBuffer_QK(int layer_idx) {
+void Core_Internal_GenerateDecAddBuffer_QK(int layer_idx) {
   secllm_ptr->GenerateDecAddBuffer_QK(layer_idx);
 }
 
-void Internal_GenerateDecMultBuffer_QK(int layer_idx) {
+void Core_Internal_GenerateDecMultBuffer_QK(int layer_idx) {
   secllm_ptr->GenerateDecMultBuffer_QK(layer_idx);
 }
 
-void Internal_GenerateUnshiftBuffer_QK(int layer_idx) {
+void Core_Internal_GenerateUnshiftBuffer_QK(int layer_idx) {
   secllm_ptr->GenerateUnshiftBuffer_QK(layer_idx);
 }
 
-void Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1186,7 +1186,7 @@ void Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1199,7 +1199,7 @@ void Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1212,11 +1212,11 @@ void Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_GenerateSecretKey_PV(int layer_idx) {
+void Core_Internal_GenerateSecretKey_PV(int layer_idx) {
   secllm_ptr->GenerateSecretKey_PV(layer_idx);
 }
 
-void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
+void Core_Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> x =
       secllm_ptr->BookKeeperLoad_Uint32(from_x);
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> y =
@@ -1225,19 +1225,19 @@ void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
   secllm_ptr->GenerateDecryptionKey_PV(layer_idx, x, y);
 }
 
-void Internal_GenerateDecAddBuffer_PV(int layer_idx) {
+void Core_Internal_GenerateDecAddBuffer_PV(int layer_idx) {
   secllm_ptr->GenerateDecAddBuffer_PV(layer_idx);
 }
 
-void Internal_GenerateDecMultBuffer_PV(int layer_idx) {
+void Core_Internal_GenerateDecMultBuffer_PV(int layer_idx) {
   secllm_ptr->GenerateDecMultBuffer_PV(layer_idx);
 }
 
-void Internal_GenerateUnshiftBuffer_PV(int layer_idx) {
+void Core_Internal_GenerateUnshiftBuffer_PV(int layer_idx) {
   secllm_ptr->GenerateUnshiftBuffer_PV(layer_idx);
 }
 
-void Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1250,7 +1250,7 @@ void Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1263,7 +1263,7 @@ void Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
+void Core_Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<uint32_t>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Uint32(from);
 
@@ -1276,111 +1276,111 @@ void Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
   secllm_ptr->BookKeeperStore_Uint32(locs, out);
 }
 
-void Internal_BookKeeperIsAvailable_Float(int loc, bool* ret) {
+void Core_Internal_BookKeeperIsAvailable_Float(int loc, bool* ret) {
   *ret = secllm_ptr->BookKeeperIsAvailable_Float(loc);
 }
 
-void Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret) {
+void Core_Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret) {
   *ret = secllm_ptr->BookKeeperIsAvailable_Int32(loc);
 }
 
-void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
+void Core_Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
   *ret = secllm_ptr->BookKeeperIsAvailable_Uint32(loc);
 }
 
-void Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
+void Core_Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
   *ret = secllm_ptr->BookKeeperIsAvailable_Int8(loc);
 }
 
-void Internal_BookKeeperGetShapeLength_Float(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShapeLength_Float(int loc, int* ret) {
   *ret = secllm_ptr->BookKeeperGetShapeLength_Float(loc);
 }
 
-void Internal_BookKeeperGetShapeLength_Int32(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShapeLength_Int32(int loc, int* ret) {
   *ret = secllm_ptr->BookKeeperGetShapeLength_Int32(loc);
 }
 
-void Internal_BookKeeperGetShapeLength_Uint32(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShapeLength_Uint32(int loc, int* ret) {
   *ret = secllm_ptr->BookKeeperGetShapeLength_Uint32(loc);
 }
 
-void Internal_BookKeeperGetShapeLength_Int8(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShapeLength_Int8(int loc, int* ret) {
   *ret = secllm_ptr->BookKeeperGetShapeLength_Int8(loc);
 }
 
-void Internal_BookKeeperGetShape_Float(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShape_Float(int loc, int* ret) {
   secllm_ptr->BookKeeperGetShape_Float(loc, ret);
 }
 
-void Internal_BookKeeperGetShape_Int32(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShape_Int32(int loc, int* ret) {
   secllm_ptr->BookKeeperGetShape_Int32(loc, ret);
 }
 
-void Internal_BookKeeperGetShape_Uint32(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShape_Uint32(int loc, int* ret) {
   secllm_ptr->BookKeeperGetShape_Uint32(loc, ret);
 }
 
-void Internal_BookKeeperGetShape_Int8(int loc, int* ret) {
+void Core_Internal_BookKeeperGetShape_Int8(int loc, int* ret) {
   secllm_ptr->BookKeeperGetShape_Int8(loc, ret);
 }
 
-void Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKKeyIsAvailable(layer_idx);
 }
 
-void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKDecKeyIsAvailable(layer_idx);
 }
 
-void Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKDecAddBufferIsAvailable(layer_idx);
 }
 
-void Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKDecMultBufferIsAvailable(layer_idx);
 }
 
-void Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKUnshiftBufferIsAvailable(layer_idx);
 }
 
-void Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKShiftedQIsAvailable(layer_idx);
 }
 
-void Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->QKShiftedKIsAvailable(layer_idx);
 }
 
-void Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVKeyIsAvailable(layer_idx);
 }
 
-void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVDecKeyIsAvailable(layer_idx);
 }
 
-void Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVDecAddBufferIsAvailable(layer_idx);
 }
 
-void Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVDecMultBufferIsAvailable(layer_idx);
 }
 
-void Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVUnshiftBufferIsAvailable(layer_idx);
 }
 
-void Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVShiftedPIsAvailable(layer_idx);
 }
 
-void Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
+void Core_Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
   *ret = secllm_ptr->PVShiftedVIsAvailable(layer_idx);
 }
 
-void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
+void Core_Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
                             int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> q_tensor =
       secllm_ptr->BookKeeperLoad_Int8(q_from);
@@ -1394,7 +1394,7 @@ void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
   secllm_ptr->BookKeeperStore_Int32(locs, out);
 }
 
-void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
+void Core_Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
                             int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<int8_t>> p_tensor =
       secllm_ptr->BookKeeperLoad_Int8(p_from);
@@ -1408,27 +1408,31 @@ void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
   secllm_ptr->BookKeeperStore_Int32(locs, out);
 }
 
-void Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out) {
+void Core_Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out) {
   auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Float(loc);
   std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
 }
 
-void Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out) {
+void Core_Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out) {
   auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Int32(loc);
   std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
 }
 
-void Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out) {
+void Core_Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out) {
   auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Uint32(loc);
   std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
 }
 
-void Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out) {
+void Core_Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out) {
   auto retrieved_data = secllm_ptr->BookKeeperLoadWithoutReset_Int8(loc);
   std::copy(retrieved_data->data().begin(), retrieved_data->data().end(), out);
 }
 
 extern "C" {
+
+void Internal_PrintTest(int a, int b) {
+  Core_Internal_PrintTest(a, b);
+}
 
 void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
                            int max_position_embeddings, int num_attention_heads,
@@ -1438,6 +1442,355 @@ void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
                              max_position_embeddings, num_attention_heads,
                              num_hidden_layers, num_key_value_heads,
                              enc_key_pool_size);
+}
+
+void Internal_Softmax_InPlace(float* x, int B, int M, int N, int K) {
+  Core_Internal_Softmax_InPlace(x, B, M, N, K);
+}
+
+void Internal_Softmax(int from, int to_len, int* to) {
+  Core_Internal_Softmax(from, to_len, to);
+}
+
+void Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N, float eps) {
+  Core_Internal_RMSNorm_InPlace(x, weight, B, M, N, eps);
+}
+
+void Internal_RMSNorm(int layer_idx, int from, int to_len, int* to, int type) {
+  Core_Internal_RMSNorm(layer_idx, from, to_len, to, type);
+}
+
+void Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
+  Core_Internal_ElementWiseAdd_InPlace(x, y, B, M, N);
+}
+
+void Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
+  Core_Internal_ElementWiseAdd(from1, from2, to_len, to);
+}
+
+void Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K) {
+  Core_Internal_ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
+}
+
+void Internal_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
+                                   const float* const position_ids,
+                                   int position_ids_M, float* cos, float* sin) {
+  Core_Internal_LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids,
+                                     position_ids_M, cos, sin);
+                                   }
+
+// Deprecated
+uint32_t Internal_GenerateCPRNG() {
+  return 0;
+}
+
+// Deprecated
+uint32_t Internal_GenerateMultKey() {
+  return 0;
+}
+
+// Deprecated
+uint32_t Internal_GenerateAddKey() {
+  return 0;
+}
+
+void Internal_Reset() {
+  Core_Internal_Reset();
+}
+
+void Internal_ReplicateTensor_Float(int from, int* to, int to_len) {
+  Core_Internal_ReplicateTensor_Float(from, to, to_len);
+}
+
+void Internal_ReplicateTensor_Int32(int from, int* to, int to_len) {
+  Core_Internal_ReplicateTensor_Int32(from, to, to_len);
+}
+
+void Internal_ReplicateTensor_Uint32(int from, int* to, int to_len) {
+  Core_Internal_ReplicateTensor_Uint32(from, to, to_len);
+}
+
+void Internal_ReplicateTensor_Int8(int from, int* to, int to_len) {
+  Core_Internal_ReplicateTensor_Int8(from, to, to_len);
+}
+
+void Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key, jpyo0803::ProjectionType type) {
+  Core_Internal_SetEncKeyAndDecKey(layer_idx, enc_key_pool, dec_key, type);
+}
+
+void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len, jpyo0803::ProjectionType type) {
+  Core_Internal_SetLinearWeightScales(layer_idx, scales, len, type);
+}
+
+void Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps, int type) {
+  Core_Internal_SetRMSNormWeight(layer_idx, weight, eps, type);
+}
+
+void Internal_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
+  Core_Internal_QuantizeLinearActivation(layer_idx, from, to_len, to, type);
+}
+
+void Internal_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
+  Core_Internal_EncryptLinearActivation(layer_idx, from, to_len, to, type);
+}
+
+void Internal_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
+  Core_Internal_DecryptLinearActivation(layer_idx, from, to_len, to, type);
+}
+
+void Internal_DequantizeLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
+  Core_Internal_DequantizeLinearActivation(layer_idx, from, to_len, to, type);
+}
+
+void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale, float k_output_scale, float v_output_scale) {
+  Core_Internal_SetQKVOutputScales(layer_idx, q_output_scale, k_output_scale, v_output_scale);
+}
+
+void Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_QuantizeQ_QK(layer_idx, from, to_len, to);
+}
+
+void Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_QuantizeK_QK(layer_idx, from, to_len, to);
+}
+
+void Internal_SetAttentionMask(float* mask, int M, int N) {
+  Core_Internal_SetAttentionMask(mask, M, N);
+}
+
+void Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length) {
+  Core_Internal_SetBatchSizeAndTokenLength(layer_idx, bsz, token_length);
+}
+
+void Internal_GenerateSecretKey_QK(int layer_idx) {
+  Core_Internal_GenerateSecretKey_QK(layer_idx);
+}
+void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y) {
+  Core_Internal_GenerateDecryptionKey_QK(layer_idx, from_x, from_y);
+}
+void Internal_GenerateDecAddBuffer_QK(int layer_idx) {
+  Core_Internal_GenerateDecAddBuffer_QK(layer_idx);
+}
+void Internal_GenerateDecMultBuffer_QK(int layer_idx) {
+  Core_Internal_GenerateDecMultBuffer_QK(layer_idx);
+}
+void Internal_GenerateUnshiftBuffer_QK(int layer_idx) {
+  Core_Internal_GenerateUnshiftBuffer_QK(layer_idx);
+}
+
+void Internal_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_QuantizeQ_QK(layer_idx, from, to_len, to);
+}
+void Internal_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_ShiftQ_QK(layer_idx, from, to_len, to);
+}
+void Internal_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_QuantizeK_QK(layer_idx, from, to_len, to);
+}
+void Internal_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_ShiftK_QK(layer_idx, from, to_len, to);
+}
+void Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_EncryptX_QK(layer_idx, from, to_len, to);
+}
+void Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_EncryptY_QK(layer_idx, from, to_len, to);
+}
+void Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_Decrypt_QK(layer_idx, from, to_len, to);
+}
+void Internal_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_Unshift_QK(layer_idx, from, to_len, to);
+}
+void Internal_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_Dequantize_QK(layer_idx, from, to_len, to);
+}
+
+void Internal_GenerateSecretKey_PV(int layer_idx) {
+  Core_Internal_GenerateSecretKey_PV(layer_idx);
+}
+void Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y) {
+  Core_Internal_GenerateDecryptionKey_PV(layer_idx, from_x, from_y);
+}
+void Internal_GenerateDecAddBuffer_PV(int layer_idx) {
+  Core_Internal_GenerateDecAddBuffer_PV(layer_idx);
+}
+void Internal_GenerateDecMultBuffer_PV(int layer_idx) {
+  Core_Internal_GenerateDecMultBuffer_PV(layer_idx);
+}
+void Internal_GenerateUnshiftBuffer_PV(int layer_idx) {
+  Core_Internal_GenerateUnshiftBuffer_PV(layer_idx);
+}
+
+void Internal_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_QuantizeP_PV(layer_idx, from, to_len, to);
+}
+void Internal_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_ShiftP_PV(layer_idx, from, to_len, to);
+}
+void Internal_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_QuantizeV_PV(layer_idx, from, to_len, to);
+}
+void Internal_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_ShiftV_PV(layer_idx, from, to_len, to);
+}
+void Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_EncryptX_PV(layer_idx, from, to_len, to);
+}
+void Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_EncryptY_PV(layer_idx, from, to_len, to);
+}
+void Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_Decrypt_PV(layer_idx, from, to_len, to);
+}
+void Internal_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_Unshift_PV(layer_idx, from, to_len, to);
+}
+void Internal_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
+  Core_Internal_Dequantize_PV(layer_idx, from, to_len, to);
+}
+
+void Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
+                                    int* shape) {
+  Core_Internal_BookKeeperStore_Float(loc, data, shape_len, shape);
+                                    }
+void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
+                                    int* shape) {
+  Core_Internal_BookKeeperStore_Int32(loc, data, shape_len, shape);
+                                    }
+void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
+                                     int* shape) {
+  Core_Internal_BookKeeperStore_Uint32(loc, data, shape_len, shape);
+                                     }
+void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
+                                      int* shape) {
+  Core_Internal_BookKeeperStore_Int8(loc, data, shape_len, shape);
+                                      }
+
+void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
+                                      int* shape) {
+  Core_Internal_BookKeeperLoad_Float(loc, out, shape_len, shape);
+                                      }
+void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
+                                        int* shape) {
+  Core_Internal_BookKeeperLoad_Int32(loc, out, shape_len, shape);
+                                        }
+void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
+                                            int* shape) {
+  Core_Internal_BookKeeperLoad_Uint32(loc, out, shape_len, shape);
+                                            }
+void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
+                                        int* shape) {
+  Core_Internal_BookKeeperLoad_Int8(loc, out, shape_len, shape);
+                                        }
+
+void Internal_BookKeeperIsAvailable_Float(int loc, bool* ret) {
+  Core_Internal_BookKeeperIsAvailable_Float(loc, ret);
+}
+void Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret) {
+  Core_Internal_BookKeeperIsAvailable_Int32(loc, ret);
+}
+void Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
+  Core_Internal_BookKeeperIsAvailable_Uint32(loc, ret);
+}
+void Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
+  Core_Internal_BookKeeperIsAvailable_Int8(loc, ret);
+}
+
+void Internal_BookKeeperGetShapeLength_Float(int loc, int* ret) {
+  Core_Internal_BookKeeperGetShapeLength_Float(loc, ret);
+}
+void Internal_BookKeeperGetShapeLength_Int32(int loc, int* ret) {
+  Core_Internal_BookKeeperGetShapeLength_Int32(loc, ret);
+}
+void Internal_BookKeeperGetShapeLength_Uint32(int loc, int* ret) {
+  Core_Internal_BookKeeperGetShapeLength_Uint32(loc, ret);
+}
+void Internal_BookKeeperGetShapeLength_Int8(int loc, int* ret) {
+  Core_Internal_BookKeeperGetShapeLength_Int8(loc, ret);
+}
+
+void Internal_BookKeeperGetShape_Float(int loc, int* out) {
+  Core_Internal_BookKeeperGetShape_Float(loc, out);
+}
+void Internal_BookKeeperGetShape_Int32(int loc, int* out) {
+  Core_Internal_BookKeeperGetShape_Int32(loc, out);
+}
+void Internal_BookKeeperGetShape_Uint32(int loc, int* out) {
+  Core_Internal_BookKeeperGetShape_Uint32(loc, out);
+}
+void Internal_BookKeeperGetShape_Int8(int loc, int* out) {
+  Core_Internal_BookKeeperGetShape_Int8(loc, out);
+}
+
+void Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKKeyIsAvailable(layer_idx, ret);
+}
+void Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKDecKeyIsAvailable(layer_idx, ret);
+}
+void Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKDecAddBufferIsAvailable(layer_idx, ret);
+}
+void Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKDecMultBufferIsAvailable(layer_idx, ret);
+}
+
+void Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKShiftedQIsAvailable(layer_idx, ret);
+}
+void Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKShiftedKIsAvailable(layer_idx, ret);
+}
+
+void Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_QKUnshiftBufferIsAvailable(layer_idx, ret);
+}
+
+void Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVKeyIsAvailable(layer_idx, ret);
+}
+void Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVDecKeyIsAvailable(layer_idx, ret);
+}
+void Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVDecAddBufferIsAvailable(layer_idx, ret);
+}
+void Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVDecMultBufferIsAvailable(layer_idx, ret);
+}
+
+void Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVShiftedPIsAvailable(layer_idx, ret);
+}
+void Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVShiftedVIsAvailable(layer_idx, ret);
+}
+
+void Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
+  Core_Internal_PVUnshiftBufferIsAvailable(layer_idx, ret);
+}
+
+void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
+                            int to_len, int* to) {
+  Core_Internal_Matmul_CPU_QK(layer_idx, q_from, k_from, to_len, to);
+                            }
+void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,  
+                            int to_len, int* to) {
+  Core_Internal_Matmul_CPU_PV(layer_idx, p_from, v_from, to_len, to);
+                            }
+
+void Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out) {
+  Core_Internal_BookKeeperLoadWithoutReset_Float(loc, out);
+}
+void Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out) {
+  Core_Internal_BookKeeperLoadWithoutReset_Int32(loc, out);
+}
+void Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out) {
+  Core_Internal_BookKeeperLoadWithoutReset_Uint32(loc, out);
+}
+void Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out) {
+  Core_Internal_BookKeeperLoadWithoutReset_Int8(loc, out);
 }
 
 }

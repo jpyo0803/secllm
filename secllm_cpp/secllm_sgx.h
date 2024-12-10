@@ -208,9 +208,190 @@ class SecLLM {
 
 }  // namespace jpyo0803
 
-void Internal_PrintTest(int a, int b);
+void Core_Internal_PrintTest(int a, int b);
 
 void Core_Internal_CreateSecLLM(int hidden_size, int intermediate_size,
+                           int max_position_embeddings, int num_attention_heads,
+                           int num_hidden_layers, int num_key_value_heads,
+                           int enc_key_pool_size);
+
+void Core_Internal_Softmax_InPlace(float* x, int B, int M, int N, int K);
+
+void Core_Internal_Softmax(int from, int to_len, int* to);
+
+void Core_Internal_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N);
+
+void Core_Internal_SwiGLU(int from1, int from2, int to_len, int* to);
+
+void Core_Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M,
+                              int N, float eps);
+
+void Core_Internal_RMSNorm(int layer_idx, int from, int to_len, int* to, int type);//
+
+void Core_Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N);
+
+void Core_Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to);//
+
+void Core_Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
+                                const float* const cos, const float* const sin,
+                                int B, int Q_M, int K_M, int N, int K);
+
+void Core_Internal_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
+                                   const float* const position_ids,
+                                   int position_ids_M, float* cos, float* sin);
+
+uint32_t Core_Internal_GenerateCPRNG();
+
+uint32_t Core_Internal_GenerateMultKey();
+
+uint32_t Core_Internal_GenerateAddKey();
+
+void Core_Internal_Reset();
+
+void Core_Internal_ReplicateTensor_Float(int from, int* to, int to_len);
+void Core_Internal_ReplicateTensor_Int32(int from, int* to, int to_len);
+void Core_Internal_ReplicateTensor_Uint32(int from, int* to, int to_len);
+void Core_Internal_ReplicateTensor_Int8(int from, int* to, int to_len);
+
+void Core_Internal_GetCprngTensor(int* out, int shape_len, int* shape);
+
+void Core_Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key,
+                                 jpyo0803::ProjectionType type);
+
+void Core_Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
+                                    jpyo0803::ProjectionType type);
+
+void Core_Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps,
+                               int type);
+
+void Core_Internal_QuantizeLinearActivation(int layer_idx, int from,
+                                       int to_len, int* to,
+                                       jpyo0803::ProjectionType type);//
+
+void Core_Internal_EncryptLinearActivation(int layer_idx, int from,
+                                      int to_len, int* to,
+                                      jpyo0803::ProjectionType type);
+
+void Core_Internal_DecryptLinearActivation(int layer_idx, int from,
+                                      int to_len, int* to,
+                                      jpyo0803::ProjectionType type);
+
+void Core_Internal_DequantizeLinearActivation(int layer_idx, int from,
+                                         int to_len, int* to,
+                                         jpyo0803::ProjectionType type);
+
+void Core_Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
+                                 float k_output_scale, float v_output_scale);
+
+void Core_Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to);
+
+void Core_Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
+
+void Core_Internal_SetAttentionMask(float* mask, int M, int N);
+
+void Core_Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz,
+                                         int token_length);
+
+void Core_Internal_GenerateSecretKey_QK(int layer_idx);
+void Core_Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
+void Core_Internal_GenerateDecAddBuffer_QK(int layer_idx);
+void Core_Internal_GenerateDecMultBuffer_QK(int layer_idx);
+void Core_Internal_GenerateUnshiftBuffer_QK(int layer_idx);
+
+void Core_Internal_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_ShiftQ_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_QuantizeK_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_ShiftK_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_Unshift_QK(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_Dequantize_QK(int layer_idx, int from, int to_len, int* to);
+
+void Core_Internal_GenerateSecretKey_PV(int layer_idx);
+void Core_Internal_GenerateDecryptionKey_PV(int layer_idx, int from_x, int from_y);
+void Core_Internal_GenerateDecAddBuffer_PV(int layer_idx);
+void Core_Internal_GenerateDecMultBuffer_PV(int layer_idx);
+void Core_Internal_GenerateUnshiftBuffer_PV(int layer_idx);
+
+void Core_Internal_QuantizeP_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_ShiftP_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_QuantizeV_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_ShiftV_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_Unshift_PV(int layer_idx, int from, int to_len, int* to);
+void Core_Internal_Dequantize_PV(int layer_idx, int from, int to_len, int* to); //
+
+void Core_Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
+                                    int* shape);
+void Core_Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
+                                    int* shape);
+void Core_Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
+                                     int* shape);
+void Core_Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
+                                   int* shape);
+
+void Core_Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
+                                   int* shape);
+void Core_Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
+                                   int* shape);
+void Core_Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
+                                    int* shape);
+void Core_Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
+                                  int* shape);
+
+void Core_Internal_BookKeeperIsAvailable_Float(int loc, bool* ret);
+void Core_Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret);
+void Core_Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret);
+void Core_Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret);
+
+void Core_Internal_BookKeeperGetShapeLength_Float(int loc, int* ret);
+void Core_Internal_BookKeeperGetShapeLength_Int32(int loc, int* ret);
+void Core_Internal_BookKeeperGetShapeLength_Uint32(int loc, int* ret);
+void Core_Internal_BookKeeperGetShapeLength_Int8(int loc, int* ret);
+
+void Core_Internal_BookKeeperGetShape_Float(int loc, int* out);
+void Core_Internal_BookKeeperGetShape_Int32(int loc, int* out);
+void Core_Internal_BookKeeperGetShape_Uint32(int loc, int* out);
+void Core_Internal_BookKeeperGetShape_Int8(int loc, int* out);
+
+void Core_Internal_QKKeyIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret);
+
+void Core_Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret);
+
+void Core_Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret);
+
+void Core_Internal_PVKeyIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret);
+
+void Core_Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret);
+void Core_Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret);
+
+void Core_Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret);
+
+void Core_Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
+                            int to_len, int* to);
+void Core_Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
+                            int to_len, int* to);
+
+void Core_Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out);
+void Core_Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out);
+void Core_Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out);
+void Core_Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out);
+
+extern "C" {
+
+void Internal_PrintTest(int a, int b);
+
+void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
                            int max_position_embeddings, int num_attention_heads,
                            int num_hidden_layers, int num_key_value_heads,
                            int enc_key_pool_size);
@@ -262,26 +443,26 @@ void Internal_SetLinearWeightScales(int layer_idx, float* scales, int len,
                                     jpyo0803::ProjectionType type);
 
 void Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps,
-                               int type);
+                                 int type);
 
 void Internal_QuantizeLinearActivation(int layer_idx, int from,
                                        int to_len, int* to,
                                        jpyo0803::ProjectionType type);//
 
 void Internal_EncryptLinearActivation(int layer_idx, int from,
-                                      int to_len, int* to,
-                                      jpyo0803::ProjectionType type);
+                                        int to_len, int* to,
+                                        jpyo0803::ProjectionType type);
 
 void Internal_DecryptLinearActivation(int layer_idx, int from,
-                                      int to_len, int* to,
-                                      jpyo0803::ProjectionType type);
+                                        int to_len, int* to,
+                                        jpyo0803::ProjectionType type);
 
 void Internal_DequantizeLinearActivation(int layer_idx, int from,
                                          int to_len, int* to,
                                          jpyo0803::ProjectionType type);
 
 void Internal_SetQKVOutputScales(int layer_idx, float q_output_scale,
-                                 float k_output_scale, float v_output_scale);
+                                    float k_output_scale, float v_output_scale);
 
 void Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to);
 
@@ -289,8 +470,7 @@ void Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to);
 
 void Internal_SetAttentionMask(float* mask, int M, int N);
 
-void Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz,
-                                         int token_length);
+void Internal_SetBatchSizeAndTokenLength(int layer_idx, int bsz, int token_length);
 
 void Internal_GenerateSecretKey_QK(int layer_idx);
 void Internal_GenerateDecryptionKey_QK(int layer_idx, int from_x, int from_y);
@@ -331,16 +511,16 @@ void Internal_BookKeeperStore_Int32(int loc, int32_t* data, int shape_len,
 void Internal_BookKeeperStore_Uint32(int loc, uint32_t* data, int shape_len,
                                      int* shape);
 void Internal_BookKeeperStore_Int8(int loc, int8_t* data, int shape_len,
-                                   int* shape);
+                                      int* shape);
 
 void Internal_BookKeeperLoad_Float(int loc, float* out, int shape_len,
-                                   int* shape);
+                                      int* shape);
 void Internal_BookKeeperLoad_Int32(int loc, int32_t* out, int shape_len,
-                                   int* shape);
+                                        int* shape);
 void Internal_BookKeeperLoad_Uint32(int loc, uint32_t* out, int shape_len,
-                                    int* shape);
+                                            int* shape);
 void Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
-                                  int* shape);
+                                        int* shape);
 
 void Internal_BookKeeperIsAvailable_Float(int loc, bool* ret);
 void Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret);
@@ -379,20 +559,13 @@ void Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret);
 
 void Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
                             int to_len, int* to);
-void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,
+void Internal_Matmul_CPU_PV(int layer_idx, int p_from, int v_from,  
                             int to_len, int* to);
 
 void Internal_BookKeeperLoadWithoutReset_Float(int loc, float* out);
 void Internal_BookKeeperLoadWithoutReset_Int32(int loc, int32_t* out);
 void Internal_BookKeeperLoadWithoutReset_Uint32(int loc, uint32_t* out);
 void Internal_BookKeeperLoadWithoutReset_Int8(int loc, int8_t* out);
-
-extern "C" {
-
-void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
-                           int max_position_embeddings, int num_attention_heads,
-                           int num_hidden_layers, int num_key_value_heads,
-                           int enc_key_pool_size);
 
 }
 
