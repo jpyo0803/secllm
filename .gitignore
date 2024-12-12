@@ -20,3 +20,5 @@ test/
 **/Enclave_t.*
 
 collected_timestamp.txt
+
+**/untrusted_app

@@ -200,7 +200,7 @@ extern "C"
                                int max_position_embeddings, int num_attention_heads,
                                int num_hidden_layers, int num_key_value_heads,
                                int enc_key_pool_size) {
-        sgx_status_t ret = Internal_CreateSecLLM(eid, hidden_size, intermediate_size,
+        sgx_status_t ret = ecall_Internal_CreateSecLLM(eid, hidden_size, intermediate_size,
                                                  max_position_embeddings, num_attention_heads,
                                                  num_hidden_layers, num_key_value_heads,
                                                  enc_key_pool_size);

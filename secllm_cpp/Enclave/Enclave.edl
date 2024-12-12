@@ -4,7 +4,7 @@ enclave {
 
     trusted {
 
-    public void Internal_CreateSecLLM(int hidden_size, int intermediate_size,
+    public void ecall_Internal_CreateSecLLM(int hidden_size, int intermediate_size,
                            int max_position_embeddings, int num_attention_heads,
                            int num_hidden_layers, int num_key_value_heads,
                            int enc_key_pool_size);
