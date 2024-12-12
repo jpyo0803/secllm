@@ -1448,16 +1448,24 @@ void ecall_Internal_Softmax_InPlace(float* x, int B, int M, int N, int K) {
   Internal_Softmax_InPlace(x, B, M, N, K);
 }
 
-void ecall_Internal_Softmax(int from, int to_len, int* to) {
-  Internal_Softmax(from, to_len, to);
+void ecall_Internal_Softmax(int fromm, int to_len, int* to) {
+  Internal_Softmax(fromm, to_len, to);
 }
 
-void ecall_Internal_RMSNorm_InPlace(float* x, const float* const weight, int B, int M, int N, float eps) {
+void ecall_Internal_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
+  Internal_SwiGLU_InPlace(gate_in, up_in, B, M, N);
+}
+
+void ecall_Internal_SwiGLU(int from1, int from2, int to_len, int* to) {
+  Internal_SwiGLU(from1, from2, to_len, to);
+}
+
+void ecall_Internal_RMSNorm_InPlace(float* x, float* weight, int B, int M, int N, float eps) {
   Internal_RMSNorm_InPlace(x, weight, B, M, N, eps);
 }
 
-void ecall_Internal_RMSNorm(int layer_idx, int from, int to_len, int* to, int type) {
-  Internal_RMSNorm(layer_idx, from, to_len, to, type);
+void ecall_Internal_RMSNorm(int layer_idx, int fromm, int to_len, int* to, int type) {
+  Internal_RMSNorm(layer_idx, fromm, to_len, to, type);
 }
 
 void ecall_Internal_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
@@ -1468,12 +1476,12 @@ void ecall_Internal_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
   Internal_ElementWiseAdd(from1, from2, to_len, to);
 }
 
-void ecall_Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, const float* const cos, const float* const sin, int B, int Q_M, int K_M, int N, int K) {
+void ecall_Internal_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor, float* cos, float* sin, int B, int Q_M, int K_M, int N, int K) {
   Internal_ApplyRotaryPosEmb(q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
 }
 
-void ecall_Internal_LlamaRotaryEmbedding(const float* const inv_freq, int inv_freq_M,
-                                   const float* const position_ids,
+void ecall_Internal_LlamaRotaryEmbedding(float* inv_freq, int inv_freq_M,
+                                   float* position_ids,
                                    int position_ids_M, float* cos, float* sin) {
   Internal_LlamaRotaryEmbedding(inv_freq, inv_freq_M, position_ids,
                                      position_ids_M, cos, sin);
@@ -1498,60 +1506,64 @@ void ecall_Internal_Reset() {
   Internal_Reset();
 }
 
-void ecall_Internal_ReplicateTensor_Float(int from, int* to, int to_len) {
-  Internal_ReplicateTensor_Float(from, to, to_len);
+void ecall_Internal_ReplicateTensor_Float(int fromm, int* to, int to_len) {
+  Internal_ReplicateTensor_Float(fromm, to, to_len);
 }
 
-void ecall_Internal_ReplicateTensor_Int32(int from, int* to, int to_len) {
-  Internal_ReplicateTensor_Int32(from, to, to_len);
+void ecall_Internal_ReplicateTensor_Int32(int fromm, int* to, int to_len) {
+  Internal_ReplicateTensor_Int32(fromm, to, to_len);
 }
 
-void ecall_Internal_ReplicateTensor_Uint32(int from, int* to, int to_len) {
-  Internal_ReplicateTensor_Uint32(from, to, to_len);
+void ecall_Internal_ReplicateTensor_Uint32(int fromm, int* to, int to_len) {
+  Internal_ReplicateTensor_Uint32(fromm, to, to_len);
 }
 
-void ecall_Internal_ReplicateTensor_Int8(int from, int* to, int to_len) {
-  Internal_ReplicateTensor_Int8(from, to, to_len);
+void ecall_Internal_ReplicateTensor_Int8(int fromm, int* to, int to_len) {
+  Internal_ReplicateTensor_Int8(fromm, to, to_len);
 }
 
-void ecall_Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key, jpyo0803::ProjectionType type) {
-  Internal_SetEncKeyAndDecKey(layer_idx, enc_key_pool, dec_key, type);
+void ecall_Internal_GetCprngTensor(int* out, int shape_len, int* shape) {
+  Internal_GetCprngTensor(out, shape_len, shape);
 }
 
-void ecall_Internal_SetLinearWeightScales(int layer_idx, float* scales, int len, jpyo0803::ProjectionType type) {
-  Internal_SetLinearWeightScales(layer_idx, scales, len, type);
+void ecall_Internal_SetEncKeyAndDecKey(int layer_idx, int* enc_key_pool, int* dec_key, int type) {
+  Internal_SetEncKeyAndDecKey(layer_idx, enc_key_pool, dec_key, static_cast<jpyo0803::ProjectionType>(type));
+}
+
+void ecall_Internal_SetLinearWeightScales(int layer_idx, float* scales, int len, int type) {
+  Internal_SetLinearWeightScales(layer_idx, scales, len, static_cast<jpyo0803::ProjectionType>(type));
 }
 
 void ecall_Internal_SetRMSNormWeight(int layer_idx, float* weight, float eps, int type) {
   Internal_SetRMSNormWeight(layer_idx, weight, eps, type);
 }
 
-void ecall_Internal_QuantizeLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
-  Internal_QuantizeLinearActivation(layer_idx, from, to_len, to, type);
+void ecall_Internal_QuantizeLinearActivation(int layer_idx, int fromm, int to_len, int* to, int type) {
+  Internal_QuantizeLinearActivation(layer_idx, fromm, to_len, to, static_cast<jpyo0803::ProjectionType>(type));
 }
 
-void ecall_Internal_EncryptLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
-  Internal_EncryptLinearActivation(layer_idx, from, to_len, to, type);
+void ecall_Internal_EncryptLinearActivation(int layer_idx, int fromm, int to_len, int* to, int type) {
+  Internal_EncryptLinearActivation(layer_idx, fromm, to_len, to, static_cast<jpyo0803::ProjectionType>(type));
 }
 
-void ecall_Internal_DecryptLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
-  Internal_DecryptLinearActivation(layer_idx, from, to_len, to, type);
+void ecall_Internal_DecryptLinearActivation(int layer_idx, int fromm, int to_len, int* to, int type) {
+  Internal_DecryptLinearActivation(layer_idx, fromm, to_len, to, static_cast<jpyo0803::ProjectionType>(type));
 }
 
-void ecall_Internal_DequantizeLinearActivation(int layer_idx, int from, int to_len, int* to, jpyo0803::ProjectionType type) {
-  Internal_DequantizeLinearActivation(layer_idx, from, to_len, to, type);
+void ecall_Internal_DequantizeLinearActivation(int layer_idx, int fromm, int to_len, int* to, int type) {
+  Internal_DequantizeLinearActivation(layer_idx, fromm, to_len, to, static_cast<jpyo0803::ProjectionType>(type));
 }
 
 void ecall_Internal_SetQKVOutputScales(int layer_idx, float q_output_scale, float k_output_scale, float v_output_scale) {
   Internal_SetQKVOutputScales(layer_idx, q_output_scale, k_output_scale, v_output_scale);
 }
 
-void ecall_Internal_QuantizeAndShiftQ(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeQ_QK(layer_idx, from, to_len, to);
+void ecall_Internal_QuantizeAndShiftQ(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_QuantizeQ_QK(layer_idx, fromm, to_len, to);
 }
 
-void ecall_Internal_QuantizeAndShiftK(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeK_QK(layer_idx, from, to_len, to);
+void ecall_Internal_QuantizeAndShiftK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_QuantizeK_QK(layer_idx, fromm, to_len, to);
 }
 
 void ecall_Internal_SetAttentionMask(float* mask, int M, int N) {
@@ -1578,32 +1590,32 @@ void ecall_Internal_GenerateUnshiftBuffer_QK(int layer_idx) {
   Internal_GenerateUnshiftBuffer_QK(layer_idx);
 }
 
-void ecall_Internal_QuantizeQ_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeQ_QK(layer_idx, from, to_len, to);
+void ecall_Internal_QuantizeQ_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_QuantizeQ_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_ShiftQ_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_ShiftQ_QK(layer_idx, from, to_len, to);
+void ecall_Internal_ShiftQ_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_ShiftQ_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_QuantizeK_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeK_QK(layer_idx, from, to_len, to);
+void ecall_Internal_QuantizeK_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_QuantizeK_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_ShiftK_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_ShiftK_QK(layer_idx, from, to_len, to);
+void ecall_Internal_ShiftK_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_ShiftK_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_EncryptX_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptX_QK(layer_idx, from, to_len, to);
+void ecall_Internal_EncryptX_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_EncryptX_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_EncryptY_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptY_QK(layer_idx, from, to_len, to);
+void ecall_Internal_EncryptY_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_EncryptY_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_Decrypt_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_Decrypt_QK(layer_idx, from, to_len, to);
+void ecall_Internal_Decrypt_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_Decrypt_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_Unshift_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_Unshift_QK(layer_idx, from, to_len, to);
+void ecall_Internal_Unshift_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_Unshift_QK(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_Dequantize_QK(int layer_idx, int from, int to_len, int* to) {
-  Internal_Dequantize_QK(layer_idx, from, to_len, to);
+void ecall_Internal_Dequantize_QK(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_Dequantize_QK(layer_idx, fromm, to_len, to);
 }
 
 void ecall_Internal_GenerateSecretKey_PV(int layer_idx) {
@@ -1622,32 +1634,32 @@ void ecall_Internal_GenerateUnshiftBuffer_PV(int layer_idx) {
   Internal_GenerateUnshiftBuffer_PV(layer_idx);
 }
 
-void ecall_Internal_QuantizeP_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeP_PV(layer_idx, from, to_len, to);
+void ecall_Internal_QuantizeP_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_QuantizeP_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_ShiftP_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_ShiftP_PV(layer_idx, from, to_len, to);
+void ecall_Internal_ShiftP_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_ShiftP_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_QuantizeV_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_QuantizeV_PV(layer_idx, from, to_len, to);
+void ecall_Internal_QuantizeV_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_QuantizeV_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_ShiftV_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_ShiftV_PV(layer_idx, from, to_len, to);
+void ecall_Internal_ShiftV_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_ShiftV_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_EncryptX_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptX_PV(layer_idx, from, to_len, to);
+void ecall_Internal_EncryptX_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_EncryptX_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_EncryptY_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_EncryptY_PV(layer_idx, from, to_len, to);
+void ecall_Internal_EncryptY_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_EncryptY_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_Decrypt_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_Decrypt_PV(layer_idx, from, to_len, to);
+void ecall_Internal_Decrypt_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_Decrypt_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_Unshift_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_Unshift_PV(layer_idx, from, to_len, to);
+void ecall_Internal_Unshift_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_Unshift_PV(layer_idx, fromm, to_len, to);
 }
-void ecall_Internal_Dequantize_PV(int layer_idx, int from, int to_len, int* to) {
-  Internal_Dequantize_PV(layer_idx, from, to_len, to);
+void ecall_Internal_Dequantize_PV(int layer_idx, int fromm, int to_len, int* to) {
+  Internal_Dequantize_PV(layer_idx, fromm, to_len, to);
 }
 
 void ecall_Internal_BookKeeperStore_Float(int loc, float* data, int shape_len,
@@ -1684,17 +1696,25 @@ void ecall_Internal_BookKeeperLoad_Int8(int loc, int8_t* out, int shape_len,
   Internal_BookKeeperLoad_Int8(loc, out, shape_len, shape);
                                         }
 
-void ecall_Internal_BookKeeperIsAvailable_Float(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Float(loc, ret);
+void ecall_Internal_BookKeeperIsAvailable_Float(int loc, int* ret) {
+  bool tmp;
+  Internal_BookKeeperIsAvailable_Float(loc, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_BookKeeperIsAvailable_Int32(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Int32(loc, ret);
+void ecall_Internal_BookKeeperIsAvailable_Int32(int loc, int* ret) {
+  bool tmp;
+  Internal_BookKeeperIsAvailable_Int32(loc, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_BookKeeperIsAvailable_Uint32(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Uint32(loc, ret);
+void ecall_Internal_BookKeeperIsAvailable_Uint32(int loc, int* ret) {
+  bool tmp;
+  Internal_BookKeeperIsAvailable_Uint32(loc, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_BookKeeperIsAvailable_Int8(int loc, bool* ret) {
-  Internal_BookKeeperIsAvailable_Int8(loc, ret);
+void ecall_Internal_BookKeeperIsAvailable_Int8(int loc, int* ret) {
+  bool tmp;
+  Internal_BookKeeperIsAvailable_Int8(loc, &tmp);
+  *ret = tmp;
 }
 
 void ecall_Internal_BookKeeperGetShapeLength_Float(int loc, int* ret) {
@@ -1723,52 +1743,80 @@ void ecall_Internal_BookKeeperGetShape_Int8(int loc, int* out) {
   Internal_BookKeeperGetShape_Int8(loc, out);
 }
 
-void ecall_Internal_QKKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKKeyIsAvailable(layer_idx, ret);
+void ecall_Internal_QKKeyIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKKeyIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_QKDecKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKDecKeyIsAvailable(layer_idx, ret);
+void ecall_Internal_QKDecKeyIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKDecKeyIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_QKDecAddBufferIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKDecAddBufferIsAvailable(layer_idx, ret);
+void ecall_Internal_QKDecAddBufferIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKDecAddBufferIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_QKDecMultBufferIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKDecMultBufferIsAvailable(layer_idx, ret);
-}
-
-void ecall_Internal_QKShiftedQIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKShiftedQIsAvailable(layer_idx, ret);
-}
-void ecall_Internal_QKShiftedKIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKShiftedKIsAvailable(layer_idx, ret);
-}
-
-void ecall_Internal_QKUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
-  Internal_QKUnshiftBufferIsAvailable(layer_idx, ret);
+void ecall_Internal_QKDecMultBufferIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKDecMultBufferIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
 
-void ecall_Internal_PVKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVKeyIsAvailable(layer_idx, ret);
+void ecall_Internal_QKShiftedQIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKShiftedQIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
-void ecall_Internal_PVDecKeyIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVDecKeyIsAvailable(layer_idx, ret);
-}
-void ecall_Internal_PVDecAddBufferIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVDecAddBufferIsAvailable(layer_idx, ret);
-}
-void ecall_Internal_PVDecMultBufferIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVDecMultBufferIsAvailable(layer_idx, ret);
+void ecall_Internal_QKShiftedKIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKShiftedKIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
 
-void ecall_Internal_PVShiftedPIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVShiftedPIsAvailable(layer_idx, ret);
-}
-void ecall_Internal_PVShiftedVIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVShiftedVIsAvailable(layer_idx, ret);
+void ecall_Internal_QKUnshiftBufferIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_QKUnshiftBufferIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
 
-void ecall_Internal_PVUnshiftBufferIsAvailable(int layer_idx, bool* ret) {
-  Internal_PVUnshiftBufferIsAvailable(layer_idx, ret);
+void ecall_Internal_PVKeyIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVKeyIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
+}
+void ecall_Internal_PVDecKeyIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVDecKeyIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
+}
+void ecall_Internal_PVDecAddBufferIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVDecAddBufferIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
+}
+void ecall_Internal_PVDecMultBufferIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVDecMultBufferIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
+}
+
+void ecall_Internal_PVShiftedPIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVShiftedPIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
+}
+void ecall_Internal_PVShiftedVIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVShiftedVIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
+}
+
+void ecall_Internal_PVUnshiftBufferIsAvailable(int layer_idx, int* ret) {
+  bool tmp;
+  Internal_PVUnshiftBufferIsAvailable(layer_idx, &tmp);
+  *ret = tmp;
 }
 
 void ecall_Internal_Matmul_CPU_QK(int layer_idx, int q_from, int k_from,
