@@ -47,7 +47,7 @@ class SecLLMCppWrapper:
          num_hidden_layers,
          num_key_value_heads
       '''
-      
+
       cls.lib.initialize_enclave.restype = c_ulong
       cls.eid = []
       for _ in range(num_enclaves):
@@ -66,46 +66,43 @@ class SecLLMCppWrapper:
   @classmethod
   def __GetShape_Float(cls, loc : int):
     dim = c_int(0)
-    cls.lib.Ext_BookKeeperGetShapeLength_Float(loc, byref(dim))
+    cls.lib.Ext_BookKeeperGetShapeLength_Float(cls.eid[0], loc, byref(dim))
 
     shape_tensor = torch.empty(dim.value, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperGetShape_Float(loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperGetShape_Float(cls.eid[0], loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
     shape_list = shape_tensor.tolist()
     return torch.Size(shape_list)
 
   @classmethod
   def __GetShape_Int32(cls, loc : int):
     dim = c_int(0)
-    cls.lib.Ext_BookKeeperGetShapeLength_Int32(loc, byref(dim))
+    cls.lib.Ext_BookKeeperGetShapeLength_Int32(cls.eid[0], loc, byref(dim))
 
     shape_tensor = torch.empty(dim.value, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperGetShape_Int32(loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperGetShape_Int32(cls.eid[0], loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
     shape_list = shape_tensor.tolist()
     return torch.Size(shape_list)
 
   @classmethod
   def __GetShape_Uint32(cls, loc : int):
     dim = c_int(0)
-    cls.lib.Ext_BookKeeperGetShapeLength_Uint32(loc, byref(dim))
+    cls.lib.Ext_BookKeeperGetShapeLength_Uint32(cls.eid[0], loc, byref(dim))
 
     shape_tensor = torch.empty(dim.value, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperGetShape_Uint32(loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperGetShape_Uint32(cls.eid[0], loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
     shape_list = shape_tensor.tolist()
     return torch.Size(shape_list)
   
   @classmethod
   def __GetShape_Int8(cls, loc : int):
     dim = c_int(0)
-    cls.lib.Ext_BookKeeperGetShapeLength_Int8(loc, byref(dim))
+    cls.lib.Ext_BookKeeperGetShapeLength_Int8(cls.eid[0], loc, byref(dim))
 
     shape_tensor = torch.empty(dim.value, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperGetShape_Int8(loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperGetShape_Int8(cls.eid[0], loc, cast(shape_tensor.data_ptr(), POINTER(c_int)))
     shape_list = shape_tensor.tolist()
     return torch.Size(shape_list)
 
-  @classmethod
-  def PrintTest(cls, a, b):
-    cls.lib.Ext_PrintTest(a, b)
   
   @classmethod
   def Softmax(cls, layer_idx : int, src : int, dst: list[int]):
@@ -113,7 +110,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Softmax
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Softmax(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Softmax(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def SwiGLU(cls, layer_idx : int, gate_in : int, up_in : int, dst : list[int]):
@@ -123,7 +120,7 @@ class SecLLMCppWrapper:
     '''
 
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_SwiGLU(layer_idx, gate_in, up_in, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_SwiGLU(cls.eid[0], layer_idx, gate_in, up_in, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
   
   @classmethod
   def RMSNorm(cls, layer_idx : int, src : int, dst : list[int], type):
@@ -133,7 +130,7 @@ class SecLLMCppWrapper:
     '''
 
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_RMSNorm(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
+    cls.lib.Ext_RMSNorm(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
   
   @classmethod
   def ElementwiseAdd(cls, layer_idx : int, src1 : int, src2 : int, dst : list[int], type : int):
@@ -143,7 +140,7 @@ class SecLLMCppWrapper:
     '''
     
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ElementWiseAdd(layer_idx, src1, src2, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
+    cls.lib.Ext_ElementWiseAdd(cls.eid[0], layer_idx, src1, src2, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type)
 
 
   @classmethod
@@ -168,7 +165,7 @@ class SecLLMCppWrapper:
     sin = sin.to(torch.float32)
     B, Q_M, N, K = q.shape
     _, K_M, _, _ = k.shape
-    cls.lib.Ext_ApplyRotaryPosEmb(cast(q.data_ptr(), POINTER(c_float)), cast(k.data_ptr(), POINTER(c_float)), cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)), B, Q_M, K_M, N, K)
+    cls.lib.Ext_ApplyRotaryPosEmb(cls.eid[0], cast(q.data_ptr(), POINTER(c_float)), cast(k.data_ptr(), POINTER(c_float)), cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)), B, Q_M, K_M, N, K)
     q_embed = q.to(dtype)
     k_embed = k.to(dtype)
     return q_embed, k_embed
@@ -189,7 +186,7 @@ class SecLLMCppWrapper:
     cos = torch.zeros(1, position_ids.shape[1], inv_freq.shape[0] * 2, dtype=torch.float32)
     sin = torch.zeros(1, position_ids.shape[1], inv_freq.shape[0] * 2, dtype=torch.float32)
 
-    cls.lib.Ext_LlamaRotaryEmbedding(cast(inv_freq.data_ptr(), POINTER(c_float)), inv_freq.shape[0], cast(position_ids.data_ptr(), POINTER(c_float)), position_ids.shape[1], cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)))
+    cls.lib.Ext_LlamaRotaryEmbedding(cls.eid[0], cast(inv_freq.data_ptr(), POINTER(c_float)), inv_freq.shape[0], cast(position_ids.data_ptr(), POINTER(c_float)), position_ids.shape[1], cast(cos.data_ptr(), POINTER(c_float)), cast(sin.data_ptr(), POINTER(c_float)))
     cos = cos.to(input_dtype)
     sin = sin.to(input_dtype)
     return cos, sin
@@ -199,7 +196,7 @@ class SecLLMCppWrapper:
   def BookKeeperIsAvailable_Float(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     ret = c_bool(-1)
-    cls.lib.Ext_BookKeeperIsAvailable_Float(loc, byref(ret))
+    cls.lib.Ext_BookKeeperIsAvailable_Float(cls.eid[0], loc, byref(ret))
     # convert c_bool to python bool
     return ret.value
 
@@ -207,7 +204,7 @@ class SecLLMCppWrapper:
   def BookKeeperIsAvailable_Int32(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     ret = c_bool(-1)
-    cls.lib.Ext_BookKeeperIsAvailable_Int32(loc, byref(ret))
+    cls.lib.Ext_BookKeeperIsAvailable_Int32(cls.eid[0], loc, byref(ret))
     # convert c_bool to python bool
     return ret.value
 
@@ -215,7 +212,7 @@ class SecLLMCppWrapper:
   def BookKeeperIsAvailable_Uint32(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     ret = c_bool(-1)
-    cls.lib.Ext_BookKeeperIsAvailable_Uint32(loc, byref(ret))
+    cls.lib.Ext_BookKeeperIsAvailable_Uint32(cls.eid[0], loc, byref(ret))
     # convert c_bool to python bool
     return ret.value
   
@@ -223,7 +220,7 @@ class SecLLMCppWrapper:
   def BookKeeperIsAvailable_Int8(cls, layer_index, operation_index, input_index):
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     ret = c_bool(-1)
-    cls.lib.Ext_BookKeeperIsAvailable_Int8(loc, byref(ret))
+    cls.lib.Ext_BookKeeperIsAvailable_Int8(cls.eid[0], loc, byref(ret))
     # convert c_bool to python bool
     return ret.value
   
@@ -235,7 +232,7 @@ class SecLLMCppWrapper:
     
     # Convert shape to list
     shape_list = torch.tensor(data.shape, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperStore_Float(loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperStore_Float(cls.eid[0], loc, cast(data.data_ptr(), POINTER(c_float)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def BookKeeperStore_Int32(cls, layer_index, operation_index, input_index, data):
@@ -245,7 +242,7 @@ class SecLLMCppWrapper:
     
     # Convert shape to list
     shape_list = torch.tensor(data.shape, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperStore_Int32(loc, cast(data.data_ptr(), POINTER(c_int)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperStore_Int32(cls.eid[0], loc, cast(data.data_ptr(), POINTER(c_int)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def BookKeeperStore_Uint32(cls, layer_index, operation_index, input_index, data, new_shape = None):
@@ -255,7 +252,7 @@ class SecLLMCppWrapper:
     
     # Convert shape to list
     shape_list = torch.tensor(data.shape, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperStore_Uint32(loc, cast(data.data_ptr(), POINTER(c_uint32)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperStore_Uint32(cls.eid[0], loc, cast(data.data_ptr(), POINTER(c_uint32)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def BookKeeperStore_Int8(cls, layer_index, operation_index, input_index, data):
@@ -265,7 +262,7 @@ class SecLLMCppWrapper:
     
     # Convert shape to list
     shape_list = torch.tensor(data.shape, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperStore_Int8(loc, cast(data.data_ptr(), POINTER(c_int8)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperStore_Int8(cls.eid[0], loc, cast(data.data_ptr(), POINTER(c_int8)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def BookKeeperLoad_Float(cls, layer_index, operation_index, input_index):
@@ -276,7 +273,7 @@ class SecLLMCppWrapper:
     shape_list = torch.tensor(shape, dtype=torch.int32)
     out = torch.empty(shape, dtype=torch.float32)
 
-    cls.lib.Ext_BookKeeperLoad_Float(loc, cast(out.data_ptr(), POINTER(c_float)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperLoad_Float(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_float)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
 
@@ -289,7 +286,7 @@ class SecLLMCppWrapper:
     shape_list = torch.tensor(shape, dtype=torch.int32)
     out = torch.empty(shape, dtype=torch.int32)
 
-    cls.lib.Ext_BookKeeperLoad_Int32(loc, cast(out.data_ptr(), POINTER(c_int)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperLoad_Int32(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_int)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
 
@@ -302,7 +299,7 @@ class SecLLMCppWrapper:
     shape_list = torch.tensor(shape, dtype=torch.int32)
     out = torch.empty(shape, dtype=torch.uint32)
 
-    cls.lib.Ext_BookKeeperLoad_Uint32(loc, cast(out.data_ptr(), POINTER(c_uint32)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperLoad_Uint32(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_uint32)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
   
@@ -315,7 +312,7 @@ class SecLLMCppWrapper:
     shape_list = torch.tensor(shape, dtype=torch.int32)
     out = torch.empty(shape, dtype=torch.int8)
 
-    cls.lib.Ext_BookKeeperLoad_Int8(loc, cast(out.data_ptr(), POINTER(c_int8)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperLoad_Int8(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_int8)), len(shape), cast(shape_list.data_ptr(), POINTER(c_int)))
 
     return out
 
@@ -323,13 +320,13 @@ class SecLLMCppWrapper:
   def BroadcastTensor_Float(cls, src : int, dst : list[int]):
     # be careful src is in int64
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ReplicateTensor_Float(src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
+    cls.lib.Ext_ReplicateTensor_Float(cls.eid[0], src, cast(dst.data_ptr(), POINTER(c_int)), len(dst))
 
   @classmethod
   def GetCprngTensor(cls, shape):
     out = torch.empty(shape, dtype=torch.int32)
     shape_list = torch.tensor(shape, dtype=torch.int32)
-    cls.lib.Ext_GetCprngTensor(cast(out.data_ptr(), POINTER(c_int)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_GetCprngTensor(cls.eid[0], cast(out.data_ptr(), POINTER(c_int)), len(shape_list), cast(shape_list.data_ptr(), POINTER(c_int)))
     return out
   
   @classmethod
@@ -339,7 +336,7 @@ class SecLLMCppWrapper:
     '''
     assert enc_key_pool.dtype == torch.int32
     assert dec_key.dtype == torch.int32
-    cls.lib.Ext_SetEncKeyAndDecKey(layer_idx, cast(enc_key_pool.data_ptr(), POINTER(c_int)), cast(dec_key.data_ptr(), POINTER(c_int)), type.value)
+    cls.lib.Ext_SetEncKeyAndDecKey(cls.eid[0], layer_idx, cast(enc_key_pool.data_ptr(), POINTER(c_int)), cast(dec_key.data_ptr(), POINTER(c_int)), type.value)
 
   @classmethod
   def SetLinearWeightScales(cls, layer_idx : int, weight_scales, type : ProjectionType):
@@ -348,7 +345,7 @@ class SecLLMCppWrapper:
     '''
     assert weight_scales.dtype == torch.float32
 
-    cls.lib.Ext_SetLinearWeightScales(layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type.value)
+    cls.lib.Ext_SetLinearWeightScales(cls.eid[0], layer_idx, cast(weight_scales.data_ptr(), POINTER(c_float)), weight_scales.shape[0], type.value)
   
   @classmethod
   def SetRMSNormWeight(cls, layer_idx : int, weight, eps, type : int):
@@ -357,7 +354,7 @@ class SecLLMCppWrapper:
     '''
     weight = weight.to(torch.float32)
     assert weight.dtype == torch.float32
-    cls.lib.Ext_SetRMSNormWeight(layer_idx, cast(weight.data_ptr(), POINTER(c_float)), c_float(eps), type)
+    cls.lib.Ext_SetRMSNormWeight(cls.eid[0], layer_idx, cast(weight.data_ptr(), POINTER(c_float)), c_float(eps), type)
 
   @classmethod
   def QuantizeLinearActivation(cls, layer_idx: int , src : int, dst : list[int], type : ProjectionType):
@@ -366,7 +363,7 @@ class SecLLMCppWrapper:
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
 
-    cls.lib.Ext_QuantizeLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
+    cls.lib.Ext_QuantizeLinearActivation(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
 
   @classmethod
   def EncryptLinearActivation(cls, layer_idx: int , src : int, dst : list[int], type : ProjectionType):
@@ -375,7 +372,7 @@ class SecLLMCppWrapper:
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
 
-    cls.lib.Ext_EncryptLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
+    cls.lib.Ext_EncryptLinearActivation(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
 
   @classmethod
   def DecryptLinearActivation(cls, layer_idx, src : int, dst : list[int], type : ProjectionType):
@@ -383,7 +380,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Decrypt Activation
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_DecryptLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
+    cls.lib.Ext_DecryptLinearActivation(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
 
   @classmethod
   def DequantizeLinearActivation(cls, layer_idx, src : int, dst : list[int], type : ProjectionType):
@@ -391,7 +388,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Dequantize Activation
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_DequantizeLinearActivation(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
+    cls.lib.Ext_DequantizeLinearActivation(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)), type.value)
 
   @classmethod
   def SetQKVOutputScales(cls, layer_idx, q_output_scale, k_output_scale, v_output_scale):
@@ -399,7 +396,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Set QKV output scales
     '''
 
-    cls.lib.Ext_SetQKVOutputScales(layer_idx, c_float(q_output_scale), c_float(k_output_scale), c_float(v_output_scale))
+    cls.lib.Ext_SetQKVOutputScales(cls.eid[0], layer_idx, c_float(q_output_scale), c_float(k_output_scale), c_float(v_output_scale))
 
   @classmethod
   def QuantizeQ_QK(cls, layer_idx : int, src : int, dst : list[int]):
@@ -407,7 +404,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Quantize Q
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_QuantizeQ_QK(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_QuantizeQ_QK(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def ShiftQ_QK(cls, layer_idx : int, src : int, dst : list[int]):
@@ -415,7 +412,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Shift Q
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ShiftQ_QK(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_ShiftQ_QK(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def QuantizeK_QK(cls, layer_idx : int, src : int, dst : list[int]):
@@ -423,7 +420,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Quantize K
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_QuantizeK_QK(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_QuantizeK_QK(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def ShiftK_QK(cls, layer_idx : int, src : int, dst : list[int]):
@@ -431,7 +428,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Shift K
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ShiftK_QK(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_ShiftK_QK(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def QuantizeP_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -439,7 +436,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Quantize P
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_QuantizeP_PV(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_QuantizeP_PV(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def ShiftP_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -447,7 +444,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Shift P
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ShiftP_PV(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_ShiftP_PV(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def QuantizeV_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -455,7 +452,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Quantize V
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_QuantizeV_PV(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_QuantizeV_PV(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def ShiftV_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -463,7 +460,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Shift V
     '''
     dst_list = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_ShiftV_PV(layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_ShiftV_PV(cls.eid[0], layer_idx, src, len(dst_list), cast(dst_list.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Unshift_QK(cls, layer_idx: int, src : int, dst : list[int]):
@@ -471,7 +468,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Unshift QK
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Unshift_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Unshift_QK(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Dequantize_QK(cls, layer_idx: int, src : int, dst : list[int]):
@@ -479,7 +476,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Dequantize QK
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Dequantize_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Dequantize_QK(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Unshift_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -487,7 +484,7 @@ class SecLLMCppWrapper:
         NOTE(jpyo0803): Unshift PV
     '''
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Unshift_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Unshift_PV(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Dequantize_PV(cls, layer_idx: int, src : int, dst : list[int]):
@@ -496,7 +493,7 @@ class SecLLMCppWrapper:
     '''
     
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Dequantize_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Dequantize_PV(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def SetAttentionMask(cls, attn_mask):
@@ -506,174 +503,174 @@ class SecLLMCppWrapper:
 
     assert attn_mask.is_contiguous()
     attn_mask = attn_mask.to(torch.float32)
-    cls.lib.Ext_SetAttentionMask(cast(attn_mask.data_ptr(), POINTER(c_float)), attn_mask.shape[-2], attn_mask.shape[-1])
+    cls.lib.Ext_SetAttentionMask(cls.eid[0], cast(attn_mask.data_ptr(), POINTER(c_float)), attn_mask.shape[-2], attn_mask.shape[-1])
 
   @classmethod
   def SetBatchSizeAndTokenLength(cls, layer_idx, bsz, token_length):
-    cls.lib.Ext_SetBatchSizeAndTokenLength(layer_idx, bsz, token_length)
+    cls.lib.Ext_SetBatchSizeAndTokenLength(cls.eid[0], layer_idx, bsz, token_length)
 
   @classmethod
   def GenerateSecretKey_QK(cls, layer_idx):
-    cls.lib.Ext_GenerateSecretKey_QK(layer_idx)
+    cls.lib.Ext_GenerateSecretKey_QK(cls.eid[0], layer_idx)
 
   @classmethod
   def GenerateDecryptionKey_QK(cls, layer_idx, src_x : int, src_y: int):
-    cls.lib.Ext_GenerateDecryptionKey_QK(layer_idx, src_x, src_y)
+    cls.lib.Ext_GenerateDecryptionKey_QK(cls.eid[0], layer_idx, src_x, src_y)
 
   @classmethod
   def GenerateDecAddBuffer_QK(cls, layer_idx):
-    cls.lib.Ext_GenerateDecAddBuffer_QK(layer_idx)
+    cls.lib.Ext_GenerateDecAddBuffer_QK(cls.eid[0], layer_idx)
 
   @classmethod
   def GenerateDecMultBuffer_QK(cls, layer_idx):
-    cls.lib.Ext_GenerateDecMultBuffer_QK(layer_idx)
+    cls.lib.Ext_GenerateDecMultBuffer_QK(cls.eid[0], layer_idx)
 
   @classmethod
   def GenerateUnshiftBuffer_QK(cls, layer_idx):
-    cls.lib.Ext_GenerateUnshiftBuffer_QK(layer_idx)
+    cls.lib.Ext_GenerateUnshiftBuffer_QK(cls.eid[0], layer_idx)
 
   @classmethod
   def EncryptX_QK(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_EncryptX_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_EncryptX_QK(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def EncryptY_QK(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_EncryptY_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_EncryptY_QK(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Decrypt_QK(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Decrypt_QK(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Decrypt_QK(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def GenerateSecretKey_PV(cls, layer_idx):
-    cls.lib.Ext_GenerateSecretKey_PV(layer_idx)
+    cls.lib.Ext_GenerateSecretKey_PV(cls.eid[0], layer_idx)
 
   @classmethod
   def GenerateDecryptionKey_PV(cls, layer_idx, src_x : int, src_y: int):
-    cls.lib.Ext_GenerateDecryptionKey_PV(layer_idx, src_x, src_y)
+    cls.lib.Ext_GenerateDecryptionKey_PV(cls.eid[0], layer_idx, src_x, src_y)
  
   @classmethod
   def GenerateDecAddBuffer_PV(cls, layer_idx):
-    cls.lib.Ext_GenerateDecAddBuffer_PV(layer_idx)
+    cls.lib.Ext_GenerateDecAddBuffer_PV(cls.eid[0], layer_idx)
 
   @classmethod
   def GenerateDecMultBuffer_PV(cls, layer_idx):
-    cls.lib.Ext_GenerateDecMultBuffer_PV(layer_idx)
+    cls.lib.Ext_GenerateDecMultBuffer_PV(cls.eid[0], layer_idx)
 
   @classmethod
   def GenerateUnshiftBuffer_PV(cls, layer_idx):
-    cls.lib.Ext_GenerateUnshiftBuffer_PV(layer_idx)
+    cls.lib.Ext_GenerateUnshiftBuffer_PV(cls.eid[0], layer_idx)
 
   @classmethod
   def EncryptX_PV(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_EncryptX_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_EncryptX_PV(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def EncryptY_PV(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_EncryptY_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_EncryptY_PV(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Decrypt_PV(cls, layer_idx, src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Decrypt_PV(layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Decrypt_PV(cls.eid[0], layer_idx, src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def Matmul_CPU_QK(cls, layer_idx, q_src, k_src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Matmul_CPU_QK(layer_idx, q_src, k_src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Matmul_CPU_QK(cls.eid[0], layer_idx, q_src, k_src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
   
   @classmethod
   def Matmul_CPU_PV(cls, layer_idx, p_src, v_src, dst : list[int]):
     dst = torch.tensor(dst, dtype=torch.int32)
-    cls.lib.Ext_Matmul_CPU_PV(layer_idx, p_src, v_src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_Matmul_CPU_PV(cls.eid[0], layer_idx, p_src, v_src, len(dst), cast(dst.data_ptr(), POINTER(c_int)))
 
   @classmethod
   def QKKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKKeyIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKKeyIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
 
   @classmethod
   def QKDecKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKDecKeyIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKDecKeyIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def QKDecAddBufferIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKDecAddBufferIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKDecAddBufferIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def QKDecMultBufferIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKDecMultBufferIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKDecMultBufferIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def QKShiftedQIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKShiftedQIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKShiftedQIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def QKShiftedKIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKShiftedKIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKShiftedKIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
 
   @classmethod
   def QKUnshiftBufferIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_QKUnshiftBufferIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_QKUnshiftBufferIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
 
   @classmethod
   def PVKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVKeyIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVKeyIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def PVDecKeyIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVDecKeyIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVDecKeyIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def PVDecAddBufferIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVDecAddBufferIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVDecAddBufferIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def PVDecMultBufferIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVDecMultBufferIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVDecMultBufferIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def PVShiftedPIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVShiftedPIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVShiftedPIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def PVShiftedVIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVShiftedVIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVShiftedVIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
   
   @classmethod
   def PVUnshiftBufferIsAvailable(cls, layer_idx):
     ret = c_bool(-1)
-    cls.lib.Ext_PVUnshiftBufferIsAvailable(layer_idx, byref(ret))
+    cls.lib.Ext_PVUnshiftBufferIsAvailable(cls.eid[0], layer_idx, byref(ret))
     return ret.value
 
   @classmethod
@@ -681,7 +678,7 @@ class SecLLMCppWrapper:
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     shape = cls.__GetShape_Float(loc)
     out = torch.empty(shape, dtype=torch.float32)
-    cls.lib.Ext_BookKeeperLoadWithoutReset_Float(loc, cast(out.data_ptr(), POINTER(c_float)))
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Float(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_float)))
     return out
 
   @classmethod
@@ -689,7 +686,7 @@ class SecLLMCppWrapper:
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     shape = cls.__GetShape_Int32(loc)
     out = torch.empty(shape, dtype=torch.int32)
-    cls.lib.Ext_BookKeeperLoadWithoutReset_Int32(loc, cast(out.data_ptr(), POINTER(c_int)))
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Int32(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_int)))
     return out
   
   @classmethod
@@ -697,7 +694,7 @@ class SecLLMCppWrapper:
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     shape = cls.__GetShape_Uint32(loc)
     out = torch.empty(shape, dtype=torch.uint32)
-    cls.lib.Ext_BookKeeperLoadWithoutReset_Uint32(loc, cast(out.data_ptr(), POINTER(c_uint32)))
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Uint32(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_uint32)))
     return out
   
   @classmethod
@@ -705,18 +702,18 @@ class SecLLMCppWrapper:
     loc = GetBookKeeperLinearIndex(layer_index, operation_index, input_index)
     shape = cls.__GetShape_Int8(loc)
     out = torch.empty(shape, dtype=torch.int8)
-    cls.lib.Ext_BookKeeperLoadWithoutReset_Int8(loc, cast(out.data_ptr(), POINTER(c_int8)))
+    cls.lib.Ext_BookKeeperLoadWithoutReset_Int8(cls.eid[0], loc, cast(out.data_ptr(), POINTER(c_int8)))
     return out
 
   @classmethod
   def Reset(cls):
     print("Reset internal states")
-    cls.lib.Ext_Reset()
+    cls.lib.Ext_Reset(cls.eid[0], )
 
   @classmethod
   def Close(cls, output_file_name : str):
     # pass string to C++
-    cls.lib.Ext_Close(c_char_p(output_file_name.encode('utf-8'))) 
+    cls.lib.Ext_Close(cls.eid[0], c_char_p(output_file_name.encode('utf-8'))) 
 
 if __name__ == '__main__':
     secllm = SecLLM(32)
