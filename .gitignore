@@ -22,3 +22,4 @@ test/
 collected_timestamp.txt
 
 **/untrusted_app
+**/.config_SIM_PRERELEASE_x64

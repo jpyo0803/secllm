@@ -20,7 +20,7 @@
 #endif
 
 #define TOKEN_FILENAME   "enclave.token"
-#define ENCLAVE_FILENAME "enclave.signed.so"
+#define ENCLAVE_FILENAME "secllm_cpp/enclave.signed.so"
 
 using namespace std::chrono;
 

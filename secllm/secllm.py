@@ -1,11 +1,12 @@
 
-from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper
+# from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper # Non-SGX
+from secllm_cpp.secllm_cpp_wrapper_sgx import SecLLMCppWrapper # SGX
 from secllm.task_scheduler import TaskScheduler
 from secllm.thread_pool import ThreadPool
 from secllm.time_collector import TimeCollector
 
 # Configurations
-NUM_WORKERS = 4
+NUM_WORKERS = 1
 VERIFY_RESULT = False
 
 if VERIFY_RESULT:
