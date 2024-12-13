@@ -4,7 +4,7 @@ import cupy
 from enum import Enum
 
 
-USE_SGX = False
+USE_SGX = True
 
 if USE_SGX:
   SECLLM_LIB_PATH = './secllm_cpp/App/enclave_bridge.so' # SGX
@@ -58,8 +58,11 @@ class SecLLMCppWrapper:
         for _ in range(num_enclaves):
           eid = cls.lib.initialize_enclave()
           cls.eid.append(eid)
+        print("Enclave initialized")
 
+      print("Before Ext_CreateSecLLM")
       cls.lib.Ext_CreateSecLLM(config.hidden_size, config.intermediate_size, config.max_position_embeddings, config.num_attention_heads, config.num_hidden_layers, config.num_key_value_heads, enc_key_pool_size)
+      print("After Ext_CreateSecLLM")
 
     return cls._instance
   

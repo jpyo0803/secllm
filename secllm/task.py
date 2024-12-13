@@ -165,7 +165,9 @@ class Task0(Task):
         return True
 
     def run(self):
+        print("Task0 Enter")
         self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
+        print("Task0 Exit")
 
     def __call__(self, worker_id):
         self.run()
@@ -183,7 +185,10 @@ class Task1(Task):
         # self.secllm_cpp_wrapper.PrintTest(self.layer_idx, self.task_id)
         src = GetBookKeeperLinearIndex(self.layer_idx, self.task_id, 0) # float
         dst = [GetBookKeeperLinearIndex(self.layer_idx, next_task_id, 0) for next_task_id in self.next_task_ids]
+        
+        print("Task1 Enter")
         self.secllm_cpp_wrapper.BroadcastTensor_Float(src, dst)
+        print("Task1 Exit")
 
     def __call__(self, worker_id):
         self.run()

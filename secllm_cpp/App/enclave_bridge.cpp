@@ -206,10 +206,12 @@ extern "C"
                                int num_hidden_layers, int num_key_value_heads,
                                int enc_key_pool_size) {
 
+        std::cout << "ecall internal create sec llm" << std::endl;
         sgx_status_t ret = ecall_Internal_CreateSecLLM(global_eid, hidden_size, intermediate_size,
                                                  max_position_embeddings, num_attention_heads,
                                                  num_hidden_layers, num_key_value_heads,
                                                  enc_key_pool_size);
+        std::cout << "ecall internal create sec llm done" << std::endl;
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;

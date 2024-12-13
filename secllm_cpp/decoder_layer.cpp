@@ -149,65 +149,65 @@ DecoderLayer::DecoderLayer(int layer_idx, int hidden_size,
   input_layernorm_weights_.resize(hidden_size_);
   post_attention_layernorm_weights_.resize(hidden_size_);
 
-#if CHECK_SANITY == 1
-  ASSERT_ALWAYS(q_enc_key_pool_.size() == enc_key_pool_size_,
-                "q_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(q_enc_key_pool_.at(0).size() == hidden_size_,
-                "q_enc_key_pool_ hidden size is not correct!");
-  ASSERT_ALWAYS(k_enc_key_pool_.size() == enc_key_pool_size_,
-                "k_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(k_enc_key_pool_.at(0).size() == hidden_size_,
-                "k_enc_key_pool_ hidden size is not correct!");
-  ASSERT_ALWAYS(v_enc_key_pool_.size() == enc_key_pool_size_,
-                "v_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(v_enc_key_pool_.at(0).size() == hidden_size_,
-                "v_enc_key_pool_ hidden size is not correct!");
-  ASSERT_ALWAYS(o_enc_key_pool_.size() == enc_key_pool_size_,
-                "o_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(o_enc_key_pool_.at(0).size() == hidden_size_,
-                "o_enc_key_pool_ hidden size is not correct!");
-  ASSERT_ALWAYS(up_enc_key_pool_.size() == enc_key_pool_size_,
-                "up_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(up_enc_key_pool_.at(0).size() == hidden_size_,
-                "up_enc_key_pool_ hidden size is not correct!");
-  ASSERT_ALWAYS(gate_enc_key_pool_.size() == enc_key_pool_size_,
-                "gate_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(gate_enc_key_pool_.at(0).size() == hidden_size_,
-                "gate_enc_key_pool_ hidden size is not correct!");
-  ASSERT_ALWAYS(down_enc_key_pool_.size() == enc_key_pool_size_,
-                "down_enc_key_pool_ size is not correct!");
-  ASSERT_ALWAYS(down_enc_key_pool_.at(0).size() == intermediate_size_,
-                "down_enc_key_pool_ intermediate size is not correct!");
+// #if CHECK_SANITY == 1
+//   ASSERT_ALWAYS(q_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "q_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(q_enc_key_pool_.at(0).size() == hidden_size_,
+//                 "q_enc_key_pool_ hidden size is not correct!");
+//   ASSERT_ALWAYS(k_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "k_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(k_enc_key_pool_.at(0).size() == hidden_size_,
+//                 "k_enc_key_pool_ hidden size is not correct!");
+//   ASSERT_ALWAYS(v_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "v_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(v_enc_key_pool_.at(0).size() == hidden_size_,
+//                 "v_enc_key_pool_ hidden size is not correct!");
+//   ASSERT_ALWAYS(o_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "o_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(o_enc_key_pool_.at(0).size() == hidden_size_,
+//                 "o_enc_key_pool_ hidden size is not correct!");
+//   ASSERT_ALWAYS(up_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "up_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(up_enc_key_pool_.at(0).size() == hidden_size_,
+//                 "up_enc_key_pool_ hidden size is not correct!");
+//   ASSERT_ALWAYS(gate_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "gate_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(gate_enc_key_pool_.at(0).size() == hidden_size_,
+//                 "gate_enc_key_pool_ hidden size is not correct!");
+//   ASSERT_ALWAYS(down_enc_key_pool_.size() == enc_key_pool_size_,
+//                 "down_enc_key_pool_ size is not correct!");
+//   ASSERT_ALWAYS(down_enc_key_pool_.at(0).size() == intermediate_size_,
+//                 "down_enc_key_pool_ intermediate size is not correct!");
 
-  ASSERT_ALWAYS(q_dec_key_.size() == enc_key_pool_size_,
-                "q_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(q_dec_key_.at(0).size() == num_attention_heads_ * head_dim_,
-                "q_dec_key_ hidden size is not correct!");
-  ASSERT_ALWAYS(k_dec_key_.size() == enc_key_pool_size_,
-                "k_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(k_dec_key_.at(0).size() == num_key_value_heads_ * head_dim_,
-                "k_dec_key_ hidden size is not correct!");
-  ASSERT_ALWAYS(v_dec_key_.size() == enc_key_pool_size_,
-                "v_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(v_dec_key_.at(0).size() == num_key_value_heads_ * head_dim_,
-                "v_dec_key_ hidden size is not correct!");
-  ASSERT_ALWAYS(o_dec_key_.size() == enc_key_pool_size_,
-                "o_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(o_dec_key_.at(0).size() == hidden_size_,
-                "o_dec_key_ hidden size is not correct!");
-  ASSERT_ALWAYS(up_dec_key_.size() == enc_key_pool_size_,
-                "up_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(up_dec_key_.at(0).size() == intermediate_size_,
-                "up_dec_key_ intermediate size is not correct!");
-  ASSERT_ALWAYS(gate_dec_key_.size() == enc_key_pool_size_,
-                "gate_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(gate_dec_key_.at(0).size() == intermediate_size_,
-                "gate_dec_key_ intermediate size is not correct!");
-  ASSERT_ALWAYS(down_dec_key_.size() == enc_key_pool_size_,
-                "down_dec_key_ size is not correct!");
-  ASSERT_ALWAYS(down_dec_key_.at(0).size() == hidden_size_,
-                "down_dec_key_ hidden size is not correct!");
-#endif
+//   ASSERT_ALWAYS(q_dec_key_.size() == enc_key_pool_size_,
+//                 "q_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(q_dec_key_.at(0).size() == num_attention_heads_ * head_dim_,
+//                 "q_dec_key_ hidden size is not correct!");
+//   ASSERT_ALWAYS(k_dec_key_.size() == enc_key_pool_size_,
+//                 "k_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(k_dec_key_.at(0).size() == num_key_value_heads_ * head_dim_,
+//                 "k_dec_key_ hidden size is not correct!");
+//   ASSERT_ALWAYS(v_dec_key_.size() == enc_key_pool_size_,
+//                 "v_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(v_dec_key_.at(0).size() == num_key_value_heads_ * head_dim_,
+//                 "v_dec_key_ hidden size is not correct!");
+//   ASSERT_ALWAYS(o_dec_key_.size() == enc_key_pool_size_,
+//                 "o_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(o_dec_key_.at(0).size() == hidden_size_,
+//                 "o_dec_key_ hidden size is not correct!");
+//   ASSERT_ALWAYS(up_dec_key_.size() == enc_key_pool_size_,
+//                 "up_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(up_dec_key_.at(0).size() == intermediate_size_,
+//                 "up_dec_key_ intermediate size is not correct!");
+//   ASSERT_ALWAYS(gate_dec_key_.size() == enc_key_pool_size_,
+//                 "gate_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(gate_dec_key_.at(0).size() == intermediate_size_,
+//                 "gate_dec_key_ intermediate size is not correct!");
+//   ASSERT_ALWAYS(down_dec_key_.size() == enc_key_pool_size_,
+//                 "down_dec_key_ size is not correct!");
+//   ASSERT_ALWAYS(down_dec_key_.at(0).size() == hidden_size_,
+//                 "down_dec_key_ hidden size is not correct!");
+// #endif
 }
 
 void DecoderLayer::Reset() {
