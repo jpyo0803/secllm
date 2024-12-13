@@ -4,9 +4,13 @@ import cupy
 from enum import Enum
 
 
+USE_SGX = False
 
+if USE_SGX:
+  SECLLM_LIB_PATH = './secllm_cpp/App/enclave_bridge.so' # SGX
+else:
+  SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so' # Non SGX
 
-SECLLM_LIB_PATH = './secllm_cpp/libsecllm.so'
 
 MAX_NUM_LAYERS = 32
 MAX_NUM_OPERATIONS = 110
@@ -46,6 +50,14 @@ class SecLLMCppWrapper:
          num_hidden_layers,
          num_key_value_heads
       '''
+
+      if USE_SGX:
+        cls.lib.initialize_enclave.restype = c_ulong
+        cls.eid = []
+        num_enclaves = 1
+        for _ in range(num_enclaves):
+          eid = cls.lib.initialize_enclave()
+          cls.eid.append(eid)
 
       cls.lib.Ext_CreateSecLLM(config.hidden_size, config.intermediate_size, config.max_position_embeddings, config.num_attention_heads, config.num_hidden_layers, config.num_key_value_heads, enc_key_pool_size)
 

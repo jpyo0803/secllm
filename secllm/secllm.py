@@ -1,6 +1,5 @@
 
-# from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper # Non-SGX
-from secllm_cpp.secllm_cpp_wrapper_sgx import SecLLMCppWrapper # SGX
+from secllm_cpp.secllm_cpp_wrapper import SecLLMCppWrapper
 from secllm.task_scheduler import TaskScheduler
 from secllm.thread_pool import ThreadPool
 from secllm.time_collector import TimeCollector
