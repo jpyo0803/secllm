@@ -5,6 +5,7 @@ from enum import Enum
 
 
 USE_SGX = True
+# USE_SGX = False
 
 if USE_SGX:
   SECLLM_LIB_PATH = './secllm_cpp/App/enclave_bridge.so' # SGX

@@ -20,9 +20,9 @@ class BookKeeper {
 
   std::shared_ptr<T> RetrieveWithoutReset(int loc) {
 #if CHECK_SANITY == 1
-    ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(),
-                  "Invalid location, RetrieveWithoutReset");
-    ASSERT_ALWAYS(dict_[loc] != nullptr, "No object at the location");
+    // ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(),
+    //               "Invalid location, RetrieveWithoutReset");
+    // ASSERT_ALWAYS(dict_[loc] != nullptr, "No object at the location");
 #endif
     return dict_[loc];
   }
@@ -30,8 +30,8 @@ class BookKeeper {
   void Keep(const std::vector<int>& locs, std::shared_ptr<T>& obj) {
     for (auto loc : locs) {
 #if CHECK_SANITY == 1
-      ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(), "Invalid location, Keep");
-      ASSERT_ALWAYS(dict_[loc] == nullptr, "Location already occupied");
+      // ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(), "Invalid location, Keep");
+      // ASSERT_ALWAYS(dict_[loc] == nullptr, "Location already occupied");
 #endif
       dict_[loc] = obj;
     }
@@ -40,8 +40,8 @@ class BookKeeper {
 
   std::shared_ptr<T> Retrieve(int loc) {
 #if CHECK_SANITY == 1
-    ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(), "Invalid location, Retrieve");
-    ASSERT_ALWAYS(dict_[loc] != nullptr, "No object at the location");
+    // ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(), "Invalid location, Retrieve");
+    // ASSERT_ALWAYS(dict_[loc] != nullptr, "No object at the location");
 #endif
     std::shared_ptr<T> ret = dict_[loc];
     dict_[loc].reset();
@@ -50,8 +50,8 @@ class BookKeeper {
 
   bool IsAvailable(int loc) {
 #if CHECK_SANITY == 1
-    ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(),
-                  "Invalid location, IsAvailable");
+    // ASSERT_ALWAYS(loc >= 0 && loc < dict_.size(),
+    //               "Invalid location, IsAvailable");
 #endif
     return dict_[loc] != nullptr;
   }

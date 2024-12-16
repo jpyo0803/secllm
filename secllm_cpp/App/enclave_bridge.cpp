@@ -218,41 +218,22 @@ extern "C"
         }
     }
 
-    void Ext_Softmax_InPlace(float* x, int B, int M, int N, int K) {
-        sgx_status_t ret = ecall_Internal_Softmax_InPlace(global_eid, x, B, M, N, K);
-        if (ret != SGX_SUCCESS) {
-            print_error_message(ret);
-            throw ret;
+    void Ext_Softmax(int layer_idx, int fromm, int to_len, int* to) {
+        std::cout << "from : " << fromm  << std::endl;
+        for (int i = 0; i < to_len; i++) {
+            std::cout << to[i] << "\n";
         }
-    }
-
-    void Ext_Softmax(int fromm, int to_len, int* to) {
+        std::cout << "Before Softmax" << std::endl;
         sgx_status_t ret = ecall_Internal_Softmax(global_eid, fromm, to_len, to);
+        std::cout << "After Softmax" << std::endl;
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
         }
     }
 
-    void Ext_SwiGLU_InPlace(float* gate_in, float* up_in, int B, int M, int N) {
-        sgx_status_t ret = ecall_Internal_SwiGLU_InPlace(global_eid, gate_in, up_in, B, M, N);
-        if (ret != SGX_SUCCESS) {
-            print_error_message(ret);
-            throw ret;
-        }
-    }
-
-    void Ext_SwiGLU(int from1, int from2, int to_len, int* to) {
+    void Ext_SwiGLU(int layer_idx, int from1, int from2, int to_len, int* to) {
         sgx_status_t ret = ecall_Internal_SwiGLU(global_eid, from1, from2, to_len, to);
-        if (ret != SGX_SUCCESS) {
-            print_error_message(ret);
-            throw ret;
-        }
-    }
-
-    void Ext_RMSNorm_InPlace(float* x, float* weight, int B, int M,
-                                int N, float eps) {
-        sgx_status_t ret = ecall_Internal_RMSNorm_InPlace(global_eid, x, weight, B, M, N, eps);
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
@@ -267,15 +248,7 @@ extern "C"
         }
     }
 
-    void Ext_ElementWiseAdd_InPlace(float* x, float* y, int B, int M, int N) {
-        sgx_status_t ret = ecall_Internal_ElementWiseAdd_InPlace(global_eid, x, y, B, M, N);
-        if (ret != SGX_SUCCESS) {
-            print_error_message(ret);
-            throw ret;
-        }
-    }
-
-    void Ext_ElementWiseAdd(int from1, int from2, int to_len, int* to) {
+    void Ext_ElementWiseAdd(int layer_idx, int from1, int from2, int to_len, int* to) {
         sgx_status_t ret = ecall_Internal_ElementWiseAdd(global_eid, from1, from2, to_len, to);
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
@@ -283,15 +256,6 @@ extern "C"
         }
     }
 
-    void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
-                                    float* cos, float* sin,
-                                    int B, int Q_M, int K_M, int N, int K) {
-        sgx_status_t ret = ecall_Internal_ApplyRotaryPosEmb(global_eid, q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
-        if (ret != SGX_SUCCESS) {
-            print_error_message(ret);
-            throw ret;
-        }
-                                    }
 
     void Ext_LlamaRotaryEmbedding(float* inv_freq, int inv_freq_M,
                                     float* position_ids,
@@ -303,6 +267,15 @@ extern "C"
         }
                                     }
 
+    void Ext_ApplyRotaryPosEmb(float* q_tensor, float* k_tensor,
+                                    float* cos, float* sin,
+                                    int B, int Q_M, int K_M, int N, int K) {
+        sgx_status_t ret = ecall_Internal_ApplyRotaryPosEmb(global_eid, q_tensor, k_tensor, cos, sin, B, Q_M, K_M, N, K);
+        if (ret != SGX_SUCCESS) {
+            print_error_message(ret);
+            throw ret;
+        }
+                                    }
     // uint32_t Ext_GenerateCPRNG(unsigned long int eid) {
     //     uint32_t ret;
     //     sgx_status_t status = ecall_Internal_GenerateCPRNG(global_eid, &ret);

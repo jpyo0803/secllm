@@ -172,52 +172,52 @@ void jpyo0803::Softmax(float* out, float* in, int B, int M, int N, int K) {
   auto start = std::chrono::steady_clock::now();
 #endif
 
-  // for (int b = 0; b < B; ++b) {
-  //   for (int m = 0; m < M; ++m) {
-  //     for (int n = 0; n < N; ++n) {
-  //       float max_val = in[b * M * N * K + m * N * K + n * K];
-  //       for (int k = 1; k < K; ++k) {
-  //         max_val =
-  //             std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
-  //       }
-
-  //       float sum = 0.0f;
-  //       for (int k = 0; k < K; ++k) {
-  //         out[b * M * N * K + m * N * K + n * K + k] =
-  //             std::exp(in[b * M * N * K + m * N * K + n * K + k] - max_val);
-  //         sum += out[b * M * N * K + m * N * K + n * K + k];
-  //       }
-
-  //       for (int k = 0; k < K; ++k) {
-  //         out[b * M * N * K + m * N * K + n * K + k] /= sum;
-  //       }
-  //     }
-  //   }
-  // }
   for (int b = 0; b < B; ++b) {
     for (int m = 0; m < M; ++m) {
       for (int n = 0; n < N; ++n) {
-        int base_index = b * M * N * K + m * N * K + n * K;
+        float max_val = in[b * M * N * K + m * N * K + n * K];
+        for (int k = 1; k < K; ++k) {
+          max_val =
+              std::max(max_val, in[b * M * N * K + m * N * K + n * K + k]);
+        }
 
-        // Initialize Eigen::Map for input and output vectors (in-place processing)
-        Eigen::Map<Eigen::Array<float, Eigen::Dynamic, 1>> input(
-            &in[base_index], K);
-        Eigen::Map<Eigen::Array<float, Eigen::Dynamic, 1>> output(
-            &out[base_index], K);
+        float sum = 0.0f;
+        for (int k = 0; k < K; ++k) {
+          out[b * M * N * K + m * N * K + n * K + k] =
+              std::exp(in[b * M * N * K + m * N * K + n * K + k] - max_val);
+          sum += out[b * M * N * K + m * N * K + n * K + k];
+        }
 
-        // Step 1: Find the maximum value (to improve numerical stability)
-        float max_val = input.maxCoeff();
-
-        // Step 2: Compute the exponentials and their sum
-        Eigen::Array<float, Eigen::Dynamic, 1> exp_values =
-            (input - max_val).exp();
-        float sum_exp = exp_values.sum();
-
-        // Step 3: Normalize the exponentials (in-place, no extra memory allocation)
-        output = exp_values / sum_exp;
+        for (int k = 0; k < K; ++k) {
+          out[b * M * N * K + m * N * K + n * K + k] /= sum;
+        }
       }
     }
   }
+  // for (int b = 0; b < B; ++b) {
+  //   for (int m = 0; m < M; ++m) {
+  //     for (int n = 0; n < N; ++n) {
+  //       int base_index = b * M * N * K + m * N * K + n * K;
+
+  //       // Initialize Eigen::Map for input and output vectors (in-place processing)
+  //       Eigen::Map<Eigen::Array<float, Eigen::Dynamic, 1>> input(
+  //           &in[base_index], K);
+  //       Eigen::Map<Eigen::Array<float, Eigen::Dynamic, 1>> output(
+  //           &out[base_index], K);
+
+  //       // Step 1: Find the maximum value (to improve numerical stability)
+  //       float max_val = input.maxCoeff();
+
+  //       // Step 2: Compute the exponentials and their sum
+  //       Eigen::Array<float, Eigen::Dynamic, 1> exp_values =
+  //           (input - max_val).exp();
+  //       float sum_exp = exp_values.sum();
+
+  //       // Step 3: Normalize the exponentials (in-place, no extra memory allocation)
+  //       output = exp_values / sum_exp;
+  //     }
+  //   }
+  // }
 
 #if INTERNAL_TIME_MEASURE == 1
   // display in milli

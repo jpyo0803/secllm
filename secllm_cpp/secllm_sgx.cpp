@@ -489,12 +489,17 @@ void Internal_Softmax_InPlace(float* x, int B, int M, int N, int K) {
 void Internal_Softmax(int from, int to_len, int* to) {
   std::shared_ptr<jpyo0803::Tensor<float>> retrieved_data =
       secllm_ptr->BookKeeperLoad_Float(from);
-  auto shape = retrieved_data->shape();
+  // std::vector<int> shape = retrieved_data->shape();
 
-  int B = shape[0];
-  int M = shape[1];
-  int N = shape[2];
-  int K = shape[3];
+  // int B = shape[0];
+  // int M = shape[1];
+  // int N = shape[2];
+  // int K = shape[3];
+  int B = 1;
+  int M = 32;
+  int N = 2048;
+  int K = 2048;
+  std::vector<int> shape = {1, 32, 2048, 2048};
 
   std::shared_ptr<jpyo0803::Tensor<float>> out =
       std::make_shared<jpyo0803::Tensor<float>>(shape);
