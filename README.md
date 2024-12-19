@@ -17,23 +17,20 @@
 Substitution cipher의 한 종류인 affine cipher (a * x + b 형태)를 활용하여 사용자 입력 행렬을 행과 열단위로 각각 곱셈 암호키 a와 덧셈 암호키 b를 공유하여 암호화 시킨다. 자세한 내용은 학위논문 참조 바람.   
 이렇게 행과 열단위로 곱셈 및 덧셈 암호키를 공유하는 것은 결국엔 평문 데이터를 감추는데 하나의 암호키를 여러번 재사용하는 것과 동일하며 이는 cryptography분야에서는 결정적인 취약점이라 한다. 본 연구가 제안했던 방식도 결국에는 암호키의 재사용때문에 공격자가 손쉽게 사용자 정보를 탈취할 수 있으므로 위 암호화 기법은 사용하면 안된다.   
 
-[How to run]   
-...   
 
-[System info]   
-malus09서버 기준   
-- Ubuntu 24.04.1 LTS   
-- CPU: Intel(R) Xeon(R) Gold 6326 CPU @ 2.90GHz   
-- GPU: NVIDIA RTX A6000   
-- nvcc version: 12.6   
-- CUDA version: 12.2   
 
-[pip requirements]   
-accelerate==1.1.1   
-cupy-cuda12x==13.1.0   
-datasets==2.20.0   
-huggingface-hub==0.26.2   
-setuptools==75.4.0   
-tokenizers==0.19.1   
-torch==2.3.0   
-transformers==4.42.4   
+### Running Environment
+#### Hardware info
+- Server: deep7
+- CPU: Intel(R) Xeon(R) Gold 6326
+- GPU: NVIDIA GeForce RTX 4090 24GB GMEM (10G이하의 GMEM으로도 예제를 돌리기에 충분)
+- RAM: 882GB (30GB 정도면 예제를 돌리기에 충분)
+#### Software info
+- Python version: 3.11.7
+- Intel SGX PSW / SDK
+- 필요 Python 패키지는 requirements.txt 참조
+
+
+### Running Example
+- SGX-enabled example 실행을 위해서는 top directory에 **run_sgx.sh**을 실행 
+- 디버깅을 위해 SGX-disabled example 실행을 위해서는 top directory에 **run_no_sgx.sh**을 실행 (실행전 secllm_cpp/secllm_cpp_wrapper.py에 최상단에 있는 **USE_SGX** 변수를 적절하게 설정해주어야함. SGX를 사용하지 않을 것이라면 **False**로 설정)

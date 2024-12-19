@@ -966,6 +966,12 @@ extern "C"
             throw ret;
         }
     }
+    void Ext_Close(const char* output_filename) {
+        // For now, it does nothing
+        // What it should do is to properly shutdown if multiple threads are used
+        // and to write the timestamp to the output file
+        // please refer to secllm/secllm_inferface.cpp for its original functionality 
+    }
 }
 
 /* Application entry */
