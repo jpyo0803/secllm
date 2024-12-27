@@ -1,0 +1,1 @@
+You can download pretrained weights for the model **unwound_smoothquant_modeling_llama.py** from the link: https://huggingface.co/jpyo0803/secllm
